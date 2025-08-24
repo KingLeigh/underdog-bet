@@ -4,7 +4,7 @@ import { useGame } from '../contexts/GameContext'
 import './GameBoard.css'
 
 function GameBoard() {
-  const { gameId } = useParams()
+  const { gameId, playerId: urlPlayerId } = useParams()
   const navigate = useNavigate()
   const [selectedOption, setSelectedOption] = useState(null)
   const { 
@@ -23,7 +23,8 @@ function GameBoard() {
     makeChoice,
     resolveWager,
     resetWagerState,
-    error 
+    error,
+    rejoinGame
   } = useGame()
 
   useEffect(() => {

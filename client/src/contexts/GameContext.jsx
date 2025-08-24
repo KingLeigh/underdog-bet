@@ -85,45 +85,6 @@ export function GameProvider({ children, socket }) {
     console.log('GameContext: socket changed to:', socket?.id);
   }, [socket?.id]);
 
-  // Persist player identity to localStorage
-  useEffect(() => {
-    if (state.playerId && state.currentGame) {
-      const playerIdentity = {
-        playerId: state.playerId,
-        gameId: state.currentGame,
-        playerName: state.playerNames[state.playerId] || 'Unknown',
-        timestamp: Date.now()
-      };
-      localStorage.setItem('underdogBetPlayerIdentity', JSON.stringify(playerIdentity));
-      console.log('Saved player identity to localStorage:', playerIdentity);
-    }
-  }, [state.playerId, state.currentGame, state.playerNames]);
-
-  // Restore player identity from localStorage on mount
-  useEffect(() => {
-    const savedIdentity = localStorage.getItem('underdogBetPlayerIdentity');
-    if (savedIdentity) {
-      try {
-        const identity = JSON.parse(savedIdentity);
-        const now = Date.now();
-        const age = now - identity.timestamp;
-        
-        // Only restore if identity is less than 1 hour old
-        if (age < 60 * 60 * 1000) {
-          console.log('Restoring player identity from localStorage:', identity);
-          dispatch({ type: 'SET_PLAYER_ID', payload: identity.playerId });
-          dispatch({ type: 'SET_CURRENT_GAME', payload: identity.gameId });
-        } else {
-          console.log('Player identity too old, clearing localStorage');
-          localStorage.removeItem('underdogBetPlayerIdentity');
-        }
-      } catch (error) {
-        console.error('Error parsing saved player identity:', error);
-        localStorage.removeItem('underdogBetPlayerIdentity');
-      }
-    }
-  }, []);
-
   useEffect(() => {
     if (!socket) return
 
@@ -132,10 +93,25 @@ export function GameProvider({ children, socket }) {
       console.log('Socket connected, socket ID:', socket.id);
       console.log('Previous playerId was:', state.playerId);
       
-      // If we have a saved game, try to rejoin automatically
-      if (state.currentGame) {
-        console.log('Socket reconnected, attempting to rejoin game');
-        rejoinGame();
+      // Check if we're on a game page with player ID in URL
+      // This handles the case where the page is refreshed and we need to reconnect
+      const currentPath = window.location.pathname;
+      const gameMatch = currentPath.match(/\/game\/([^\/]+)\/player\/([^\/]+)/);
+      
+      if (gameMatch) {
+        const [, gameId, playerId] = gameMatch;
+        console.log('Found game URL in path, attempting to reconnect:', { gameId, playerId });
+        
+        // Set the current game and player ID from URL
+        dispatch({ type: 'SET_CURRENT_GAME', payload: gameId });
+        dispatch({ type: 'SET_PLAYER_ID', payload: playerId });
+        
+        // Attempt to rejoin the game
+        rejoinGame(gameId, playerId);
+      } else if (state.currentGame) {
+        // Fallback: if we have a saved game state, try to rejoin
+        console.log('Socket reconnected, attempting to rejoin saved game');
+        rejoinGame(state.currentGame, state.playerId);
       }
     })
 
@@ -251,7 +227,22 @@ export function GameProvider({ children, socket }) {
 
     // Handle errors
     socket.on('error', ({ message }) => {
-      dispatch({ type: 'SET_ERROR', payload: message })
+      console.error('Server error:', message);
+      
+      // If the error indicates the game was not found, clear the stored game and redirect
+      if (message === 'Game not found' || message === 'Player not found in game') {
+        console.log('Game not found on server - likely due to server restart. Clearing stored game data.');
+        dispatch({ type: 'SET_CURRENT_GAME', payload: null });
+        dispatch({ type: 'SET_GAME_STATE', payload: null });
+        dispatch({ type: 'SET_PLAYER_ID', payload: null });
+        
+        // Redirect to home page
+        window.location.href = '/';
+        return;
+      }
+      
+      // Handle other errors normally
+      dispatch({ type: 'SET_ERROR', payload: message });
     })
 
     return () => {
@@ -281,16 +272,28 @@ export function GameProvider({ children, socket }) {
     }
   }
 
-  const rejoinGame = () => {
-    const savedIdentity = localStorage.getItem('underdogBetPlayerIdentity');
-    if (savedIdentity && socket) {
-      try {
-        const identity = JSON.parse(savedIdentity);
-        console.log('Auto-rejoining game after reconnection:', identity);
-        socket.emit('joinGame', { gameId: identity.gameId, playerName: identity.playerName });
-      } catch (error) {
-        console.error('Error auto-rejoining game:', error);
-      }
+  const rejoinGame = (gameId, playerId) => {
+    // For reconnection, we need the gameId and playerID passed as parameters
+    // This avoids the race condition with state updates
+    const targetGameId = gameId || state.currentGame;
+    const targetPlayerId = playerId || state.playerId;
+    
+    if (targetGameId && targetPlayerId && socket) {
+      console.log('Reconnecting to game:', { 
+        gameId: targetGameId, 
+        playerID: targetPlayerId 
+      });
+      
+      socket.emit('rejoinGame', { 
+        gameId: targetGameId, 
+        playerID: targetPlayerId 
+      });
+    } else {
+      console.error('Cannot rejoin game - missing gameId or playerId:', {
+        targetGameId,
+        targetPlayerId,
+        socket: !!socket
+      });
     }
   }
 

@@ -86,6 +86,10 @@ function getSocketForPlayer(playerID) {
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
+  
+  // Track connection time for debugging rapid refresh issues
+  const connectionTime = Date.now();
+  console.log(`Connection timestamp: ${new Date(connectionTime).toISOString()}`);
 
   // Join a game session
   socket.on('joinGame', (data) => {
@@ -216,6 +220,108 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle player reconnection using playerID
+  socket.on('rejoinGame', (data) => {
+    const { gameId, playerID } = data;
+    
+    console.log(`rejoinGame request received:`, { gameId, playerID, socketId: socket.id });
+    
+    if (!gameId || !playerID) {
+      console.error(`rejoinGame: Missing gameId or playerID`, { gameId, playerID });
+      socket.emit('error', { message: 'Missing gameId or playerID' });
+      return;
+    }
+    
+    const game = gameSessions.get(gameId);
+    if (!game) {
+      console.error(`rejoinGame: Game not found`, { gameId, playerID });
+      socket.emit('error', { message: 'Game not found' });
+      return;
+    }
+    
+    console.log(`rejoinGame: Found game ${gameId}`, { 
+      gameStatus: game.status, 
+      players: game.players, 
+      playerPoints: game.playerPoints 
+    });
+    
+    // Check if this playerID exists in the game
+    if (!game.players.includes(playerID)) {
+      console.error(`rejoinGame: Player ${playerID} not found in game ${gameId}`, { 
+        gamePlayers: game.players, 
+        requestedPlayerID: playerID 
+      });
+      socket.emit('error', { message: 'Player not found in game' });
+      return;
+    }
+    
+    // Get player data from registry
+    const playerData = playerRegistry.get(playerID);
+    if (!playerData) {
+      console.error(`rejoinGame: Player ${playerID} not found in registry`);
+      socket.emit('error', { message: 'Player not found in registry' });
+      return;
+    }
+    
+    console.log(`rejoinGame: Found player in registry`, { 
+      playerID, 
+      playerName: playerData.playerName, 
+      oldSocketID: playerData.socketID,
+      gameId: playerData.gameId 
+    });
+    
+    // Log registry state before update
+    console.log(`Registry state BEFORE update for player ${playerID}:`, {
+      socketID: playerData.socketID,
+      playerName: playerData.playerName,
+      gameId: playerData.gameId,
+      lastSeen: playerData.lastSeen
+    });
+    
+    // Update player registry with new socket ID
+    playerData.socketID = socket.id;
+    playerData.lastSeen = Date.now();
+    
+    console.log(`Player ${playerData.playerName} (${playerID}) reconnecting to game ${gameId} with new socket ${socket.id}`);
+    
+    // Verify the registry update was successful
+    const updatedPlayerData = playerRegistry.get(playerID);
+    if (updatedPlayerData && updatedPlayerData.socketID === socket.id) {
+      console.log(`✅ Registry update successful: ${playerID} -> ${socket.id}`);
+      
+      // Log registry state after update
+      console.log(`Registry state AFTER update for player ${playerID}:`, {
+        socketID: updatedPlayerData.socketID,
+        playerName: updatedPlayerData.playerName,
+        gameId: updatedPlayerData.gameId,
+        lastSeen: updatedPlayerData.lastSeen
+      });
+    } else {
+      console.error(`❌ Registry update failed for player ${playerID}`);
+      console.log(`Expected: ${socket.id}, Got: ${updatedPlayerData?.socketID}`);
+    }
+    
+    // Small delay to ensure registry update is fully processed
+    // This helps with rapid refresh scenarios where disconnect might happen immediately
+    setTimeout(() => {
+      // Join the game room
+      socket.join(gameId);
+      
+      // Send game state to reconnecting player
+      socket.emit('gameJoined', { 
+        gameId, 
+        gameState: game, 
+        wasReconnection: true, 
+        playerID 
+      });
+      
+      // Notify other players about the reconnection
+      socket.to(gameId).emit('gameStateUpdate', game);
+      
+      console.log(`Player ${playerData.playerName} (${playerID}) successfully reconnected to game ${gameId}`);
+    }, 100); // 100ms delay
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -231,25 +337,51 @@ io.on('connection', (socket) => {
     
     if (!disconnectedPlayerID) {
       console.log(`No player found for disconnected socket: ${socket.id}`);
+      console.log(`Current player registry:`, Array.from(playerRegistry.entries()).map(([id, data]) => ({
+        playerID: id,
+        socketID: data.socketID,
+        playerName: data.playerName,
+        gameId: data.gameId
+      })));
+      
+      // Check if this socket was recently connected but not yet registered
+      // This can happen during rapid connect/disconnect cycles (like browser refresh)
+      console.log(`Socket ${socket.id} not found in registry - may be a rapid refresh case`);
       return;
     }
+    
+    // Get player data for logging
+    const playerData = playerRegistry.get(disconnectedPlayerID);
+    console.log(`Player ${playerData.playerName} (${disconnectedPlayerID}) disconnected from socket ${socket.id}`);
     
     // Clean up game sessions if host disconnects
     for (const [gameId, game] of gameSessions.entries()) {
       if (game.host === disconnectedPlayerID) {
-        io.to(gameId).emit('gameEnded', { reason: 'Host disconnected' });
-        gameSessions.delete(gameId);
-        console.log(`Game ${gameId} ended due to host disconnect`);
+        // Don't delete the game when host disconnects - they can reconnect
+        // Only notify other players that the host is temporarily unavailable
+        console.log(`Host ${playerData.playerName} (${disconnectedPlayerID}) disconnected from game ${gameId}`);
+        console.log(`Game ${gameId} remains active - host can reconnect using their playerID`);
+        
+        // Optionally, we could mark the host as disconnected in the game state
+        // but keep the game session alive
       }
       // Note: We no longer remove players from the game when they disconnect
       // They remain in the score tracker and can reconnect later
     }
     
     // Update player registry - mark as disconnected but keep player data
-    const playerData = playerRegistry.get(disconnectedPlayerID);
     if (playerData) {
       playerData.socketID = null; // Mark as disconnected but keep player data
-      console.log(`Marked player ${disconnectedPlayerID} as disconnected in registry`);
+      console.log(`Marked player ${disconnectedPlayerID} (${playerData.playerName}) as disconnected in registry`);
+      console.log(`Player can reconnect using playerID: ${disconnectedPlayerID}`);
+      
+      // Log the updated registry state for debugging
+      console.log(`Updated player registry after disconnect:`, Array.from(playerRegistry.entries()).map(([id, data]) => ({
+        playerID: id,
+        socketID: data.socketID,
+        playerName: data.playerName,
+        gameId: data.gameId
+      })));
     }
   });
 });
@@ -580,9 +712,52 @@ app.get('/api/debug/games/:id/wager', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 
+// Cleanup abandoned games (all players disconnected for more than 30 minutes)
+function cleanupAbandonedGames() {
+  const now = Date.now();
+  const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+  
+  for (const [gameId, game] of gameSessions.entries()) {
+    let allPlayersDisconnected = true;
+    let lastActivity = 0;
+    
+    // Check if any players are still connected
+    for (const playerID of game.players) {
+      const playerData = playerRegistry.get(playerID);
+      if (playerData && playerData.socketID) {
+        allPlayersDisconnected = false;
+        break;
+      }
+      // Track the most recent activity
+      if (playerData && playerData.lastSeen > lastActivity) {
+        lastActivity = playerData.lastSeen;
+      }
+    }
+    
+    // If all players are disconnected and it's been more than 30 minutes
+    if (allPlayersDisconnected && (now - lastActivity) > thirtyMinutes) {
+      console.log(`Game ${gameId} abandoned for ${Math.round((now - lastActivity) / 60000)} minutes - cleaning up`);
+      gameSessions.delete(gameId);
+      wagerStates.delete(gameId);
+      
+      // Clean up player registry entries for this game
+      for (const [playerID, playerData] of playerRegistry.entries()) {
+        if (playerData.gameId === gameId) {
+          playerRegistry.delete(playerID);
+          console.log(`Removed abandoned player ${playerID} (${playerData.playerName}) from registry`);
+        }
+      }
+    }
+  }
+}
+
+// Run cleanup every 10 minutes
+setInterval(cleanupAbandonedGames, 10 * 60 * 1000);
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.io server ready for connections`);
   
   console.log('Player reconnection system enabled (players remain in game when disconnected)');
+  console.log('Abandoned game cleanup enabled (30 minute timeout)');
 });

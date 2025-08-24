@@ -24,11 +24,11 @@ function GameLobby() {
       console.log('GameLobby: Staying in lobby, status is waiting')
       // Stay in lobby
     } else if (gameState && gameState.status === 'playing') {
-      console.log(`GameLobby: Game started, navigating to game board: /game/${gameId}`)
-      // Navigate to game board
-      navigate(`/game/${gameId}`)
+      console.log(`GameLobby: Game started, navigating to game board: /game/${gameId}/player/${playerId}`)
+      // Navigate to game board with player ID for seamless reconnections
+      navigate(`/game/${gameId}/player/${playerId}`)
     }
-  }, [gameState, gameId, navigate])
+  }, [gameState, gameId, navigate, playerId])
 
   const startGame = () => {
     if (isHost) {

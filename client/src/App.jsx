@@ -50,6 +50,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/lobby/:gameId" element={<GameLobby />} />
               <Route path="/game/:gameId" element={<GameBoard />} />
+              <Route path="/game/:gameId/player/:playerId" element={<GameBoard />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>
