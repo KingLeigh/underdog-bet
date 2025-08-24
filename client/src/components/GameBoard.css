@@ -193,6 +193,221 @@
   text-align: center;
 }
 
+/* Wager System Styles */
+.wager-section {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 2rem;
+}
+
+.wager-section h3 {
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.wager-setup {
+  text-align: center;
+}
+
+.host-wager-controls h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wager-proposal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.form-input {
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1rem;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #4ade80;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.active-wager {
+  text-align: center;
+}
+
+.active-wager h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wager-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.wager-option {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.wager-option strong {
+  color: #4ade80;
+}
+
+.player-choice h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.choice-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.choice-made {
+  background: rgba(74, 222, 128, 0.2);
+  border: 1px solid rgba(74, 222, 128, 0.5);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+.choice-made strong {
+  color: #4ade80;
+}
+
+.player-choices-summary {
+  margin-bottom: 2rem;
+}
+
+.player-choices-summary h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.player-choice-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.host-resolve-controls {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 1.5rem;
+}
+
+.host-resolve-controls h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wager-resolution-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.choice-radio {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.choice-radio label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+
+.choice-radio input[type="radio"] {
+  accent-color: #4ade80;
+}
+
+.wager-results {
+  text-align: center;
+}
+
+.wager-results h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.wager-results p {
+  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.results-list {
+  margin-bottom: 2rem;
+}
+
+.result-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.result-item.correct {
+  background: rgba(74, 222, 128, 0.2);
+  border: 1px solid rgba(74, 222, 128, 0.5);
+}
+
+.result-item.incorrect {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.waiting-message {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: #93c5fd;
+  padding: 1rem;
+  border-radius: 10px;
+  text-align: center;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
 /* Responsive design */
 @media (max-width: 1024px) {
   .game-area {
@@ -222,5 +437,29 @@
   
   .player-item {
     padding: 0.75rem;
+  }
+  
+  /* Wager system responsive */
+  .wager-options {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .choice-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .wager-proposal-form {
+    max-width: 100%;
+  }
+  
+  .wager-resolution-form {
+    max-width: 100%;
+  }
+  
+  .choice-radio {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }

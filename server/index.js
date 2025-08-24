@@ -21,6 +21,9 @@ app.use(express.json());
 // Game state storage (in-memory for now)
 const gameSessions = new Map();
 
+// Wager system data structure
+const wagerStates = new Map(); // gameId -> wager state
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -130,6 +133,15 @@ io.on('connection', (socket) => {
       }
     };
     
+    // Initialize wager state
+    wagerStates.set(gameId, {
+      isActive: false,
+      options: [],
+      playerChoices: {},
+      resolved: false,
+      correctOption: null
+    });
+    
     gameSessions.set(gameId, gameState);
     socket.join(gameId);
     socket.emit('gameCreated', gameState);
@@ -143,7 +155,7 @@ io.on('connection', (socket) => {
     
     if (game && game.players.includes(socket.id)) {
       // Process the action and update game state
-      const updatedState = processGameAction(game, action, payload);
+      const updatedState = processGameAction(game, action, payload, socket);
       gameSessions.set(gameId, updatedState);
       
       // Broadcast updated state to all players in the game
@@ -190,7 +202,7 @@ io.on('connection', (socket) => {
 });
 
 // Game action processing
-function processGameAction(game, action, payload) {
+function processGameAction(game, action, payload, socket) {
   console.log(`Processing action: ${action}`, payload);
   
   switch (action) {
@@ -226,6 +238,107 @@ function processGameAction(game, action, payload) {
       // Set points for a player to a specific value
       if (payload.playerId && payload.points !== undefined) {
         setPoints(game, payload.playerId, payload.points);
+      }
+      return { 
+        ...game, 
+        lastAction: { action, payload, timestamp: Date.now() }
+      };
+      
+    case 'proposeWager':
+      // Host proposes a wager with two options
+      if (game.host === socket.id && payload.option1 && payload.option2) {
+        const wagerState = wagerStates.get(game.id);
+        if (wagerState) {
+          // Clear any previous wager state completely
+          wagerState.isActive = true;
+          wagerState.options = [payload.option1, payload.option2];
+          wagerState.playerChoices = {};
+          wagerState.resolved = false;
+          wagerState.correctOption = null;
+          
+          console.log(`Host ${game.playerNames[socket.id]} proposed wager: "${payload.option1}" vs "${payload.option2}"`);
+          
+          // Emit wager proposed event to all players
+          io.to(game.id).emit('wagerProposed', {
+            options: [payload.option1, payload.option2],
+            wagerId: Date.now().toString()
+          });
+        }
+      }
+      return { 
+        ...game, 
+        lastAction: { action, payload, timestamp: Date.now() }
+      };
+      
+    case 'makeChoice':
+      // Player makes a choice on the current wager
+      if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1) {
+        const wagerState = wagerStates.get(game.id);
+        if (wagerState && wagerState.isActive && !wagerState.resolved) {
+          wagerState.playerChoices[socket.id] = payload.choice;
+          
+          console.log(`Player ${game.playerNames[socket.id]} chose option ${payload.choice} (${wagerState.options[payload.choice]})`);
+          
+          // Emit choice made event to all players
+          io.to(game.id).emit('choiceMade', {
+            playerId: socket.id,
+            playerName: game.playerNames[socket.id] || 'Unknown Player',
+            choice: payload.choice
+          });
+        }
+      }
+      return { 
+        ...game, 
+        lastAction: { action, payload, timestamp: Date.now() }
+      };
+      
+    case 'resolveWager':
+      // Host resolves the wager and awards points
+      if (game.host === socket.id && payload.correctChoice !== undefined) {
+        const wagerState = wagerStates.get(game.id);
+        if (wagerState && wagerState.isActive && !wagerState.resolved) {
+          wagerState.resolved = true;
+          wagerState.correctOption = payload.correctChoice;
+          
+          // Award 100 points to players who chose correctly
+          let results = [];
+          for (const [playerId, choice] of Object.entries(wagerState.playerChoices)) {
+            if (choice === payload.correctChoice) {
+              addPoints(game, playerId, 100);
+              results.push({
+                playerId,
+                playerName: game.playerNames[playerId] || 'Unknown Player',
+                choice,
+                correct: true,
+                pointsAwarded: 100
+              });
+            } else {
+              results.push({
+                playerId,
+                playerName: game.playerNames[playerId] || 'Unknown Player',
+                choice,
+                correct: false,
+                pointsAwarded: 0
+              });
+            }
+          }
+          
+          console.log(`Wager resolved by host ${game.playerNames[socket.id]}. Correct answer: Option ${payload.correctChoice}. Results:`, results);
+          
+          // Emit wager resolved event to all players
+          io.to(game.id).emit('wagerResolved', {
+            correctChoice: payload.correctChoice,
+            results,
+            wagerState: wagerState
+          });
+          
+          // Reset wager state for next round
+          wagerState.isActive = false;
+          wagerState.options = [];
+          wagerState.playerChoices = {};
+          wagerState.correctOption = null;
+          wagerState.resolved = false;
+        }
       }
       return { 
         ...game, 
@@ -294,6 +407,10 @@ function getPlayerPoints(game, playerId) {
   return game.playerPoints[playerId] || 0;
 }
 
+function getWagerState(gameId) {
+  return wagerStates.get(gameId) || null;
+}
+
 // API endpoints
 app.get('/api/games', (req, res) => {
   const games = Array.from(gameSessions.values()).map(game => ({
@@ -337,16 +454,29 @@ app.get('/api/games/:id/points', (req, res) => {
   }
 });
 
+// Get wager state for a game
+app.get('/api/games/:id/wager', (req, res) => {
+  const game = gameSessions.get(req.params.id);
+  if (game) {
+    const wagerState = getWagerState(req.params.id);
+    res.json({ gameId: req.params.id, wagerState });
+  } else {
+    res.status(404).json({ error: 'Game not found' });
+  }
+});
+
 // Debug endpoint to check game state
 app.get('/api/debug/games/:id', (req, res) => {
   const game = gameSessions.get(req.params.id);
   if (game) {
+    const wagerState = getWagerState(req.params.id);
     res.json({
       gameId: req.params.id,
       players: game.players,
       playerNames: game.playerNames,
       playerPoints: game.playerPoints,
-      status: game.status
+      status: game.status,
+      wagerState: wagerState
     });
   } else {
     res.status(404).json({ error: 'Game not found' });

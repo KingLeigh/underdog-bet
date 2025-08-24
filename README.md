@@ -1,195 +1,120 @@
-# Underdog Bet - Multiplayer Board Game
+# Underdog Bet
 
-A real-time multiplayer board game built with Node.js, Socket.io, and React. Players can create game sessions, join with friends, and play together with synchronized game state across all devices.
+A real-time multiplayer betting game built with Node.js, Socket.IO, and React.
 
-## 🚀 Features
+## Features
 
-- **Real-time Game Sessions**: Create and join games with unique 6-character IDs
-- **Live Player Synchronization**: All players see the same game state in real-time
-- **Responsive Design**: Works on desktop and mobile devices
-- **No Database Required**: In-memory game state management
-- **Modern UI**: Beautiful glassmorphism design with smooth animations
+- **Real-time multiplayer gaming** using Socket.IO
+- **Game lobby system** for creating and joining games
+- **Player reconnection** support with 5-minute timeout
+- **Wager System** - Hosts can propose wagers and players can bet on outcomes
 
-## 🏗️ Architecture
+## Wager System
 
-```
-underdog_bet/
-├── server/                 # Node.js + Socket.io server
-│   ├── index.js           # Main server file
-│   └── package.json       # Server dependencies
-├── client/                 # React + Vite client app
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── contexts/      # Game state management
-│   │   └── main.jsx       # App entry point
-│   ├── package.json       # Client dependencies
-│   └── vite.config.js     # Vite configuration
-└── package.json            # Root package.json with scripts
-```
+The game now includes a complete wager system where:
 
-## 🛠️ Tech Stack
+1. **Host proposes a wager** by entering two free-text options
+2. **Players make choices** between the two options
+3. **Host resolves the wager** by indicating which choice was correct
+4. **Points are awarded** - 100 points for correct choices, 0 for incorrect
 
-### Server
-- **Node.js** - JavaScript runtime
-- **Express** - Web framework
-- **Socket.io** - Real-time communication
-- **CORS** - Cross-origin resource sharing
-- **Helmet** - Security middleware
+### How to use the Wager System:
 
-### Client
-- **React 18** - UI framework
-- **Vite** - Build tool and dev server
-- **Socket.io-client** - Client-side socket connection
-- **React Router** - Client-side routing
+1. **Start a game** as the host
+2. **Propose a Wager** by entering two options (e.g., "Team A wins" vs "Team B wins")
+3. **Players choose** which option they think is correct
+4. **Host resolves** by selecting the correct answer
+5. **Points are automatically awarded** to players who chose correctly
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
-- Node.js 16+ 
-- npm or yarn
+
+- Node.js (v14 or higher)
+- npm
 
 ### Installation
 
-1. **Clone the repository**
+1. Clone the repository
+2. Install server dependencies:
    ```bash
-   git clone <repository-url>
-   cd underdog_bet
+   cd server
+   npm install
    ```
 
-2. **Install all dependencies**
+3. Install client dependencies:
    ```bash
-   npm run install:all
+   cd client
+   npm install
    ```
 
-3. **Start development servers**
+### Running the Application
+
+1. **Start the server:**
    ```bash
+   cd server
+   npm start
+   ```
+   Server runs on port 3001
+
+2. **Start the client:**
+   ```bash
+   cd client
    npm run dev
    ```
+   Client runs on port 5173
 
-This will start both the server (port 3001) and client (port 5173) in development mode.
+3. **Open your browser** and navigate to `http://localhost:5173`
 
-### Manual Setup
+## Game Flow
 
-If you prefer to run servers separately:
+1. **Create or Join a Game** from the home page
+2. **Wait in the lobby** for other players to join
+3. **Start the game** when ready (minimum 2 players)
+4. **Use the wager system** to create betting opportunities
+5. **Track points** as players make correct predictions
 
-**Server:**
-```bash
-cd server
-npm install
-npm run dev
-```
+## API Endpoints
 
-**Client:**
-```bash
-cd client
-npm install
-npm run dev
-```
+- `GET /api/games` - List all active games
+- `GET /api/games/:id` - Get specific game details
+- `GET /api/games/:id/points` - Get player points for a game
+- `GET /api/games/:id/wager` - Get current wager state
+- `GET /api/debug/games/:id` - Debug endpoint with full game state
 
-## 🎮 How to Play
+## Socket.IO Events
 
-1. **Create a Game**: Click "Create New Game" and configure player limits
-2. **Share Game ID**: Copy the 6-character game ID and share it with friends
-3. **Join Game**: Players enter the game ID to join the session
-4. **Start Playing**: Host starts the game when ready
-5. **Real-time Action**: All players see synchronized game state
+### Client to Server:
+- `createGame` - Create a new game
+- `joinGame` - Join an existing game
+- `gameAction` - Perform game actions including:
+  - `proposeWager` - Host proposes a new wager
+  - `makeChoice` - Player makes a choice on current wager
+  - `resolveWager` - Host resolves the wager
 
-## 🔧 Development
+### Server to Client:
+- `gameCreated` - Game creation confirmation
+- `gameJoined` - Game join confirmation
+- `gameStateUpdate` - Game state updates
+- `wagerProposed` - New wager available
+- `choiceMade` - Player made a choice
+- `wagerResolved` - Wager resolved with results
 
-### Available Scripts
+## Technologies Used
 
-- `npm run dev` - Start both server and client in development mode
-- `npm run server:dev` - Start only the server
-- `npm run client:dev` - Start only the client
-- `npm run server:start` - Start server in production mode
-- `npm run client:build` - Build client for production
+- **Backend:** Node.js, Express, Socket.IO
+- **Frontend:** React, Vite
+- **Styling:** CSS with modern design principles
+- **Real-time Communication:** Socket.IO for live game updates
 
-### Project Structure
+## Development
 
-#### Server (`/server`)
-- **Game Session Management**: Create, join, and manage game rooms
-- **Socket.io Events**: Handle real-time player connections and actions
-- **Game State**: Maintain synchronized game state across all players
-- **API Endpoints**: REST endpoints for game information
+The application uses a modern development setup with:
+- Hot reloading for both client and server
+- Concurrent development servers
+- Modern ES6+ JavaScript features
+- Responsive design for mobile and desktop
 
-#### Client (`/client`)
-- **Home Page**: Create or join games
-- **Game Lobby**: Wait for players and start game
-- **Game Board**: Main game interface (placeholder for now)
-- **Real-time Updates**: Live synchronization with server
+## License
 
-### Adding Game Logic
-
-The current implementation includes:
-- Basic game session management
-- Player connection handling
-- Real-time state synchronization
-- Placeholder for game actions
-
-To add your specific board game:
-1. Extend the `processGameAction` function in `server/index.js`
-2. Add game-specific state properties to the game object
-3. Create game board components in the client
-4. Implement game rules and validation
-
-## 🌐 Deployment
-
-### Environment Variables
-
-Create `.env` files in both server and client directories:
-
-**Server (.env)**
-```env
-PORT=3001
-CLIENT_URL=http://localhost:5173
-```
-
-**Client (.env)**
-```env
-VITE_SERVER_URL=http://localhost:3001
-```
-
-### Production Build
-
-1. **Build the client**
-   ```bash
-   npm run client:build
-   ```
-
-2. **Start the server**
-   ```bash
-   npm run server:start
-   ```
-
-3. **Serve static files**: The server can serve the built client files
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📝 License
-
-MIT License - see LICENSE file for details
-
-## 🐛 Known Issues
-
-- Game state is not persisted (in-memory only)
-- No authentication system
-- Basic error handling
-
-## 🔮 Future Enhancements
-
-- [ ] Database persistence for game state
-- [ ] User authentication and profiles
-- [ ] Game history and statistics
-- [ ] Spectator mode
-- [ ] Mobile app versions
-- [ ] Advanced game features
-
-## 📞 Support
-
-For questions or issues, please open a GitHub issue or contact the development team.
+This project is open source and available under the MIT License.

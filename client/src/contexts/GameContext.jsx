@@ -12,7 +12,13 @@ const initialState = {
   playerPoints: {},
   playerNames: {},
   disconnectedPlayers: [],
-  error: null
+  error: null,
+  // Wager system state
+  wagerOptions: [],
+  wagerActive: false,
+  playerChoices: {},
+  wagerResolved: false,
+  wagerResults: null
 }
 
 function gameReducer(state, action) {
@@ -46,6 +52,21 @@ function gameReducer(state, action) {
     
     case 'CLEAR_ERROR':
       return { ...state, error: null }
+    
+    case 'SET_WAGER_OPTIONS':
+      return { ...state, wagerOptions: action.payload }
+    
+    case 'SET_WAGER_ACTIVE':
+      return { ...state, wagerActive: action.payload }
+    
+    case 'SET_PLAYER_CHOICES':
+      return { ...state, playerChoices: action.payload }
+    
+    case 'SET_WAGER_RESOLVED':
+      return { ...state, wagerResolved: action.payload }
+    
+    case 'SET_WAGER_RESULTS':
+      return { ...state, wagerResults: action.payload }
     
     case 'RESET_GAME':
       return { ...initialState, playerId: state.playerId }
@@ -197,6 +218,31 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'RESET_GAME' })
     })
 
+    // Handle wager events
+    socket.on('wagerProposed', ({ options, wagerId }) => {
+      dispatch({ type: 'SET_WAGER_OPTIONS', payload: options })
+      dispatch({ type: 'SET_WAGER_ACTIVE', payload: true })
+      dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
+      dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
+      dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
+      console.log('Wager proposed:', options)
+    })
+
+    socket.on('choiceMade', ({ playerId, playerName, choice }) => {
+      dispatch({ type: 'SET_PLAYER_CHOICES', payload: { 
+        ...state.playerChoices, 
+        [playerId]: { choice, playerName } 
+      }})
+      console.log(`Player ${playerName} chose option ${choice}`)
+    })
+
+    socket.on('wagerResolved', ({ correctChoice, results, wagerState }) => {
+      dispatch({ type: 'SET_WAGER_RESOLVED', payload: true })
+      dispatch({ type: 'SET_WAGER_RESULTS', payload: { correctChoice, results, wagerState } })
+      dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
+      console.log('Wager resolved:', { correctChoice, results })
+    })
+
     // Handle errors
     socket.on('error', ({ message }) => {
       dispatch({ type: 'SET_ERROR', payload: message })
@@ -249,6 +295,27 @@ export function GameProvider({ children, socket }) {
     return state.playerPoints[playerId] || 0
   }
 
+  // Wager system functions
+  const proposeWager = (option1, option2) => {
+    sendGameAction('proposeWager', { option1, option2 })
+  }
+
+  const makeChoice = (choice) => {
+    sendGameAction('makeChoice', { choice })
+  }
+
+  const resolveWager = (correctChoice) => {
+    sendGameAction('resolveWager', { correctChoice })
+  }
+
+  const resetWagerState = () => {
+    dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
+    dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
+    dispatch({ type: 'SET_WAGER_OPTIONS', payload: [] })
+    dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
+    dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
+  }
+
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' })
   }
@@ -262,6 +329,10 @@ export function GameProvider({ children, socket }) {
     addPoints,
     setPoints,
     getPlayerPoints,
+    proposeWager,
+    makeChoice,
+    resolveWager,
+    resetWagerState,
     clearError
   }
 
