@@ -99,81 +99,30 @@ io.on('connection', (socket) => {
       const playerData = playerRegistry.get(playerID);
       playerData.gameId = gameId;
       
-      // Check if this is a reconnection (same name, different socket)
-      let isReconnection = false;
-      let existingPlayerID = null;
-      
-      console.log(`Checking for reconnection: ${playerName} (PlayerID: ${playerID})`);
-      console.log(`Current players:`, game.players);
-      console.log(`All player names:`, game.playerNames);
-      
-      // Look for existing player with same name who is not currently connected
-      for (const [pid, pname] of Object.entries(game.playerNames)) {
-        console.log(`Checking player ${pid}: name="${pname}", connected=${game.players.includes(pid)}`);
-        if (pname === playerName && !game.players.includes(pid)) {
-          // Found disconnected player with same name
-          existingPlayerID = pid;
-          isReconnection = true;
-          console.log(`Found disconnected player ${pid} with name ${playerName}`);
-          break;
-        }
-      }
-      
-      if (isReconnection && existingPlayerID) {
-        // Reconnect existing player
-        console.log(`Player ${playerName} reconnecting to game ${gameId}`);
+      // Check if this player is already in the game
+      if (game.players.includes(playerID)) {
+        // Player is rejoining - just update their socket ID
+        console.log(`Player ${playerName} rejoining game ${gameId} (PlayerID: ${playerID})`);
         
-        // Transfer player data to new player ID
-        game.playerNames[playerID] = playerName;
-        game.playerPoints[playerID] = game.playerPoints[existingPlayerID] !== undefined ? game.playerPoints[existingPlayerID] : 100;
-        
-        // Remove old disconnected player data
-        delete game.playerNames[existingPlayerID];
-        delete game.playerPoints[existingPlayerID];
-        
-        // Add new player ID to players list
-        if (!game.players.includes(playerID)) {
-          game.players.push(playerID);
-        }
-        
-        console.log(`Game state after reconnection:`, {
-          players: game.players,
-          playerNames: game.playerNames,
-          playerPoints: game.playerPoints
-        });
-        
-        // Emit reconnection event
         socket.join(gameId);
-        
-        console.log(`Sending gameJoined to reconnecting player ${playerName} with game state:`, {
-          gameId,
-          players: game.players,
-          status: game.status,
-          playerCount: game.players.length
-        });
-        
-        // Send full game state to reconnecting player (like gameJoined)
         socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID });
         
-        // Notify other players about the reconnection with updated game state
-        // This ensures they have the correct player names and don't see "Unknown Player"
+        // Notify other players about the reconnection
         socket.to(gameId).emit('gameStateUpdate', game);
         
-        console.log(`Player ${playerName} reconnected successfully`);
+        console.log(`Player ${playerName} rejoined successfully`);
       } else {
-        // New player joining
-        if (!game.players.includes(playerID)) {
-          game.players.push(playerID);
-          game.playerPoints[playerID] = 100;
-          game.playerNames[playerID] = playerName || `Player${game.players.length}`;
-          
-          console.log(`New player ${playerName} joined game ${gameId}. Initial points: ${game.playerPoints[playerID]} (PlayerID: ${playerID})`);
-          console.log(`Current game state after join:`, {
-            players: game.players,
-            playerPoints: game.playerPoints,
-            playerNames: game.playerNames
-          });
-        }
+        // New player joining - add them to the game
+        game.players.push(playerID);
+        game.playerPoints[playerID] = 100;
+        game.playerNames[playerID] = playerName || `Player${game.players.length}`;
+        
+        console.log(`New player ${playerName} joined game ${gameId}. Initial points: ${game.playerPoints[playerID]} (PlayerID: ${playerID})`);
+        console.log(`Current game state after join:`, {
+          players: game.players,
+          playerPoints: game.playerPoints,
+          playerNames: game.playerNames
+        });
         
         socket.join(gameId);
         socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID });
@@ -218,7 +167,6 @@ io.on('connection', (socket) => {
       players: [playerID],
       status: 'waiting',
       createdAt: new Date().toISOString(),
-      lastCleanup: Date.now(),
       playerPoints: {
         [playerID]: 100
       },
@@ -292,42 +240,12 @@ io.on('connection', (socket) => {
         io.to(gameId).emit('gameEnded', { reason: 'Host disconnected' });
         gameSessions.delete(gameId);
         console.log(`Game ${gameId} ended due to host disconnect`);
-      } else if (game.players.includes(disconnectedPlayerID)) {
-        // Mark player as disconnected but keep their data for potential reconnection
-        const playerName = game.playerNames[disconnectedPlayerID] || 'Unknown';
-        
-        console.log(`Player ${playerName} (${disconnectedPlayerID}) disconnecting from game ${gameId}`);
-        console.log(`Before disconnect - Players:`, game.players);
-        console.log(`Before disconnect - PlayerNames:`, game.playerNames);
-        
-        // Remove from active players list but keep their data
-        game.players = game.players.filter(id => id !== disconnectedPlayerID);
-        
-        // Keep player data in playerNames and playerPoints for reconnection
-        // The data will be cleaned up when they reconnect or after a timeout
-        
-        console.log(`After disconnect - Players:`, game.players);
-        console.log(`After disconnect - PlayerNames:`, game.playerNames);
-        
-        io.to(gameId).emit('playerDisconnected', { 
-          playerId: disconnectedPlayerID, 
-          playerName: playerName,
-          canReconnect: true 
-        });
-        
-        // Send updated game state to all remaining players to ensure consistency
-        io.to(gameId).emit('gameStateUpdate', game);
-        
-        console.log(`Player ${playerName} disconnected from game ${gameId} (can reconnect)`);
-        console.log(`Sent gameStateUpdate to remaining players. Current game state:`, {
-          players: game.players,
-          playerNames: game.playerNames,
-          playerCount: game.players.length
-        });
       }
+      // Note: We no longer remove players from the game when they disconnect
+      // They remain in the score tracker and can reconnect later
     }
     
-    // Update player registry
+    // Update player registry - mark as disconnected but keep player data
     const playerData = playerRegistry.get(disconnectedPlayerID);
     if (playerData) {
       playerData.socketID = null; // Mark as disconnected but keep player data
@@ -561,26 +479,7 @@ function addPoints(game, playerId, points) {
   return false;
 }
 
-// Cleanup disconnected players after timeout
-function cleanupDisconnectedPlayers() {
-  const now = Date.now();
-  const RECONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-  
-  for (const [gameId, game] of gameSessions.entries()) {
-    // Clean up any disconnected player data that's older than timeout
-    // This prevents memory leaks from abandoned games
-    if (game.lastCleanup && (now - game.lastCleanup) > RECONNECTION_TIMEOUT) {
-      // Remove any player data for players not currently in the game
-      for (const [pid, points] of Object.entries(game.playerPoints)) {
-        if (!game.players.includes(pid)) {
-          delete game.playerPoints[pid];
-          delete game.playerNames[pid];
-        }
-      }
-      game.lastCleanup = now;
-    }
-  }
-}
+
 
 function getPlayerPoints(game, playerId) {
   return game.playerPoints[playerId] || 0
@@ -685,7 +584,5 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.io server ready for connections`);
   
-  // Set up periodic cleanup of disconnected players
-  setInterval(cleanupDisconnectedPlayers, 60000); // Run every minute
-  console.log('Player reconnection system enabled (5 minute timeout)');
+  console.log('Player reconnection system enabled (players remain in game when disconnected)');
 });

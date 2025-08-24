@@ -11,7 +11,6 @@ function GameLobby() {
     players, 
     playerPoints,
     playerNames,
-    disconnectedPlayers,
     isHost, 
     playerId, 
     sendGameAction,
@@ -94,28 +93,6 @@ function GameLobby() {
             ))}
           </div>
         </div>
-
-        {disconnectedPlayers.length > 0 && (
-          <div className="disconnected-players-section">
-            <h3>Disconnected Players (Can Reconnect)</h3>
-            <div className="disconnected-players-list">
-              {disconnectedPlayers.map((player) => (
-                <div key={player.id} className="player-item disconnected">
-                  <div className="player-avatar">🔌</div>
-                  <div className="player-info">
-                    <div className="player-name">
-                      {player.name} (Disconnected)
-                    </div>
-                    <div className="player-id">{player.id.slice(0, 8)}...</div>
-                    <div className="reconnect-info">
-                      Can reconnect with same name
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {isHost && players.length >= 2 && (
           <div className="host-controls">
