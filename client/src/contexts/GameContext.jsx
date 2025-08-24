@@ -202,9 +202,9 @@ export function GameProvider({ children, socket }) {
     })
 
     // Handle wager events
-    socket.on('wagerProposed', ({ options, wagerId }) => {
-      console.log('🎯 wagerProposed event received:', { options, wagerId })
-      dispatch({ type: 'SET_WAGER_OPTIONS', payload: options })
+    socket.on('wagerProposed', ({ options, odds, wagerId }) => {
+      console.log('🎯 wagerProposed event received:', { options, odds, wagerId })
+      dispatch({ type: 'SET_WAGER_OPTIONS', payload: { options, odds } })
       dispatch({ type: 'SET_WAGER_ACTIVE', payload: true })
       dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
       dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
@@ -316,9 +316,9 @@ export function GameProvider({ children, socket }) {
   }
 
   // Wager system functions
-  const proposeWager = (option1, option2) => {
-    console.log('🎯 proposeWager called with:', { option1, option2, currentGame: state.currentGame })
-    sendGameAction('proposeWager', { option1, option2 })
+  const proposeWager = (option1, option2, odds1 = 1, odds2 = 1) => {
+    console.log('🎯 proposeWager called with:', { option1, option2, odds1, odds2, currentGame: state.currentGame })
+    sendGameAction('proposeWager', { option1, option2, odds1, odds2 })
   }
 
   const makeChoice = (choice, points) => {

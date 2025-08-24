@@ -98,7 +98,8 @@ function GameBoard() {
                       }
                     }}
                   >
-                    <strong>Option A:</strong> {wagerOptions[0]}
+                    <strong>Option A:</strong> {wagerOptions.options?.[0] || wagerOptions[0]} 
+                    <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
                   </div>
                   <div 
                     className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
@@ -109,7 +110,8 @@ function GameBoard() {
                       }
                     }}
                   >
-                    <strong>Option B:</strong> {wagerOptions[1]}
+                    <strong>Option B:</strong> {wagerOptions.options?.[1] || wagerOptions[1]} 
+                    <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
                   </div>
                 </div>
                 
@@ -157,7 +159,7 @@ function GameBoard() {
             {wagerResolved && wagerResults && (
               <div className="wager-results">
                 <h4>Wager Results</h4>
-                <p><strong>Correct Answer:</strong> Option {wagerResults.correctChoice === 0 ? 'A' : 'B'} ({wagerOptions[wagerResults.correctChoice]})</p>
+                <p><strong>Correct Answer:</strong> Option {wagerResults.correctChoice === 0 ? 'A' : 'B'} ({wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]}) ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}x)</p>
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
@@ -254,13 +256,17 @@ function GameBoard() {
 function WagerProposalForm({ onSubmit }) {
   const [option1, setOption1] = useState('')
   const [option2, setOption2] = useState('')
+  const [odds1, setOdds1] = useState(1)
+  const [odds2, setOdds2] = useState(1)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (option1.trim() && option2.trim()) {
-      onSubmit(option1.trim(), option2.trim())
+      onSubmit(option1.trim(), option2.trim(), odds1, odds2)
       setOption1('')
       setOption2('')
+      setOdds1(1)
+      setOdds2(1)
     }
   }
 
@@ -289,6 +295,32 @@ function WagerProposalForm({ onSubmit }) {
           required
           className="form-input"
         />
+      </div>
+      <div className="odds-section">
+        <div className="form-group">
+          <label htmlFor="odds1">Odds for Option A:</label>
+          <input
+            type="number"
+            id="odds1"
+            value={odds1}
+            onChange={(e) => setOdds1(Math.max(1, parseFloat(e.target.value) || 1))}
+            min="1"
+            step="0.1"
+            className="form-input odds-input"
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="odds2">Odds for Option B:</label>
+          <input
+            type="number"
+            id="odds2"
+            value={odds2}
+            onChange={(e) => setOdds2(Math.max(1, parseFloat(e.target.value) || 1))}
+            min="1"
+            step="0.1"
+            className="form-input odds-input"
+          />
+        </div>
       </div>
       <button type="submit" className="btn btn-primary">
         Propose Wager
@@ -363,13 +395,15 @@ function WagerResolutionForm({ onSubmit, wagerOptions }) {
             className={`resolution-option ${correctChoice === '0' ? 'selected' : 'clickable'}`}
             onClick={() => setCorrectChoice('0')}
           >
-            <strong>Option A:</strong> {wagerOptions[0]}
+            <strong>Option A:</strong> {wagerOptions.options?.[0] || wagerOptions[0]} 
+            <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
           </div>
           <div 
             className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
             onClick={() => setCorrectChoice('1')}
           >
-            <strong>Option B:</strong> {wagerOptions[1]}
+            <strong>Option B:</strong> {wagerOptions.options?.[1] || wagerOptions[1]} 
+            <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
           </div>
         </div>
       </div>

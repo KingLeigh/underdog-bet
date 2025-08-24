@@ -249,6 +249,36 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Odds styling */
+.odds-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.odds-input {
+  text-align: center;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.odds-input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.odds-display {
+  color: #f59e0b;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
+  background: rgba(245, 158, 11, 0.2);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .active-wager {
   text-align: center;
 }
@@ -654,6 +684,11 @@
   
   .choice-radio {
     flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .odds-section {
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 }

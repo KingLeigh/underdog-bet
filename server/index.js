@@ -22,7 +22,7 @@ app.use(express.json());
 const gameSessions = new Map();
 
 // Wager system data structure
-const wagerStates = new Map(); // gameId -> wager state
+const wagerStates = new Map(); // gameId -> wager state with odds
 
 // Player management system
 const playerRegistry = new Map(); // playerID -> { socketID, playerName, gameId, lastSeen }
@@ -122,6 +122,7 @@ io.on('connection', (socket) => {
           // Send wager options
           socket.emit('wagerProposed', {
             options: wagerState.options,
+            odds: wagerState.odds,
             wagerId: Date.now().toString()
           });
           
@@ -210,6 +211,7 @@ io.on('connection', (socket) => {
     wagerStates.set(gameId, {
       isActive: false,
       options: [],
+      odds: [1, 1], // Default odds of 1 for each option
       playerChoices: {},
       resolved: false,
       correctOption: null
@@ -353,6 +355,7 @@ io.on('connection', (socket) => {
         // Send wager options
         socket.emit('wagerProposed', {
           options: wagerState.options,
+          odds: wagerState.odds,
           wagerId: Date.now().toString()
         });
         
@@ -456,25 +459,31 @@ function processGameAction(game, action, payload, playerID) {
       return game;
       
     case 'proposeWager':
-      // Host proposes a wager with two options
+      // Host proposes a wager with two options and odds
       if (game.host === playerID && payload.option1 && payload.option2) {
         const wagerState = wagerStates.get(game.id);
         console.log(`Proposing wager for game ${game.id}. Current wager state:`, wagerState);
+        
+        // Extract odds from payload, defaulting to 1 if not provided
+        const odds1 = payload.odds1 || 1;
+        const odds2 = payload.odds2 || 1;
         
         if (wagerState) {
           // Clear any previous wager state completely
           wagerState.isActive = true;
           wagerState.options = [payload.option1, payload.option2];
+          wagerState.odds = [odds1, odds2];
           wagerState.playerChoices = {};
           wagerState.resolved = false;
           wagerState.correctOption = null;
           
-          console.log(`Host ${game.playerNames[playerID]} proposed wager: "${payload.option1}" vs "${payload.option2}"`);
+          console.log(`Host ${game.playerNames[playerID]} proposed wager: "${payload.option1}" (${odds1}x) vs "${payload.option2}" (${odds2}x)`);
           console.log(`Updated wager state:`, wagerState);
           
           // Emit wager proposed event to all players
           io.to(game.id).emit('wagerProposed', {
             options: [payload.option1, payload.option2],
+            odds: [odds1, odds2],
             wagerId: Date.now().toString()
           });
         } else {
@@ -483,6 +492,7 @@ function processGameAction(game, action, payload, playerID) {
           const newWagerState = {
             isActive: true,
             options: [payload.option1, payload.option2],
+            odds: [odds1, odds2],
             playerChoices: {},
             resolved: false,
             correctOption: null
@@ -494,6 +504,7 @@ function processGameAction(game, action, payload, playerID) {
           // Emit wager proposed event to all players
           io.to(game.id).emit('wagerProposed', {
             options: [payload.option1, payload.option2],
+            odds: [odds1, odds2],
             wagerId: Date.now().toString()
           });
         }
@@ -571,20 +582,23 @@ function processGameAction(game, action, payload, playerID) {
             console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
             
             if (choice === payload.correctChoice) {
-              // Player was correct - they gain the points they wagered
-              console.log(`✅ Player ${game.playerNames[playerId]} was correct, adding ${points} points`);
-              addPoints(game, playerId, points);
+              // Player was correct - they gain the points they wagered MULTIPLIED BY the odds
+              const odds = wagerState.odds[choice];
+              const pointsAwarded = Math.floor(points * odds);
+              console.log(`✅ Player ${game.playerNames[playerId]} was correct, adding ${pointsAwarded} points (${points} × ${odds})`);
+              addPoints(game, playerId, pointsAwarded);
               results.push({
                 playerId,
                 playerName: game.playerNames[playerId] || 'Unknown Player',
                 choice,
                 points,
+                odds: odds,
                 correct: true,
-                pointsAwarded: points,
-                pointsChange: `+${points}`
+                pointsAwarded: pointsAwarded,
+                pointsChange: `+${pointsAwarded}`
               });
             } else {
-              // Player was incorrect - they lose the points they wagered
+              // Player was incorrect - they lose the points they wagered (unaffected by odds)
               console.log(`❌ Player ${game.playerNames[playerId]} was incorrect, subtracting ${points} points`);
               addPoints(game, playerId, -points);
               results.push({
@@ -592,6 +606,7 @@ function processGameAction(game, action, payload, playerID) {
                 playerName: game.playerNames[playerId] || 'Unknown Player',
                 choice,
                 points,
+                odds: wagerState.odds[choice],
                 correct: false,
                 pointsAwarded: 0,
                 pointsChange: `-${points}`
@@ -613,6 +628,7 @@ function processGameAction(game, action, payload, playerID) {
           // Reset wager state for next round
           wagerState.isActive = false;
           wagerState.options = [];
+          wagerState.odds = [1, 1]; // Reset to default odds
           wagerState.playerChoices = {};
           wagerState.correctOption = null;
           wagerState.resolved = false;
