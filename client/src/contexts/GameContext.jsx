@@ -130,8 +130,8 @@ export function GameProvider({ children, socket }) {
     })
 
     // Handle joining a game
-    socket.on('gameJoined', ({ gameId, gameState, wasReconnection, playerID }) => {
-      console.log('gameJoined event received:', { gameId, wasReconnection, players: gameState.players, status: gameState.status, playerID })
+    socket.on('gameJoined', ({ gameId, gameState, wasReconnection, playerID, isHost }) => {
+      console.log('gameJoined event received:', { gameId, wasReconnection, players: gameState.players, status: gameState.status, playerID, isHost })
       console.log('Current playerId when joining:', state.playerId);
       console.log('Received playerPoints:', gameState.playerPoints);
       console.log('Received playerNames:', gameState.playerNames);
@@ -143,14 +143,14 @@ export function GameProvider({ children, socket }) {
       
       dispatch({ type: 'SET_CURRENT_GAME', payload: gameId })
       dispatch({ type: 'SET_GAME_STATE', payload: gameState })
-      dispatch({ type: 'SET_IS_HOST', payload: false })
+      dispatch({ type: 'SET_IS_HOST', payload: isHost || false })
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
       
       if (wasReconnection) {
         console.log('Successfully reconnected to existing game session')
-        console.log('Current state after reconnection:', { currentGame: gameId, gameState: gameState })
+        console.log('Current state after reconnection:', { currentGame: gameId, gameState: gameState, isHost })
       }
     })
 
@@ -164,10 +164,14 @@ export function GameProvider({ children, socket }) {
       })
       console.log('Received playerPoints in update:', gameState.playerPoints);
       
+      // Update host status based on current player ID and game host
+      const isHost = state.playerId && gameState.host === state.playerId;
+      
       dispatch({ type: 'SET_GAME_STATE', payload: gameState })
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
+      dispatch({ type: 'SET_IS_HOST', payload: isHost })
     })
 
     // Note: playerJoined events are no longer used - all state updates come via gameStateUpdate

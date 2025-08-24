@@ -109,7 +109,34 @@ io.on('connection', (socket) => {
         console.log(`Player ${playerName} rejoining game ${gameId} (PlayerID: ${playerID})`);
         
         socket.join(gameId);
-        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID });
+        
+        // Get current wager state for this game
+        const wagerState = wagerStates.get(gameId);
+        
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: game.host === playerID });
+        
+        // If there's an active wager, send wager state to the reconnecting player
+        if (wagerState && wagerState.isActive && !wagerState.resolved) {
+          console.log(`Sending active wager state to rejoining player ${playerName} (${playerID})`);
+          
+          // Send wager options
+          socket.emit('wagerProposed', {
+            options: wagerState.options,
+            wagerId: Date.now().toString()
+          });
+          
+          // Send current player choices (without revealing actual choices/points)
+          for (const [choicePlayerId, choiceData] of Object.entries(wagerState.playerChoices)) {
+            const choicePlayerName = game.playerNames[choicePlayerId] || 'Unknown Player';
+            socket.emit('choiceMade', {
+              playerId: choicePlayerId,
+              playerName: choicePlayerName,
+              hasChosen: true,
+              choice: null, // Don't reveal the choice until resolution
+              points: null  // Don't reveal the points until resolution
+            });
+          }
+        }
         
         // Notify other players about the reconnection
         socket.to(gameId).emit('gameStateUpdate', game);
@@ -129,7 +156,7 @@ io.on('connection', (socket) => {
         });
         
         socket.join(gameId);
-        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID });
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID });
         
         // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
         socket.to(gameId).emit('gameStateUpdate', game);
@@ -307,13 +334,40 @@ io.on('connection', (socket) => {
       // Join the game room
       socket.join(gameId);
       
+      // Get current wager state for this game
+      const wagerState = wagerStates.get(gameId);
+      
       // Send game state to reconnecting player
       socket.emit('gameJoined', { 
         gameId, 
         gameState: game, 
         wasReconnection: true, 
-        playerID 
+        playerID,
+        isHost: game.host === playerID
       });
+      
+      // If there's an active wager, send wager state to the reconnecting player
+      if (wagerState && wagerState.isActive && !wagerState.resolved) {
+        console.log(`Sending active wager state to reconnecting player ${playerData.playerName} (${playerID})`);
+        
+        // Send wager options
+        socket.emit('wagerProposed', {
+          options: wagerState.options,
+          wagerId: Date.now().toString()
+        });
+        
+                  // Send current player choices (without revealing actual choices/points)
+          for (const [choicePlayerId, choiceData] of Object.entries(wagerState.playerChoices)) {
+            const choicePlayerName = game.playerNames[choicePlayerId] || 'Unknown Player';
+            socket.emit('choiceMade', {
+              playerId: choicePlayerId,
+              playerName: choicePlayerName,
+              hasChosen: true,
+              choice: null, // Don't reveal the choice until resolution
+              points: null  // Don't reveal the points until resolution
+            });
+          }
+      }
       
       // Notify other players about the reconnection
       socket.to(gameId).emit('gameStateUpdate', game);
