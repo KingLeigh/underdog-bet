@@ -24,6 +24,65 @@ const gameSessions = new Map();
 // Wager system data structure
 const wagerStates = new Map(); // gameId -> wager state
 
+// Player management system
+const playerRegistry = new Map(); // playerID -> { socketID, playerName, gameId, lastSeen }
+let nextPlayerID = 1;
+
+// Generate unique player ID
+function generatePlayerID() {
+  return `player_${nextPlayerID++}_${Date.now()}`;
+}
+
+// Get or create player ID for a socket
+function getOrCreatePlayerID(socket, playerName) {
+  // Check if this socket already has a player ID
+  for (const [playerID, playerData] of playerRegistry.entries()) {
+    if (playerData.socketID === socket.id) {
+      // Update last seen time
+      playerData.lastSeen = Date.now();
+      return playerID;
+    }
+  }
+  
+  // Check if this player name already exists in any game
+  for (const [playerID, playerData] of playerRegistry.entries()) {
+    if (playerData.playerName === playerName && playerData.gameId) {
+      // Found existing player with same name, update socket ID
+      playerData.socketID = socket.id;
+      playerData.lastSeen = Date.now();
+      console.log(`Player ${playerName} reconnected with new socket, updated mapping: ${playerID} -> ${socket.id}`);
+      return playerID;
+    }
+  }
+  
+  // Create new player
+  const playerID = generatePlayerID();
+  playerRegistry.set(playerID, {
+    socketID: socket.id,
+    playerName: playerName,
+    gameId: null,
+    lastSeen: Date.now()
+  });
+  console.log(`Created new player: ${playerID} -> ${socket.id} (${playerName})`);
+  return playerID;
+}
+
+// Get player ID for a socket
+function getPlayerID(socket) {
+  for (const [playerID, playerData] of playerRegistry.entries()) {
+    if (playerData.socketID === socket.id) {
+      return playerID;
+    }
+  }
+  return null;
+}
+
+// Get socket for a player ID
+function getSocketForPlayer(playerID) {
+  const playerData = playerRegistry.get(playerID);
+  return playerData ? playerData.socketID : null;
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
@@ -34,12 +93,17 @@ io.on('connection', (socket) => {
     
     if (gameSessions.has(gameId)) {
       const game = gameSessions.get(gameId);
+      const playerID = getOrCreatePlayerID(socket, playerName);
+      
+      // Update player registry with game ID
+      const playerData = playerRegistry.get(playerID);
+      playerData.gameId = gameId;
       
       // Check if this is a reconnection (same name, different socket)
       let isReconnection = false;
-      let existingPlayerId = null;
+      let existingPlayerID = null;
       
-      console.log(`Checking for reconnection: ${playerName}`);
+      console.log(`Checking for reconnection: ${playerName} (PlayerID: ${playerID})`);
       console.log(`Current players:`, game.players);
       console.log(`All player names:`, game.playerNames);
       
@@ -48,28 +112,28 @@ io.on('connection', (socket) => {
         console.log(`Checking player ${pid}: name="${pname}", connected=${game.players.includes(pid)}`);
         if (pname === playerName && !game.players.includes(pid)) {
           // Found disconnected player with same name
-          existingPlayerId = pid;
+          existingPlayerID = pid;
           isReconnection = true;
           console.log(`Found disconnected player ${pid} with name ${playerName}`);
           break;
         }
       }
       
-      if (isReconnection && existingPlayerId) {
+      if (isReconnection && existingPlayerID) {
         // Reconnect existing player
         console.log(`Player ${playerName} reconnecting to game ${gameId}`);
         
-        // Transfer player data to new socket ID
-        game.playerNames[socket.id] = playerName;
-        game.playerPoints[socket.id] = game.playerPoints[existingPlayerId] || 100;
+        // Transfer player data to new player ID
+        game.playerNames[playerID] = playerName;
+        game.playerPoints[playerID] = game.playerPoints[existingPlayerID] !== undefined ? game.playerPoints[existingPlayerID] : 100;
         
         // Remove old disconnected player data
-        delete game.playerNames[existingPlayerId];
-        delete game.playerPoints[existingPlayerId];
+        delete game.playerNames[existingPlayerID];
+        delete game.playerPoints[existingPlayerID];
         
-        // Add new socket to players list
-        if (!game.players.includes(socket.id)) {
-          game.players.push(socket.id);
+        // Add new player ID to players list
+        if (!game.players.includes(playerID)) {
+          game.players.push(playerID);
         }
         
         console.log(`Game state after reconnection:`, {
@@ -89,7 +153,7 @@ io.on('connection', (socket) => {
         });
         
         // Send full game state to reconnecting player (like gameJoined)
-        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true });
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID });
         
         // Notify other players about the reconnection with updated game state
         // This ensures they have the correct player names and don't see "Unknown Player"
@@ -98,20 +162,37 @@ io.on('connection', (socket) => {
         console.log(`Player ${playerName} reconnected successfully`);
       } else {
         // New player joining
-        if (!game.players.includes(socket.id)) {
-          game.players.push(socket.id);
-          game.playerPoints[socket.id] = 100;
-          game.playerNames[socket.id] = playerName || `Player${game.players.length}`;
+        if (!game.players.includes(playerID)) {
+          game.players.push(playerID);
+          game.playerPoints[playerID] = 100;
+          game.playerNames[playerID] = playerName || `Player${game.players.length}`;
+          
+          console.log(`New player ${playerName} joined game ${gameId}. Initial points: ${game.playerPoints[playerID]} (PlayerID: ${playerID})`);
+          console.log(`Current game state after join:`, {
+            players: game.players,
+            playerPoints: game.playerPoints,
+            playerNames: game.playerNames
+          });
         }
         
         socket.join(gameId);
-        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false });
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID });
         
-        // Send gameStateUpdate to ALL players (including existing ones) to ensure state consistency
-        io.to(gameId).emit('gameStateUpdate', game);
+        // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
+        socket.to(gameId).emit('gameStateUpdate', game);
+        
+        console.log(`Sent gameStateUpdate to other players. Current game state:`, {
+          players: game.players,
+          playerNames: game.playerNames,
+          playerCount: game.players.length
+        });
+        console.log(`Full gameStateUpdate payload:`, {
+          playerPoints: game.playerPoints,
+          playerNames: game.playerNames
+        });
         
         console.log(`Player ${playerName || 'Unknown'} joined game ${gameId}`);
-        console.log(`Sent gameStateUpdate to all players. Current game state:`, {
+        console.log(`Sent gameStateUpdate to other players. Current game state:`, {
           players: game.players,
           playerNames: game.playerNames,
           playerCount: game.players.length
@@ -125,18 +206,24 @@ io.on('connection', (socket) => {
   // Create a new game session
   socket.on('createGame', (gameConfig) => {
     const gameId = generateGameId();
+    const playerID = getOrCreatePlayerID(socket, gameConfig.playerName);
+    
+    // Update player registry with game ID
+    const playerData = playerRegistry.get(playerID);
+    playerData.gameId = gameId;
+    
     const gameState = {
       id: gameId,
-      host: socket.id,
-      players: [socket.id],
+      host: playerID,
+      players: [playerID],
       status: 'waiting',
       createdAt: new Date().toISOString(),
       lastCleanup: Date.now(),
       playerPoints: {
-        [socket.id]: 100
+        [playerID]: 100
       },
       playerNames: {
-        [socket.id]: gameConfig.playerName || `Player${Math.floor(Math.random() * 1000)}`
+        [playerID]: gameConfig.playerName || `Player${Math.floor(Math.random() * 1000)}`
       }
     };
     
@@ -151,18 +238,29 @@ io.on('connection', (socket) => {
     
     gameSessions.set(gameId, gameState);
     socket.join(gameId);
-    socket.emit('gameCreated', gameState);
-    console.log(`Game ${gameId} created by ${gameConfig.playerName || 'Unknown'}`);
+    socket.emit('gameCreated', { ...gameState, playerID });
+    console.log(`Game ${gameId} created by ${gameConfig.playerName || 'Unknown'} (PlayerID: ${playerID})`);
+    console.log(`Initial game state:`, {
+      players: gameState.players,
+      playerPoints: gameState.playerPoints,
+      playerNames: gameState.playerNames
+    });
   });
 
   // Handle game actions
   socket.on('gameAction', (data) => {
     const { gameId, action, payload } = data;
     const game = gameSessions.get(gameId);
+    const playerID = getPlayerID(socket);
     
-    if (game && game.players.includes(socket.id)) {
+    if (!playerID) {
+      console.error(`No player ID found for socket: ${socket.id}`);
+      return;
+    }
+    
+    if (game && game.players.includes(playerID)) {
       // Process the action and update game state
-      const updatedState = processGameAction(game, action, payload, socket);
+      const updatedState = processGameAction(game, action, payload, playerID);
       gameSessions.set(gameId, updatedState);
       
       // Broadcast updated state to all players in the game
@@ -173,22 +271,37 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
+    
+    // Find the player ID for this socket
+    let disconnectedPlayerID = null;
+    for (const [playerID, playerData] of playerRegistry.entries()) {
+      if (playerData.socketID === socket.id) {
+        disconnectedPlayerID = playerID;
+        break;
+      }
+    }
+    
+    if (!disconnectedPlayerID) {
+      console.log(`No player found for disconnected socket: ${socket.id}`);
+      return;
+    }
+    
     // Clean up game sessions if host disconnects
     for (const [gameId, game] of gameSessions.entries()) {
-      if (game.host === socket.id) {
+      if (game.host === disconnectedPlayerID) {
         io.to(gameId).emit('gameEnded', { reason: 'Host disconnected' });
         gameSessions.delete(gameId);
         console.log(`Game ${gameId} ended due to host disconnect`);
-      } else if (game.players.includes(socket.id)) {
+      } else if (game.players.includes(disconnectedPlayerID)) {
         // Mark player as disconnected but keep their data for potential reconnection
-        const playerName = game.playerNames[socket.id] || 'Unknown';
+        const playerName = game.playerNames[disconnectedPlayerID] || 'Unknown';
         
-        console.log(`Player ${playerName} (${socket.id}) disconnecting from game ${gameId}`);
+        console.log(`Player ${playerName} (${disconnectedPlayerID}) disconnecting from game ${gameId}`);
         console.log(`Before disconnect - Players:`, game.players);
         console.log(`Before disconnect - PlayerNames:`, game.playerNames);
         
         // Remove from active players list but keep their data
-        game.players = game.players.filter(id => id !== socket.id);
+        game.players = game.players.filter(id => id !== disconnectedPlayerID);
         
         // Keep player data in playerNames and playerPoints for reconnection
         // The data will be cleaned up when they reconnect or after a timeout
@@ -197,7 +310,7 @@ io.on('connection', (socket) => {
         console.log(`After disconnect - PlayerNames:`, game.playerNames);
         
         io.to(gameId).emit('playerDisconnected', { 
-          playerId: socket.id, 
+          playerId: disconnectedPlayerID, 
           playerName: playerName,
           canReconnect: true 
         });
@@ -213,11 +326,18 @@ io.on('connection', (socket) => {
         });
       }
     }
+    
+    // Update player registry
+    const playerData = playerRegistry.get(disconnectedPlayerID);
+    if (playerData) {
+      playerData.socketID = null; // Mark as disconnected but keep player data
+      console.log(`Marked player ${disconnectedPlayerID} as disconnected in registry`);
+    }
   });
 });
 
 // Game action processing
-function processGameAction(game, action, payload, socket) {
+function processGameAction(game, action, payload, playerID) {
   console.log(`Processing action: ${action}`, payload);
   
   switch (action) {
@@ -233,7 +353,7 @@ function processGameAction(game, action, payload, socket) {
       
     case 'proposeWager':
       // Host proposes a wager with two options
-      if (game.host === socket.id && payload.option1 && payload.option2) {
+      if (game.host === playerID && payload.option1 && payload.option2) {
         const wagerState = wagerStates.get(game.id);
         console.log(`Proposing wager for game ${game.id}. Current wager state:`, wagerState);
         
@@ -245,7 +365,7 @@ function processGameAction(game, action, payload, socket) {
           wagerState.resolved = false;
           wagerState.correctOption = null;
           
-          console.log(`Host ${game.playerNames[socket.id]} proposed wager: "${payload.option1}" vs "${payload.option2}"`);
+          console.log(`Host ${game.playerNames[playerID]} proposed wager: "${payload.option1}" vs "${payload.option2}"`);
           console.log(`Updated wager state:`, wagerState);
           
           // Emit wager proposed event to all players
@@ -275,11 +395,11 @@ function processGameAction(game, action, payload, socket) {
         }
       } else {
         console.error(`Invalid wager proposal:`, { 
-          isHost: game.host === socket.id, 
+          isHost: game.host === playerID, 
           hasOption1: !!payload.option1, 
           hasOption2: !!payload.option2,
           hostId: game.host,
-          socketId: socket.id
+          socketId: playerID
         });
       }
       return game;
@@ -289,11 +409,11 @@ function processGameAction(game, action, payload, socket) {
       if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1 && payload.points !== undefined) {
         const wagerState = wagerStates.get(game.id);
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
-          const currentPoints = game.playerPoints[socket.id] || 0;
+          const currentPoints = game.playerPoints[playerID] || 0;
           
           // Validate the wager amount
           if (payload.points <= 0) {
-            console.log(`Player ${game.playerNames[socket.id]} tried to wager invalid points: ${payload.points}`);
+            console.log(`Player ${game.playerNames[playerID]} tried to wager invalid points: ${payload.points}`);
             return game;
           }
           
@@ -301,25 +421,25 @@ function processGameAction(game, action, payload, socket) {
           const maxWager = Math.max(50, currentPoints);
           
           if (payload.points > maxWager) {
-            console.log(`Player ${game.playerNames[socket.id]} tried to wager ${payload.points} points, but max allowed is ${maxWager} (current: ${currentPoints})`);
+            console.log(`Player ${game.playerNames[playerID]} tried to wager ${payload.points} points, but max allowed is ${maxWager} (current: ${currentPoints})`);
             return game;
           }
           
           // Note: Players can always bet up to maxWager points, even if they go negative
-          console.log(`Player ${game.playerNames[socket.id]} wagering ${payload.points} points (current balance: ${currentPoints}, max allowed: ${maxWager})`);
+          console.log(`Player ${game.playerNames[playerID]} wagering ${payload.points} points (current balance: ${currentPoints}, max allowed: ${maxWager})`);
           
           // Store the choice and wager amount
-          wagerState.playerChoices[socket.id] = {
+          wagerState.playerChoices[playerID] = {
             choice: payload.choice,
             points: payload.points
           };
           
-          console.log(`Player ${game.playerNames[socket.id]} chose option ${payload.choice} (${wagerState.options[payload.choice]}) with ${payload.points} points`);
+          console.log(`Player ${game.playerNames[playerID]} chose option ${payload.choice} (${wagerState.options[payload.choice]}) with ${payload.points} points`);
           
           // Emit choice made event to all players (without revealing the choice or points)
           io.to(game.id).emit('choiceMade', {
-            playerId: socket.id,
-            playerName: game.playerNames[socket.id] || 'Unknown Player',
+            playerId: playerID,
+            playerName: game.playerNames[playerID] || 'Unknown Player',
             hasChosen: true,
             choice: null, // Don't reveal the choice until resolution
             points: null  // Don't reveal the points until resolution
@@ -330,7 +450,7 @@ function processGameAction(game, action, payload, socket) {
       
     case 'resolveWager':
       // Host resolves the wager and awards points
-      if (game.host === socket.id && payload.correctChoice !== undefined) {
+      if (game.host === playerID && payload.correctChoice !== undefined) {
         const wagerState = wagerStates.get(game.id);
         console.log(`Resolving wager for game ${game.id}. Current wager state:`, wagerState);
         
@@ -377,7 +497,7 @@ function processGameAction(game, action, payload, socket) {
           
           console.log(`🎯 Player points after resolution:`, game.playerPoints);
           
-          console.log(`Wager resolved by host ${game.playerNames[socket.id]}. Correct answer: Option ${payload.correctChoice}. Results:`, results);
+          console.log(`Wager resolved by host ${game.playerNames[playerID]}. Correct answer: Option ${payload.correctChoice}. Results:`, results);
           
           // Emit wager resolved event to all players
           io.to(game.id).emit('wagerResolved', {
@@ -404,10 +524,10 @@ function processGameAction(game, action, payload, socket) {
         }
       } else {
         console.error(`Invalid wager resolution:`, {
-          isHost: game.host === socket.id,
+          isHost: game.host === playerID,
           hasCorrectChoice: payload.correctChoice !== undefined,
           hostId: game.host,
-          socketId: socket.id
+          socketId: playerID
         });
       }
       return game;

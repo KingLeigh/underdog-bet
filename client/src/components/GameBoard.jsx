@@ -62,6 +62,7 @@ function GameBoard() {
           <div className="game-info">
             <span>Game ID: {gameId}</span>
             <span>Players: {players.length}</span>
+            <span>Your ID: {playerId ? playerId.slice(0, 8) + '...' : 'Not set'}</span>
           </div>
         </div>
 
@@ -119,7 +120,7 @@ function GameBoard() {
                         makeChoice(selectedOption, points);
                         setSelectedOption(null);
                       }}
-                      currentPoints={playerPoints[playerId] || 0}
+                      currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
                       onCancel={() => setSelectedOption(null)}
                     />
                   </div>
@@ -207,7 +208,7 @@ function GameBoard() {
                   .map(pid => ({
                     id: pid,
                     name: pid === playerId ? 'You' : playerNames[pid] || 'Unknown Player',
-                    points: playerPoints[pid] || 0,
+                    points: playerPoints[pid] !== undefined ? playerPoints[pid] : 0,
                     isCurrentPlayer: pid === playerId,
                     isHost: pid === gameState.host
                   }))
@@ -225,6 +226,7 @@ function GameBoard() {
                           <span className="player-name">
                             {player.name}
                             {player.isHost && ' 🎯'}
+                            {player.isCurrentPlayer && ' (YOU)'}
                           </span>
                           {player.isHost && <span className="host-badge">Host</span>}
                         </div>

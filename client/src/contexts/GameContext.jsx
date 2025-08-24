@@ -79,27 +79,95 @@ function gameReducer(state, action) {
 export function GameProvider({ children, socket }) {
   const [state, dispatch] = useReducer(gameReducer, initialState)
 
+  // Debug: Monitor playerId changes
+  useEffect(() => {
+    console.log('GameContext: playerId changed to:', state.playerId);
+  }, [state.playerId]);
+
+  // Debug: Monitor socket changes
+  useEffect(() => {
+    console.log('GameContext: socket changed to:', socket?.id);
+  }, [socket?.id]);
+
+  // Persist player identity to localStorage
+  useEffect(() => {
+    if (state.playerId && state.currentGame) {
+      const playerIdentity = {
+        playerId: state.playerId,
+        gameId: state.currentGame,
+        playerName: state.playerNames[state.playerId] || 'Unknown',
+        timestamp: Date.now()
+      };
+      localStorage.setItem('underdogBetPlayerIdentity', JSON.stringify(playerIdentity));
+      console.log('Saved player identity to localStorage:', playerIdentity);
+    }
+  }, [state.playerId, state.currentGame, state.playerNames]);
+
+  // Restore player identity from localStorage on mount
+  useEffect(() => {
+    const savedIdentity = localStorage.getItem('underdogBetPlayerIdentity');
+    if (savedIdentity) {
+      try {
+        const identity = JSON.parse(savedIdentity);
+        const now = Date.now();
+        const age = now - identity.timestamp;
+        
+        // Only restore if identity is less than 1 hour old
+        if (age < 60 * 60 * 1000) {
+          console.log('Restoring player identity from localStorage:', identity);
+          dispatch({ type: 'SET_PLAYER_ID', payload: identity.playerId });
+          dispatch({ type: 'SET_CURRENT_GAME', payload: identity.gameId });
+        } else {
+          console.log('Player identity too old, clearing localStorage');
+          localStorage.removeItem('underdogBetPlayerIdentity');
+        }
+      } catch (error) {
+        console.error('Error parsing saved player identity:', error);
+        localStorage.removeItem('underdogBetPlayerIdentity');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!socket) return
 
     // Set player ID when connected
     socket.on('connect', () => {
-      dispatch({ type: 'SET_PLAYER_ID', payload: socket.id })
+      console.log('Socket connected, socket ID:', socket.id);
+      console.log('Previous playerId was:', state.playerId);
+      
+      // If we have a saved game, try to rejoin automatically
+      if (state.currentGame) {
+        console.log('Socket reconnected, attempting to rejoin game');
+        rejoinGame();
+      }
     })
 
     // Handle game creation
     socket.on('gameCreated', (gameData) => {
-      dispatch({ type: 'SET_CURRENT_GAME', payload: gameData.id })
-      dispatch({ type: 'SET_GAME_STATE', payload: gameData })
+      const { playerID, ...gameState } = gameData;
+      console.log('Game created with playerID:', playerID);
+      
+      dispatch({ type: 'SET_PLAYER_ID', payload: playerID })
+      dispatch({ type: 'SET_CURRENT_GAME', payload: gameState.id })
+      dispatch({ type: 'SET_GAME_STATE', payload: gameState })
       dispatch({ type: 'SET_IS_HOST', payload: true })
-      dispatch({ type: 'SET_PLAYERS', payload: gameData.players })
-      dispatch({ type: 'SET_PLAYER_POINTS', payload: gameData.playerPoints })
-      dispatch({ type: 'SET_PLAYER_NAMES', payload: gameData.playerNames })
+      dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
+      dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
+      dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
     })
 
     // Handle joining a game
-    socket.on('gameJoined', ({ gameId, gameState, wasReconnection }) => {
-      console.log('gameJoined event received:', { gameId, wasReconnection, players: gameState.players, status: gameState.status })
+    socket.on('gameJoined', ({ gameId, gameState, wasReconnection, playerID }) => {
+      console.log('gameJoined event received:', { gameId, wasReconnection, players: gameState.players, status: gameState.status, playerID })
+      console.log('Current playerId when joining:', state.playerId);
+      console.log('Received playerPoints:', gameState.playerPoints);
+      console.log('Received playerNames:', gameState.playerNames);
+      
+      // Set the playerID from the server
+      if (playerID) {
+        dispatch({ type: 'SET_PLAYER_ID', payload: playerID })
+      }
       
       dispatch({ type: 'SET_CURRENT_GAME', payload: gameId })
       dispatch({ type: 'SET_GAME_STATE', payload: gameState })
@@ -119,8 +187,10 @@ export function GameProvider({ children, socket }) {
       console.log('gameStateUpdate received:', { 
         players: gameState.players, 
         playerNames: gameState.playerNames,
-        currentPlayers: state.players 
+        currentPlayers: state.players,
+        currentPlayerId: state.playerId
       })
+      console.log('Received playerPoints in update:', gameState.playerPoints);
       
       // Check if this update includes any previously disconnected players
       const previouslyDisconnected = state.disconnectedPlayers || [];
@@ -270,6 +340,19 @@ export function GameProvider({ children, socket }) {
     }
   }
 
+  const rejoinGame = () => {
+    const savedIdentity = localStorage.getItem('underdogBetPlayerIdentity');
+    if (savedIdentity && socket) {
+      try {
+        const identity = JSON.parse(savedIdentity);
+        console.log('Auto-rejoining game after reconnection:', identity);
+        socket.emit('joinGame', { gameId: identity.gameId, playerName: identity.playerName });
+      } catch (error) {
+        console.error('Error auto-rejoining game:', error);
+      }
+    }
+  }
+
   const sendGameAction = (action, payload) => {
     if (socket && state.currentGame) {
       socket.emit('gameAction', {
@@ -281,7 +364,7 @@ export function GameProvider({ children, socket }) {
   }
 
   const getPlayerPoints = (playerId) => {
-    return state.playerPoints[playerId] || 0
+    return state.playerPoints[playerId] !== undefined ? state.playerPoints[playerId] : 0
   }
 
   // Wager system functions
@@ -315,6 +398,7 @@ export function GameProvider({ children, socket }) {
     socket,
     createGame,
     joinGame,
+    rejoinGame,
     sendGameAction,
     getPlayerPoints,
     proposeWager,
