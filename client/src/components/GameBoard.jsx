@@ -6,6 +6,7 @@ import './GameBoard.css'
 function GameBoard() {
   const { gameId } = useParams()
   const navigate = useNavigate()
+  const [selectedOption, setSelectedOption] = useState(null)
   const { 
     gameState, 
     players, 
@@ -35,6 +36,13 @@ function GameBoard() {
       console.log('GameBoard: Game is playing, staying on game board')
     }
   }, [gameState, gameId, navigate])
+
+  // Reset selectedOption when wager state changes
+  useEffect(() => {
+    if (!wagerActive) {
+      setSelectedOption(null)
+    }
+  }, [wagerActive])
 
   if (!gameState || gameState.status !== 'playing') {
     return (
@@ -79,20 +87,45 @@ function GameBoard() {
               <div className="active-wager">
                 <h4>Current Wager</h4>
                 <div className="wager-options">
-                  <div className="wager-option">
+                  <div 
+                    className={`wager-option ${playerChoices[playerId]?.choice === 0 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
+                    onClick={() => {
+                      if (!playerChoices[playerId]) {
+                        // Show points input for this option
+                        setSelectedOption(0);
+                      }
+                    }}
+                  >
                     <strong>Option A:</strong> {wagerOptions[0]}
                   </div>
-                  <div className="wager-option">
+                  <div 
+                    className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
+                    onClick={() => {
+                      if (!playerChoices[playerId]) {
+                        // Show points input for this option
+                        setSelectedOption(1);
+                      }
+                    }}
+                  >
                     <strong>Option B:</strong> {wagerOptions[1]}
                   </div>
                 </div>
                 
-                {!playerChoices[playerId] ? (
-                  <div className="player-choice">
-                    <h4>Make Your Choice</h4>
-                    <WagerChoiceForm onSubmit={makeChoice} currentPoints={playerPoints[playerId] || 0} />
+                {!playerChoices[playerId] && selectedOption !== null && (
+                  <div className="wager-input-section">
+                    <h4>Wager Points for Option {selectedOption === 0 ? 'A' : 'B'}</h4>
+                    <WagerInputForm 
+                      onSubmit={(points) => {
+                        makeChoice(selectedOption, points);
+                        setSelectedOption(null);
+                      }}
+                      currentPoints={playerPoints[playerId] || 0}
+                      onCancel={() => setSelectedOption(null)}
+                    />
                   </div>
-                ) : (
+                )}
+
+                {playerChoices[playerId] && (
                   <div className="choice-made">
                     <p>✅ You have submitted your choice</p>
                   </div>
@@ -263,47 +296,21 @@ function WagerProposalForm({ onSubmit }) {
   )
 }
 
-// Wager Choice Form Component
-function WagerChoiceForm({ onSubmit, currentPoints }) {
-  const [choice, setChoice] = useState('')
+// Wager Input Form Component (for points only)
+function WagerInputForm({ onSubmit, currentPoints, onCancel }) {
   const [points, setPoints] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
     const maxWager = Math.max(50, currentPoints);
-    if (choice !== '' && points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
-      onSubmit(parseInt(choice), parseInt(points))
+    if (points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
+      onSubmit(parseInt(points))
+      setPoints('')
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="wager-choice-form">
-      <div className="form-group">
-        <label>Choose your option:</label>
-        <div className="choice-radio">
-          <label>
-            <input
-              type="radio"
-              name="choice"
-              value="0"
-              checked={choice === '0'}
-              onChange={(e) => setChoice(e.target.value)}
-            />
-            Option A
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="choice"
-              value="1"
-              checked={choice === '1'}
-              onChange={(e) => setChoice(e.target.value)}
-            />
-            Option B
-          </label>
-        </div>
-      </div>
-      
+    <form onSubmit={handleSubmit} className="wager-input-form">
       <div className="form-group">
         <label htmlFor="wager-points">Wager Points:</label>
         <input
@@ -323,9 +330,14 @@ function WagerChoiceForm({ onSubmit, currentPoints }) {
         </div>
       </div>
       
-      <button type="submit" className="btn btn-primary" disabled={choice === '' || points === '' || parseInt(points) <= 0 || parseInt(points) > Math.max(50, currentPoints)}>
-        Submit Wager
-      </button>
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) <= 0 || parseInt(points) > Math.max(50, currentPoints)}>
+          Submit Wager
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </form>
   )
 }

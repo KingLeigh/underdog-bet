@@ -271,30 +271,68 @@
   border-radius: 10px;
   padding: 1rem;
   text-align: center;
+  transition: all 0.2s ease;
+}
+
+.wager-option.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wager-option.clickable:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(74, 222, 128, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.wager-option.selected {
+  background: rgba(74, 222, 128, 0.3);
+  border-color: rgba(74, 222, 128, 0.8);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
 }
 
 .wager-option strong {
   color: #4ade80;
 }
 
-.player-choice h4 {
+.wager-input-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.wager-input-section h4 {
   margin-bottom: 1rem;
   color: rgba(255, 255, 255, 0.8);
+  text-align: center;
 }
 
-.wager-choice-form {
+.wager-input-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  max-width: 400px;
-  margin: 0 auto;
+  gap: 1rem;
 }
 
-.choice-buttons {
+.form-actions {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-bottom: 2rem;
+  margin-top: 1rem;
+}
+
+.form-actions .btn {
+  min-width: 120px;
+}
+
+.player-choice h4 {
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .choice-made {
@@ -519,11 +557,6 @@
   /* Wager system responsive */
   .wager-options {
     grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-  
-  .choice-buttons {
-    flex-direction: column;
     gap: 0.75rem;
   }
   
