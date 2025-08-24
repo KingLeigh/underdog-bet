@@ -220,13 +220,13 @@ export function GameProvider({ children, socket }) {
       console.log('✅ Wager state updated after proposal')
     })
 
-    socket.on('choiceMade', ({ playerId, playerName, hasChosen, choice }) => {
-      console.log('🎯 choiceMade event received:', { playerId, playerName, hasChosen, choice })
+    socket.on('choiceMade', ({ playerId, playerName, hasChosen, choice, points }) => {
+      console.log('🎯 choiceMade event received:', { playerId, playerName, hasChosen, choice, points })
       dispatch({ type: 'SET_PLAYER_CHOICES', payload: { 
         ...state.playerChoices, 
-        [playerId]: { hasChosen, choice, playerName } 
+        [playerId]: { hasChosen, choice, points, playerName } 
       }})
-      console.log(`✅ Player ${playerName} choice recorded (choice hidden until resolution)`)
+      console.log(`✅ Player ${playerName} choice recorded (choice and points hidden until resolution)`)
     })
 
     socket.on('wagerResolved', ({ correctChoice, results, wagerState }) => {
@@ -290,8 +290,8 @@ export function GameProvider({ children, socket }) {
     sendGameAction('proposeWager', { option1, option2 })
   }
 
-  const makeChoice = (choice) => {
-    sendGameAction('makeChoice', { choice })
+  const makeChoice = (choice, points) => {
+    sendGameAction('makeChoice', { choice, points })
   }
 
   const resolveWager = (correctChoice) => {

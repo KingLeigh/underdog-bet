@@ -90,20 +90,7 @@ function GameBoard() {
                 {!playerChoices[playerId] ? (
                   <div className="player-choice">
                     <h4>Make Your Choice</h4>
-                    <div className="choice-buttons">
-                      <button 
-                        onClick={() => makeChoice(0)}
-                        className="btn btn-primary"
-                      >
-                        Choose Option A
-                      </button>
-                      <button 
-                        onClick={() => makeChoice(1)}
-                        className="btn btn-primary"
-                      >
-                        Choose Option B
-                      </button>
-                    </div>
+                    <WagerChoiceForm onSubmit={makeChoice} currentPoints={playerPoints[playerId] || 0} />
                   </div>
                 ) : (
                   <div className="choice-made">
@@ -140,10 +127,14 @@ function GameBoard() {
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
                       <div className="result-header">
-                        {result.playerName}: {result.correct ? '✅ Correct (+100 points)' : '❌ Incorrect (0 points)'}
+                        {result.playerName}: {result.correct ? '✅ Correct' : '❌ Incorrect'}
                       </div>
                       <div className="result-detail">
-                        Chose: Option {result.choice === 0 ? 'A' : 'B'} ({wagerOptions[result.choice]})
+                        <div>Chose: Option {result.choice === 0 ? 'A' : 'B'} ({wagerOptions[result.choice]})</div>
+                        <div>Wagered: <span className="wager-amount">{result.points}</span> points</div>
+                        <div className="points-change">
+                          {result.pointsChange} points
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -183,7 +174,7 @@ function GameBoard() {
                   .map(pid => ({
                     id: pid,
                     name: pid === playerId ? 'You' : playerNames[pid] || 'Unknown Player',
-                    points: playerPoints[pid] || 100,
+                    points: playerPoints[pid] || 0,
                     isCurrentPlayer: pid === playerId,
                     isHost: pid === gameState.host
                   }))
@@ -267,6 +258,71 @@ function WagerProposalForm({ onSubmit }) {
       </div>
       <button type="submit" className="btn btn-primary">
         Propose Wager
+      </button>
+    </form>
+  )
+}
+
+// Wager Choice Form Component
+function WagerChoiceForm({ onSubmit, currentPoints }) {
+  const [choice, setChoice] = useState('')
+  const [points, setPoints] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (choice !== '' && points !== '' && parseInt(points) > 0 && parseInt(points) <= currentPoints) {
+      onSubmit(parseInt(choice), parseInt(points))
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="wager-choice-form">
+      <div className="form-group">
+        <label>Choose your option:</label>
+        <div className="choice-radio">
+          <label>
+            <input
+              type="radio"
+              name="choice"
+              value="0"
+              checked={choice === '0'}
+              onChange={(e) => setChoice(e.target.value)}
+            />
+            Option A
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="choice"
+              value="1"
+              checked={choice === '1'}
+              onChange={(e) => setChoice(e.target.value)}
+            />
+            Option B
+          </label>
+        </div>
+      </div>
+      
+      <div className="form-group">
+        <label htmlFor="wager-points">Wager Points:</label>
+        <input
+          type="number"
+          id="wager-points"
+          value={points}
+          onChange={(e) => setPoints(e.target.value)}
+          min="1"
+          max={currentPoints}
+          placeholder={`1-${currentPoints}`}
+          required
+          className="form-input"
+        />
+        <div className="points-info">
+          Available: <span className="points-available">{currentPoints}</span> points
+        </div>
+      </div>
+      
+      <button type="submit" className="btn btn-primary" disabled={choice === '' || points === '' || parseInt(points) <= 0 || parseInt(points) > currentPoints}>
+        Submit Wager
       </button>
     </form>
   )

@@ -286,20 +286,38 @@ function processGameAction(game, action, payload, socket) {
       return game;
       
     case 'makeChoice':
-      // Player makes a choice on the current wager
-      if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1) {
+      // Player makes a choice on the current wager with points
+      if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1 && payload.points !== undefined) {
         const wagerState = wagerStates.get(game.id);
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
-          wagerState.playerChoices[socket.id] = payload.choice;
+          const currentPoints = game.playerPoints[socket.id] || 0;
           
-          console.log(`Player ${game.playerNames[socket.id]} chose option ${payload.choice} (${wagerState.options[payload.choice]})`);
+          // Validate the wager amount
+          if (payload.points <= 0) {
+            console.log(`Player ${game.playerNames[socket.id]} tried to wager invalid points: ${payload.points}`);
+            return game;
+          }
           
-          // Emit choice made event to all players (without revealing the choice)
+          if (payload.points > currentPoints) {
+            console.log(`Player ${game.playerNames[socket.id]} tried to wager more points than they have: ${payload.points} > ${currentPoints}`);
+            return game;
+          }
+          
+          // Store the choice and wager amount
+          wagerState.playerChoices[socket.id] = {
+            choice: payload.choice,
+            points: payload.points
+          };
+          
+          console.log(`Player ${game.playerNames[socket.id]} chose option ${payload.choice} (${wagerState.options[payload.choice]}) with ${payload.points} points`);
+          
+          // Emit choice made event to all players (without revealing the choice or points)
           io.to(game.id).emit('choiceMade', {
             playerId: socket.id,
             playerName: game.playerNames[socket.id] || 'Unknown Player',
             hasChosen: true,
-            choice: null // Don't reveal the choice until resolution
+            choice: null, // Don't reveal the choice until resolution
+            points: null  // Don't reveal the points until resolution
           });
         }
       }
@@ -315,28 +333,44 @@ function processGameAction(game, action, payload, socket) {
           wagerState.resolved = true;
           wagerState.correctOption = payload.correctChoice;
           
-          // Award 100 points to players who chose correctly
+          // Process wager results with point gains/losses
+          console.log(`🎯 Processing wager results. Player points before resolution:`, game.playerPoints);
+          
           let results = [];
-          for (const [playerId, choice] of Object.entries(wagerState.playerChoices)) {
+          for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
+            const { choice, points } = choiceData;
+            console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
+            
             if (choice === payload.correctChoice) {
-              addPoints(game, playerId, 100);
+              // Player was correct - they gain the points they wagered
+              console.log(`✅ Player ${game.playerNames[playerId]} was correct, adding ${points} points`);
+              addPoints(game, playerId, points);
               results.push({
                 playerId,
                 playerName: game.playerNames[playerId] || 'Unknown Player',
                 choice,
+                points,
                 correct: true,
-                pointsAwarded: 100
+                pointsAwarded: points,
+                pointsChange: `+${points}`
               });
             } else {
+              // Player was incorrect - they lose the points they wagered
+              console.log(`❌ Player ${game.playerNames[playerId]} was incorrect, subtracting ${points} points`);
+              addPoints(game, playerId, -points);
               results.push({
                 playerId,
                 playerName: game.playerNames[playerId] || 'Unknown Player',
                 choice,
+                points,
                 correct: false,
-                pointsAwarded: 0
+                pointsAwarded: 0,
+                pointsChange: `-${points}`
               });
             }
           }
+          
+          console.log(`🎯 Player points after resolution:`, game.playerPoints);
           
           console.log(`Wager resolved by host ${game.playerNames[socket.id]}. Correct answer: Option ${payload.correctChoice}. Results:`, results);
           
@@ -386,7 +420,15 @@ function generateGameId() {
 // Point management functions
 function addPoints(game, playerId, points) {
   if (game.playerPoints[playerId] !== undefined) {
-    game.playerPoints[playerId] = Math.max(0, game.playerPoints[playerId] + points);
+    const oldPoints = game.playerPoints[playerId];
+    const newPoints = Math.max(0, oldPoints + points);
+    game.playerPoints[playerId] = newPoints;
+    console.log(`📊 Points update for ${game.playerNames[playerId]}: ${oldPoints} + (${points}) = ${newPoints}`);
+    
+    if (newPoints === 0) {
+      console.log(`🚨 Player ${game.playerNames[playerId]} now has ZERO points!`);
+    }
+    
     return true;
   }
   return false;
