@@ -130,7 +130,6 @@ io.on('connection', (socket) => {
       host: socket.id,
       players: [socket.id],
       status: 'waiting',
-      config: gameConfig,
       createdAt: new Date().toISOString(),
       lastCleanup: Date.now(),
       playerPoints: {

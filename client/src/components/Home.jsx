@@ -7,18 +7,14 @@ function Home() {
   const [gameId, setGameId] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [gameConfig, setGameConfig] = useState({
-    maxPlayers: 4,
-    gameType: 'standard',
-    playerName: ''
-  })
+  const [createPlayerName, setCreatePlayerName] = useState('')
   
   const navigate = useNavigate()
   const { createGame, joinGame, currentGame, gameState, error, clearError } = useGame()
 
   const handleCreateGame = (e) => {
     e.preventDefault()
-    createGame(gameConfig)
+    createGame({ playerName: createPlayerName })
     setShowCreateForm(false)
   }
 
@@ -27,14 +23,6 @@ function Home() {
     if (gameId.trim() && playerName.trim()) {
       joinGame(gameId.trim().toUpperCase(), playerName.trim())
     }
-  }
-
-  const handleGameConfigChange = (e) => {
-    const { name, value } = e.target
-    setGameConfig(prev => ({
-      ...prev,
-      [name]: name === 'maxPlayers' ? parseInt(value) : value
-    }))
   }
 
   // Auto-navigate when game is created/joined
@@ -111,40 +99,11 @@ function Home() {
                     type="text"
                     id="playerName"
                     name="playerName"
-                    value={gameConfig.playerName}
-                    onChange={handleGameConfigChange}
+                    value={createPlayerName}
+                    onChange={(e) => setCreatePlayerName(e.target.value)}
                     placeholder="Enter your name"
                     required
                   />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="maxPlayers">Maximum Players:</label>
-                  <select
-                    id="maxPlayers"
-                    name="maxPlayers"
-                    value={gameConfig.maxPlayers}
-                    onChange={handleGameConfigChange}
-                  >
-                    <option value={2}>2 Players</option>
-                    <option value={3}>3 Players</option>
-                    <option value={4}>4 Players</option>
-                    <option value={6}>6 Players</option>
-                  </select>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="gameType">Game Type:</label>
-                  <select
-                    id="gameType"
-                    name="gameType"
-                    value={gameConfig.gameType}
-                    onChange={handleGameConfigChange}
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="quick">Quick Play</option>
-                    <option value="tournament">Tournament</option>
-                  </select>
                 </div>
                 
                 <div className="modal-actions">

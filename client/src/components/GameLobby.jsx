@@ -72,7 +72,7 @@ function GameLobby() {
         </div>
 
         <div className="players-section">
-          <h3>Players ({players.length}/{gameState.config?.maxPlayers || 4})</h3>
+          <h3>Players ({players.length})</h3>
           <div className="players-list">
             {players.map((playerId) => (
               <div key={playerId} className="player-item">
