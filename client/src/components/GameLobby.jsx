@@ -84,7 +84,7 @@ function GameLobby() {
                   </div>
                   <div className="player-id">{playerId.slice(0, 8)}...</div>
                   <div className="player-points">
-                    Points: <span className="points-value">{playerPoints[playerId] || 0}</span>
+                    Points: <span className={`points-value ${(playerPoints[playerId] || 0) < 0 ? 'negative' : ''}`}>{playerPoints[playerId] || 0}</span>
                   </div>
                 </div>
                 {playerId === gameState.host && (

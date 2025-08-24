@@ -298,10 +298,16 @@ function processGameAction(game, action, payload, socket) {
             return game;
           }
           
-          if (payload.points > currentPoints) {
-            console.log(`Player ${game.playerNames[socket.id]} tried to wager more points than they have: ${payload.points} > ${currentPoints}`);
+          // Calculate maximum allowed wager: 50 points OR current points, whichever is larger
+          const maxWager = Math.max(50, currentPoints);
+          
+          if (payload.points > maxWager) {
+            console.log(`Player ${game.playerNames[socket.id]} tried to wager ${payload.points} points, but max allowed is ${maxWager} (current: ${currentPoints})`);
             return game;
           }
+          
+          // Note: Players can always bet up to maxWager points, even if they go negative
+          console.log(`Player ${game.playerNames[socket.id]} wagering ${payload.points} points (current balance: ${currentPoints}, max allowed: ${maxWager})`);
           
           // Store the choice and wager amount
           wagerState.playerChoices[socket.id] = {
@@ -421,12 +427,14 @@ function generateGameId() {
 function addPoints(game, playerId, points) {
   if (game.playerPoints[playerId] !== undefined) {
     const oldPoints = game.playerPoints[playerId];
-    const newPoints = Math.max(0, oldPoints + points);
+    const newPoints = oldPoints + points; // Allow negative points
     game.playerPoints[playerId] = newPoints;
     console.log(`📊 Points update for ${game.playerNames[playerId]}: ${oldPoints} + (${points}) = ${newPoints}`);
     
     if (newPoints === 0) {
       console.log(`🚨 Player ${game.playerNames[playerId]} now has ZERO points!`);
+    } else if (newPoints < 0) {
+      console.log(`💸 Player ${game.playerNames[playerId]} now has NEGATIVE points: ${newPoints}`);
     }
     
     return true;

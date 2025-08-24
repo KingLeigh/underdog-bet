@@ -172,6 +172,10 @@
   font-size: 1.2rem;
 }
 
+.points-value.negative {
+  color: #ef4444;
+}
+
 .error-message {
   background: rgba(239, 68, 68, 0.2);
   border: 1px solid rgba(239, 68, 68, 0.5);
@@ -416,11 +420,20 @@
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.7);
   margin-top: 0.25rem;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .points-available {
   color: #4ade80;
   font-weight: 600;
+}
+
+.wager-limit {
+  color: #f59e0b;
+  font-weight: 500;
 }
 
 .wager-amount {
@@ -431,6 +444,14 @@
 .points-change {
   font-weight: 600;
   margin-top: 0.5rem;
+}
+
+.points-change.positive {
+  color: #4ade80;
+}
+
+.points-change.negative {
+  color: #ef4444;
 }
 
 .points-change:not(:empty)::before {

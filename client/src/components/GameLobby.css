@@ -158,6 +158,10 @@
   font-size: 1rem;
 }
 
+.points-value.negative {
+  color: #ef4444;
+}
+
 .host-badge {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;

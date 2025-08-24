@@ -132,7 +132,7 @@ function GameBoard() {
                       <div className="result-detail">
                         <div>Chose: Option {result.choice === 0 ? 'A' : 'B'} ({wagerOptions[result.choice]})</div>
                         <div>Wagered: <span className="wager-amount">{result.points}</span> points</div>
-                        <div className="points-change">
+                        <div className={`points-change ${result.pointsChange.startsWith('-') ? 'negative' : 'positive'}`}>
                           {result.pointsChange} points
                         </div>
                       </div>
@@ -197,7 +197,7 @@ function GameBoard() {
                         </div>
                       </td>
                       <td className="points-cell">
-                        <span className="points-value">{player.points}</span>
+                        <span className={`points-value ${player.points < 0 ? 'negative' : ''}`}>{player.points}</span>
                       </td>
                     </tr>
                   ))}
@@ -270,7 +270,8 @@ function WagerChoiceForm({ onSubmit, currentPoints }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (choice !== '' && points !== '' && parseInt(points) > 0 && parseInt(points) <= currentPoints) {
+    const maxWager = Math.max(50, currentPoints);
+    if (choice !== '' && points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
       onSubmit(parseInt(choice), parseInt(points))
     }
   }
@@ -311,17 +312,18 @@ function WagerChoiceForm({ onSubmit, currentPoints }) {
           value={points}
           onChange={(e) => setPoints(e.target.value)}
           min="1"
-          max={currentPoints}
-          placeholder={`1-${currentPoints}`}
+          max={Math.max(50, currentPoints)}
+          placeholder={`1-${Math.max(50, currentPoints)}`}
           required
           className="form-input"
         />
         <div className="points-info">
-          Available: <span className="points-available">{currentPoints}</span> points
+          <span className="points-available">Current: {currentPoints}</span> points
+          <span className="wager-limit"> | Max wager: {Math.max(50, currentPoints)} points</span>
         </div>
       </div>
       
-      <button type="submit" className="btn btn-primary" disabled={choice === '' || points === '' || parseInt(points) <= 0 || parseInt(points) > currentPoints}>
+      <button type="submit" className="btn btn-primary" disabled={choice === '' || points === '' || parseInt(points) <= 0 || parseInt(points) > Math.max(50, currentPoints)}>
         Submit Wager
       </button>
     </form>

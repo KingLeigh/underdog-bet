@@ -14,9 +14,17 @@ A real-time multiplayer betting game built with Node.js, Socket.IO, and React.
 The game now includes a complete wager system where:
 
 1. **Host proposes a wager** by entering two free-text options
-2. **Players make choices** between the two options
+2. **Players make choices** between the two options and wager points
 3. **Host resolves the wager** by indicating which choice was correct
-4. **Points are awarded** - 100 points for correct choices, 0 for incorrect
+4. **Points are awarded** - Players gain their wagered points if correct, lose them if incorrect
+
+### Wager Rules:
+- **Maximum wager**: 50 points OR current points, whichever is larger
+  - Player with 25 points: can bet up to 50 points
+  - Player with 100 points: can bet up to 100 points
+  - Player with 0 points: can bet up to 50 points
+- **Always playable**: Players can always bet up to their maximum allowed amount, even if they have fewer points (scores can go negative)
+- **Point calculation**: Correct players gain their wagered amount, incorrect players lose their wagered amount
 
 ### How to use the Wager System:
 
@@ -72,7 +80,7 @@ The game now includes a complete wager system where:
 2. **Wait in the lobby** for other players to join
 3. **Start the game** when ready (minimum 2 players)
 4. **Use the wager system** to create betting opportunities
-5. **Track points** as players make correct predictions
+5. **Track points** as players make correct predictions (scores can go negative)
 
 ## API Endpoints
 
