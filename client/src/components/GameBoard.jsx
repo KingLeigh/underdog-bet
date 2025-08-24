@@ -137,7 +137,7 @@ function GameBoard() {
                   <h4>Player Choices</h4>
                   {Object.entries(playerChoices).map(([pid, choiceData]) => (
                     <div key={pid} className="player-choice-item">
-                      {choiceData.playerName || 'Unknown Player'}: ✅ Choice Submitted
+                      <strong>{choiceData.playerName || 'Unknown Player'}</strong> wagered <strong>{choiceData.points || 0}</strong> points
                     </div>
                   ))}
                   {Object.keys(playerChoices).length === 0 && (
@@ -165,8 +165,6 @@ function GameBoard() {
                         {result.playerName}: {result.correct ? '✅ Correct' : '❌ Incorrect'}
                       </div>
                       <div className="result-detail">
-                        <div>Chose: Option {result.choice === 0 ? 'A' : 'B'} ({wagerOptions[result.choice]})</div>
-                        <div>Wagered: <span className="wager-amount">{result.points}</span> points</div>
                         <div className={`points-change ${result.pointsChange.startsWith('-') ? 'negative' : 'positive'}`}>
                           {result.pointsChange} points
                         </div>

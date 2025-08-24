@@ -125,7 +125,7 @@ io.on('connection', (socket) => {
             wagerId: Date.now().toString()
           });
           
-          // Send current player choices (without revealing actual choices/points)
+          // Send current player choices (reveal points but keep choice secret)
           for (const [choicePlayerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const choicePlayerName = game.playerNames[choicePlayerId] || 'Unknown Player';
             socket.emit('choiceMade', {
@@ -133,7 +133,7 @@ io.on('connection', (socket) => {
               playerName: choicePlayerName,
               hasChosen: true,
               choice: null, // Don't reveal the choice until resolution
-              points: null  // Don't reveal the points until resolution
+              points: choiceData.points  // Show the wager amount for tension
             });
           }
         }
@@ -356,7 +356,7 @@ io.on('connection', (socket) => {
           wagerId: Date.now().toString()
         });
         
-                  // Send current player choices (without revealing actual choices/points)
+                  // Send current player choices (reveal points but keep choice secret)
           for (const [choicePlayerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const choicePlayerName = game.playerNames[choicePlayerId] || 'Unknown Player';
             socket.emit('choiceMade', {
@@ -364,7 +364,7 @@ io.on('connection', (socket) => {
               playerName: choicePlayerName,
               hasChosen: true,
               choice: null, // Don't reveal the choice until resolution
-              points: null  // Don't reveal the points until resolution
+              points: choiceData.points  // Show the wager amount for tension
             });
           }
       }
@@ -540,13 +540,13 @@ function processGameAction(game, action, payload, playerID) {
           
           console.log(`Player ${game.playerNames[playerID]} chose option ${payload.choice} (${wagerState.options[payload.choice]}) with ${payload.points} points`);
           
-          // Emit choice made event to all players (without revealing the choice or points)
+          // Emit choice made event to all players (reveal points but keep choice secret)
           io.to(game.id).emit('choiceMade', {
             playerId: playerID,
             playerName: game.playerNames[playerID] || 'Unknown Player',
             hasChosen: true,
             choice: null, // Don't reveal the choice until resolution
-            points: null  // Don't reveal the points until resolution
+            points: payload.points  // Show the wager amount for tension
           });
         }
       }
