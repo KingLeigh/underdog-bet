@@ -290,14 +290,6 @@ export function GameProvider({ children, socket }) {
     }
   }
 
-  const addPoints = (playerId, points) => {
-    sendGameAction('addPoints', { playerId, points })
-  }
-
-  const setPoints = (playerId, points) => {
-    sendGameAction('setPoints', { playerId, points })
-  }
-
   const getPlayerPoints = (playerId) => {
     return state.playerPoints[playerId] || 0
   }
@@ -334,8 +326,6 @@ export function GameProvider({ children, socket }) {
     createGame,
     joinGame,
     sendGameAction,
-    addPoints,
-    setPoints,
     getPlayerPoints,
     proposeWager,
     makeChoice,

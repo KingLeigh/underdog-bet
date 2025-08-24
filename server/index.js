@@ -211,38 +211,10 @@ function processGameAction(game, action, payload, socket) {
         return { 
           ...game, 
           status: 'playing',
-          lastAction: { action, payload, timestamp: Date.now() },
           gameStartedAt: new Date().toISOString()
         };
       }
       return game;
-      
-    case 'endTurn':
-      // Placeholder for turn management
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
-      
-    case 'addPoints':
-      // Add or subtract points for a player
-      if (payload.playerId && payload.points !== undefined) {
-        addPoints(game, payload.playerId, payload.points);
-      }
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
-      
-    case 'setPoints':
-      // Set points for a player to a specific value
-      if (payload.playerId && payload.points !== undefined) {
-        setPoints(game, payload.playerId, payload.points);
-      }
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
       
     case 'proposeWager':
       // Host proposes a wager with two options
@@ -295,10 +267,7 @@ function processGameAction(game, action, payload, socket) {
           socketId: socket.id
         });
       }
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
+      return game;
       
     case 'makeChoice':
       // Player makes a choice on the current wager
@@ -318,10 +287,7 @@ function processGameAction(game, action, payload, socket) {
           });
         }
       }
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
+      return game;
       
     case 'resolveWager':
       // Host resolves the wager and awards points
@@ -389,23 +355,10 @@ function processGameAction(game, action, payload, socket) {
           socketId: socket.id
         });
       }
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
-      
-    case 'testAction':
-      // Placeholder for testing
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
+      return game;
       
     default:
-      return { 
-        ...game, 
-        lastAction: { action, payload, timestamp: Date.now() }
-      };
+      return game;
   }
 }
 
@@ -444,16 +397,8 @@ function cleanupDisconnectedPlayers() {
   }
 }
 
-function setPoints(game, playerId, points) {
-  if (game.playerPoints[playerId] !== undefined) {
-    game.playerPoints[playerId] = Math.max(0, points);
-    return true;
-  }
-  return false;
-}
-
 function getPlayerPoints(game, playerId) {
-  return game.playerPoints[playerId] || 0;
+  return game.playerPoints[playerId] || 0
 }
 
 function getWagerState(gameId) {

@@ -18,9 +18,6 @@ function GameBoard() {
     playerChoices,
     wagerResolved,
     wagerResults,
-    sendGameAction,
-    addPoints,
-    setPoints,
     proposeWager,
     makeChoice,
     resolveWager,
@@ -38,10 +35,6 @@ function GameBoard() {
       console.log('GameBoard: Game is playing, staying on game board')
     }
   }, [gameState, gameId, navigate])
-
-  const handleGameAction = (action, payload) => {
-    sendGameAction(action, payload)
-  }
 
   if (!gameState || gameState.status !== 'playing') {
     return (
@@ -65,12 +58,6 @@ function GameBoard() {
         </div>
 
         <div className="game-area">
-          <div className="game-status">
-            <h3>Game Status</h3>
-            <p>This is where your game board will be displayed</p>
-            <p>Game state: {JSON.stringify(gameState, null, 2)}</p>
-          </div>
-
           {/* Wager System Interface */}
           <div className="wager-section">
             <h3>Wager System</h3>
@@ -177,42 +164,6 @@ function GameBoard() {
                 )}
               </div>
             )}
-          </div>
-
-          <div className="player-actions">
-            <h3>Your Actions</h3>
-            <div className="action-buttons">
-              <button 
-                onClick={() => handleGameAction('testAction', { message: 'Hello from player!' })}
-                className="btn btn-secondary"
-              >
-                Test Action
-              </button>
-              <button 
-                onClick={() => handleGameAction('endTurn', {})}
-                className="btn btn-primary"
-              >
-                End Turn
-              </button>
-              <button 
-                onClick={() => addPoints(playerId, 10)}
-                className="btn btn-secondary"
-              >
-                +10 Points
-              </button>
-              <button 
-                onClick={() => addPoints(playerId, -5)}
-                className="btn btn-secondary"
-              >
-                -5 Points
-              </button>
-              <button 
-                onClick={() => setPoints(playerId, 100)}
-                className="btn btn-secondary"
-              >
-                Reset to 100
-              </button>
-            </div>
           </div>
         </div>
 
