@@ -144,17 +144,8 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
     })
 
-    // Handle player joining
-    socket.on('playerJoined', ({ playerId, playerName }) => {
-      if (state.gameState) {
-        const updatedPlayers = [...state.gameState.players, playerId]
-        dispatch({ type: 'SET_PLAYERS', payload: updatedPlayers })
-        // New player starts with 100 points
-        dispatch({ type: 'SET_PLAYER_POINTS', payload: { ...state.playerPoints, [playerId]: 100 } })
-        // Add new player's name
-        dispatch({ type: 'SET_PLAYER_NAMES', payload: { ...state.playerNames, [playerId]: playerName } })
-      }
-    })
+    // Note: playerJoined events are no longer used - all state updates come via gameStateUpdate
+    // This ensures consistent state across all players and prevents race conditions
 
     // Handle player leaving
     socket.on('playerLeft', ({ playerId }) => {
@@ -255,7 +246,6 @@ export function GameProvider({ children, socket }) {
       socket.off('gameCreated')
       socket.off('gameJoined')
       socket.off('gameStateUpdate')
-      socket.off('playerJoined')
       socket.off('playerLeft')
       socket.off('playerDisconnected')
       // socket.off('playerReconnected') // No longer used

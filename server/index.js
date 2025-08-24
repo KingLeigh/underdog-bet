@@ -106,8 +106,16 @@ io.on('connection', (socket) => {
         
         socket.join(gameId);
         socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false });
-        socket.to(gameId).emit('playerJoined', { playerId: socket.id, playerName: game.playerNames[socket.id] });
+        
+        // Send gameStateUpdate to ALL players (including existing ones) to ensure state consistency
+        io.to(gameId).emit('gameStateUpdate', game);
+        
         console.log(`Player ${playerName || 'Unknown'} joined game ${gameId}`);
+        console.log(`Sent gameStateUpdate to all players. Current game state:`, {
+          players: game.players,
+          playerNames: game.playerNames,
+          playerCount: game.players.length
+        });
       }
     } else {
       socket.emit('error', { message: 'Game not found' });
@@ -195,7 +203,15 @@ io.on('connection', (socket) => {
           canReconnect: true 
         });
         
+        // Send updated game state to all remaining players to ensure consistency
+        io.to(gameId).emit('gameStateUpdate', game);
+        
         console.log(`Player ${playerName} disconnected from game ${gameId} (can reconnect)`);
+        console.log(`Sent gameStateUpdate to remaining players. Current game state:`, {
+          players: game.players,
+          playerNames: game.playerNames,
+          playerCount: game.players.length
+        });
       }
     }
   });
