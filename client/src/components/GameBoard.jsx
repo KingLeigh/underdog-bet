@@ -207,7 +207,7 @@ function GameBoard() {
                 {players
                   .map(pid => ({
                     id: pid,
-                    name: pid === playerId ? 'You' : playerNames[pid] || 'Unknown Player',
+                    name: playerNames[pid] || 'Unknown Player',
                     points: playerPoints[pid] !== undefined ? playerPoints[pid] : 0,
                     isCurrentPlayer: pid === playerId,
                     isHost: pid === gameState.host
