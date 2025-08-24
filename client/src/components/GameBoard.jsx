@@ -157,7 +157,7 @@ function GameBoard() {
             {wagerResolved && wagerResults && (
               <div className="wager-results">
                 <h4>Wager Results</h4>
-                <p><strong>Correct Answer:</strong> Option {wagerResults.correctChoice === 0 ? 'A' : 'B'}</p>
+                <p><strong>Correct Answer:</strong> Option {wagerResults.correctChoice === 0 ? 'A' : 'B'} ({wagerOptions[wagerResults.correctChoice]})</p>
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
