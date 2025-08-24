@@ -148,7 +148,7 @@ function GameBoard() {
                 {isHost && Object.keys(playerChoices).length > 0 && (
                   <div className="host-resolve-controls">
                     <h4>Resolve Wager</h4>
-                    <WagerResolutionForm onSubmit={resolveWager} />
+                    <WagerResolutionForm onSubmit={resolveWager} wagerOptions={wagerOptions} />
                   </div>
                 )}
               </div>
@@ -346,7 +346,7 @@ function WagerInputForm({ onSubmit, currentPoints, onCancel }) {
 }
 
 // Wager Resolution Form Component
-function WagerResolutionForm({ onSubmit }) {
+function WagerResolutionForm({ onSubmit, wagerOptions }) {
   const [correctChoice, setCorrectChoice] = useState('')
 
   const handleSubmit = (e) => {
@@ -359,28 +359,20 @@ function WagerResolutionForm({ onSubmit }) {
   return (
     <form onSubmit={handleSubmit} className="wager-resolution-form">
       <div className="form-group">
-        <label>Which option was correct?</label>
-        <div className="choice-radio">
-          <label>
-            <input
-              type="radio"
-              name="correctChoice"
-              value="0"
-              checked={correctChoice === '0'}
-              onChange={(e) => setCorrectChoice(e.target.value)}
-            />
-            Option A
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="correctChoice"
-              value="1"
-              checked={correctChoice === '1'}
-              onChange={(e) => setCorrectChoice(e.target.value)}
-            />
-            Option B
-          </label>
+        <label className="resolution-label">Which option was correct?</label>
+        <div className="resolution-options">
+          <div 
+            className={`resolution-option ${correctChoice === '0' ? 'selected' : 'clickable'}`}
+            onClick={() => setCorrectChoice('0')}
+          >
+            <strong>Option A:</strong> {wagerOptions[0]}
+          </div>
+          <div 
+            className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
+            onClick={() => setCorrectChoice('1')}
+          >
+            <strong>Option B:</strong> {wagerOptions[1]}
+          </div>
         </div>
       </div>
       <button type="submit" className="btn btn-primary" disabled={correctChoice === ''}>
