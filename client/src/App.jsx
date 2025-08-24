@@ -34,17 +34,6 @@ function App() {
     <GameProvider socket={socket}>
       <Router>
         <div className="App">
-          <header className="App-header">
-            <h1>Underdog Bet</h1>
-            <div className="connection-status">
-              {isConnected ? (
-                <span className="connected">🟢 Connected</span>
-              ) : (
-                <span className="disconnected">🔴 Disconnected</span>
-              )}
-            </div>
-          </header>
-          
           <main>
             <Routes>
               <Route path="/" element={<Home />} />

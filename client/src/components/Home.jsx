@@ -51,15 +51,14 @@ function Home() {
   return (
     <div className="home">
       <div className="home-content">
-        <h2>Welcome to Underdog Bet</h2>
-        <p>Create a new game or join an existing one</p>
+        <h2>Underdogs</h2>
         
         <div className="action-buttons">
           <button 
             className="btn btn-primary"
             onClick={() => setShowCreateForm(true)}
           >
-            Create New Game
+            Host New Game
           </button>
           
           <div className="divider">or</div>
@@ -83,7 +82,7 @@ function Home() {
               required
             />
             <button type="submit" className="btn btn-secondary">
-              Join Game
+              Join Existing Game
             </button>
           </form>
         </div>

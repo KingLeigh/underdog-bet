@@ -7,6 +7,7 @@ function GameBoard() {
   const { gameId, playerId: urlPlayerId } = useParams()
   const navigate = useNavigate()
   const [selectedOption, setSelectedOption] = useState(null)
+  const [isConnected, setIsConnected] = useState(false)
   const { 
     gameState, 
     players, 
@@ -24,7 +25,8 @@ function GameBoard() {
     resolveWager,
     resetWagerState,
     error,
-    rejoinGame
+    rejoinGame,
+    socket
   } = useGame()
 
   useEffect(() => {
@@ -45,6 +47,25 @@ function GameBoard() {
     }
   }, [wagerActive])
 
+  // Monitor connection status
+  useEffect(() => {
+    if (!socket) return
+
+    const handleConnect = () => setIsConnected(true)
+    const handleDisconnect = () => setIsConnected(false)
+
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+
+    // Set initial connection status
+    setIsConnected(socket.connected)
+
+    return () => {
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
+    }
+  }, [socket])
+
   if (!gameState || gameState.status !== 'playing') {
     return (
       <div className="game-board">
@@ -59,18 +80,13 @@ function GameBoard() {
     <div className="game-board">
       <div className="game-board-content">
         <div className="game-header">
-          <h2>Game in Progress</h2>
-          <div className="game-info">
-            <span>Game ID: {gameId}</span>
-            <span>Players: {players.length}</span>
-            <span>Your ID: {playerId ? playerId.slice(0, 8) + '...' : 'Not set'}</span>
-          </div>
+          <h2>Underdogs</h2>
         </div>
 
         <div className="game-area">
           {/* Wager System Interface */}
           <div className="wager-section">
-            <h3>Wager System</h3>
+            <h3>Betting</h3>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
@@ -194,7 +210,7 @@ function GameBoard() {
         </div>
 
         <div className="players-panel">
-          <h3>Score Tracker</h3>
+          <h3>Leaderboard</h3>
           <div className="score-table">
             <table>
               <thead>
@@ -226,8 +242,7 @@ function GameBoard() {
                         <div className="player-info">
                           <span className="player-name">
                             {player.name}
-                            {player.isHost && ' 🎯'}
-                            {player.isCurrentPlayer && ' (YOU)'}
+                            {player.isCurrentPlayer && ' (You)'}
                           </span>
                           {player.isHost && <span className="host-badge">Host</span>}
                         </div>
@@ -247,6 +262,19 @@ function GameBoard() {
             {error}
           </div>
         )}
+        
+        <div className="game-info-footer">
+          <div className="game-info">
+            <span>Game ID: {gameId}</span>
+            <div className="connection-status">
+              {isConnected ? (
+                <span className="connected">🟢 Connected</span>
+              ) : (
+                <span className="disconnected">🔴 Disconnected</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

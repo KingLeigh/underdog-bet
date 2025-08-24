@@ -38,6 +38,12 @@
   align-items: center;
 }
 
+.action-buttons .btn {
+  min-width: 200px;
+  width: 100%;
+  max-width: 300px;
+}
+
 .divider {
   color: rgba(255, 255, 255, 0.6);
   font-size: 1rem;
@@ -68,6 +74,7 @@
   gap: 1rem;
   width: 100%;
   max-width: 400px;
+  align-items: center;
 }
 
 .player-name-input {

@@ -41,11 +41,47 @@
 }
 
 .game-info span {
-  background: rgba(0, 0, 0, 0.3);
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.game-info-footer {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.game-info {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.game-info > span,
+.game-info > div {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 120px;
+  text-align: center;
+}
+
+.connection-status {
+  margin: 0;
+}
+
+.connection-status .connected {
+  color: #4ade80;
+}
+
+.connection-status .disconnected {
+  color: #ef4444;
 }
 
 .game-area {
@@ -482,42 +518,13 @@
 }
 
 .resolution-option.selected {
-  background: rgba(74, 222, 128, 0.4);
-  border-color: #4ade80;
-  border-width: 3px;
-  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.2), 0 8px 25px rgba(74, 222, 128, 0.3);
-  transform: scale(1.02);
-}
-
-.resolution-option.selected::before {
-  content: "✓ SELECTED";
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #4ade80;
-  color: #000;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.25rem 0.75rem;
-  border-radius: 15px;
-  white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  animation: pulse-glow 2s ease-in-out infinite;
+  background: rgba(74, 222, 128, 0.3);
+  border-color: rgba(74, 222, 128, 0.8);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
 }
 
 .resolution-option strong {
   color: #4ade80;
-  font-weight: 600;
-}
-
-.resolution-option.selected strong {
-  color: #000;
-  font-weight: 800;
-}
-
-.resolution-option.selected {
-  color: #000;
   font-weight: 600;
 }
 
