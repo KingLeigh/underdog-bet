@@ -69,79 +69,107 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.players-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+.score-table {
+  width: 100%;
 }
 
-.player-item {
+.score-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.score-table thead {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 15px;
+}
+
+.score-table th {
   padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: left;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.score-table th:first-child {
+  text-align: center;
+  width: 80px;
+}
+
+.score-table th:last-child {
+  text-align: right;
+  width: 100px;
+}
+
+.score-row {
   transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.player-item:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-2px);
+.score-row:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.player-item.current-player {
-  border-color: #4ade80;
-  box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+.score-row.current-player {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.5);
 }
 
-.player-avatar {
-  font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+.score-row.current-player:hover {
+  background: rgba(74, 222, 128, 0.3);
+}
+
+.score-row td {
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.rank-cell {
+  text-align: center;
+  font-weight: 600;
+}
+
+.rank-number {
+  color: #4ade80;
+  font-size: 1.1rem;
+}
+
+.player-cell {
+  width: 100%;
 }
 
 .player-info {
-  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .player-name {
   font-weight: 600;
   font-size: 1rem;
-  margin-bottom: 0.25rem;
-}
-
-.player-id {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-family: monospace;
-}
-
-.player-points {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 0.25rem;
-}
-
-.points-value {
-  color: #4ade80;
-  font-weight: 600;
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .host-badge {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 15px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 10px;
   font-size: 0.7rem;
   font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.points-cell {
+  text-align: right;
+}
+
+.points-value {
+  color: #4ade80;
+  font-weight: 600;
+  font-size: 1.2rem;
 }
 
 .error-message {
@@ -410,12 +438,27 @@
     gap: 1rem;
   }
   
-  .players-list {
-    grid-template-columns: 1fr;
+  .score-table th,
+  .score-table td {
+    padding: 0.75rem 0.5rem;
   }
   
-  .player-item {
-    padding: 0.75rem;
+  .score-table th:first-child,
+  .score-table th:last-child {
+    width: 60px;
+  }
+  
+  .player-name {
+    font-size: 0.9rem;
+  }
+  
+  .points-value {
+    font-size: 1rem;
+  }
+  
+  .host-badge {
+    font-size: 0.6rem;
+    padding: 0.2rem 0.4rem;
   }
   
   /* Wager system responsive */

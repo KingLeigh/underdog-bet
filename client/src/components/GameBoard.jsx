@@ -168,29 +168,50 @@ function GameBoard() {
         </div>
 
         <div className="players-panel">
-          <h3>Players</h3>
-          <div className="players-list">
-            {players.map((pid) => (
-              <div 
-                key={pid} 
-                className={`player-item ${pid === playerId ? 'current-player' : ''}`}
-              >
-                <div className="player-avatar">👤</div>
-                <div className="player-info">
-                  <div className="player-name">
-                    {pid === playerId ? 'You' : playerNames[pid] || 'Unknown Player'}
-                    {pid === gameState.host && ' 🎯'}
-                  </div>
-                  <div className="player-id">{pid.slice(0, 8)}...</div>
-                  <div className="player-points">
-                    Points: <span className="points-value">{playerPoints[pid] || 100}</span>
-                  </div>
-                </div>
-                {pid === gameState.host && (
-                  <div className="host-badge">Host</div>
-                )}
-              </div>
-            ))}
+          <h3>Score Tracker</h3>
+          <div className="score-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {players
+                  .map(pid => ({
+                    id: pid,
+                    name: pid === playerId ? 'You' : playerNames[pid] || 'Unknown Player',
+                    points: playerPoints[pid] || 100,
+                    isCurrentPlayer: pid === playerId,
+                    isHost: pid === gameState.host
+                  }))
+                  .sort((a, b) => b.points - a.points)
+                  .map((player, index) => (
+                    <tr 
+                      key={player.id} 
+                      className={`score-row ${player.isCurrentPlayer ? 'current-player' : ''}`}
+                    >
+                      <td className="rank-cell">
+                        <span className="rank-number">#{index + 1}</span>
+                      </td>
+                      <td className="player-cell">
+                        <div className="player-info">
+                          <span className="player-name">
+                            {player.name}
+                            {player.isHost && ' 🎯'}
+                          </span>
+                          {player.isHost && <span className="host-badge">Host</span>}
+                        </div>
+                      </td>
+                      <td className="points-cell">
+                        <span className="points-value">{player.points}</span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
