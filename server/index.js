@@ -32,17 +32,80 @@ io.on('connection', (socket) => {
     if (gameSessions.has(gameId)) {
       const game = gameSessions.get(gameId);
       
-      // Add player to the game and initialize their points and name
-      if (!game.players.includes(socket.id)) {
-        game.players.push(socket.id);
-        game.playerPoints[socket.id] = 100;
-        game.playerNames[socket.id] = playerName || `Player${game.players.length}`;
+      // Check if this is a reconnection (same name, different socket)
+      let isReconnection = false;
+      let existingPlayerId = null;
+      
+      console.log(`Checking for reconnection: ${playerName}`);
+      console.log(`Current players:`, game.players);
+      console.log(`All player names:`, game.playerNames);
+      
+      // Look for existing player with same name who is not currently connected
+      for (const [pid, pname] of Object.entries(game.playerNames)) {
+        console.log(`Checking player ${pid}: name="${pname}", connected=${game.players.includes(pid)}`);
+        if (pname === playerName && !game.players.includes(pid)) {
+          // Found disconnected player with same name
+          existingPlayerId = pid;
+          isReconnection = true;
+          console.log(`Found disconnected player ${pid} with name ${playerName}`);
+          break;
+        }
       }
       
-      socket.join(gameId);
-      socket.emit('gameJoined', { gameId, gameState: game });
-      socket.to(gameId).emit('playerJoined', { playerId: socket.id, playerName: game.playerNames[socket.id] });
-      console.log(`Player ${playerName || 'Unknown'} joined game ${gameId}`);
+      if (isReconnection && existingPlayerId) {
+        // Reconnect existing player
+        console.log(`Player ${playerName} reconnecting to game ${gameId}`);
+        
+        // Transfer player data to new socket ID
+        game.playerNames[socket.id] = playerName;
+        game.playerPoints[socket.id] = game.playerPoints[existingPlayerId] || 100;
+        
+        // Remove old disconnected player data
+        delete game.playerNames[existingPlayerId];
+        delete game.playerPoints[existingPlayerId];
+        
+        // Add new socket to players list
+        if (!game.players.includes(socket.id)) {
+          game.players.push(socket.id);
+        }
+        
+        console.log(`Game state after reconnection:`, {
+          players: game.players,
+          playerNames: game.playerNames,
+          playerPoints: game.playerPoints
+        });
+        
+        // Emit reconnection event
+        socket.join(gameId);
+        
+        console.log(`Sending gameJoined to reconnecting player ${playerName} with game state:`, {
+          gameId,
+          players: game.players,
+          status: game.status,
+          playerCount: game.players.length
+        });
+        
+        // Send full game state to reconnecting player (like gameJoined)
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true });
+        
+        // Notify other players about the reconnection with updated game state
+        // This ensures they have the correct player names and don't see "Unknown Player"
+        socket.to(gameId).emit('gameStateUpdate', game);
+        
+        console.log(`Player ${playerName} reconnected successfully`);
+      } else {
+        // New player joining
+        if (!game.players.includes(socket.id)) {
+          game.players.push(socket.id);
+          game.playerPoints[socket.id] = 100;
+          game.playerNames[socket.id] = playerName || `Player${game.players.length}`;
+        }
+        
+        socket.join(gameId);
+        socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false });
+        socket.to(gameId).emit('playerJoined', { playerId: socket.id, playerName: game.playerNames[socket.id] });
+        console.log(`Player ${playerName || 'Unknown'} joined game ${gameId}`);
+      }
     } else {
       socket.emit('error', { message: 'Game not found' });
     }
@@ -58,6 +121,7 @@ io.on('connection', (socket) => {
       status: 'waiting',
       config: gameConfig,
       createdAt: new Date().toISOString(),
+      lastCleanup: Date.now(),
       playerPoints: {
         [socket.id]: 100
       },
@@ -97,11 +161,29 @@ io.on('connection', (socket) => {
         gameSessions.delete(gameId);
         console.log(`Game ${gameId} ended due to host disconnect`);
       } else if (game.players.includes(socket.id)) {
+        // Mark player as disconnected but keep their data for potential reconnection
+        const playerName = game.playerNames[socket.id] || 'Unknown';
+        
+        console.log(`Player ${playerName} (${socket.id}) disconnecting from game ${gameId}`);
+        console.log(`Before disconnect - Players:`, game.players);
+        console.log(`Before disconnect - PlayerNames:`, game.playerNames);
+        
+        // Remove from active players list but keep their data
         game.players = game.players.filter(id => id !== socket.id);
-        // Remove player's points and name when they leave
-        delete game.playerPoints[socket.id];
-        delete game.playerNames[socket.id];
-        io.to(gameId).emit('playerLeft', { playerId: socket.id });
+        
+        // Keep player data in playerNames and playerPoints for reconnection
+        // The data will be cleaned up when they reconnect or after a timeout
+        
+        console.log(`After disconnect - Players:`, game.players);
+        console.log(`After disconnect - PlayerNames:`, game.playerNames);
+        
+        io.to(gameId).emit('playerDisconnected', { 
+          playerId: socket.id, 
+          playerName: playerName,
+          canReconnect: true 
+        });
+        
+        console.log(`Player ${playerName} disconnected from game ${gameId} (can reconnect)`);
       }
     }
   });
@@ -179,6 +261,27 @@ function addPoints(game, playerId, points) {
   return false;
 }
 
+// Cleanup disconnected players after timeout
+function cleanupDisconnectedPlayers() {
+  const now = Date.now();
+  const RECONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+  
+  for (const [gameId, game] of gameSessions.entries()) {
+    // Clean up any disconnected player data that's older than timeout
+    // This prevents memory leaks from abandoned games
+    if (game.lastCleanup && (now - game.lastCleanup) > RECONNECTION_TIMEOUT) {
+      // Remove any player data for players not currently in the game
+      for (const [pid, points] of Object.entries(game.playerPoints)) {
+        if (!game.players.includes(pid)) {
+          delete game.playerPoints[pid];
+          delete game.playerNames[pid];
+        }
+      }
+      game.lastCleanup = now;
+    }
+  }
+}
+
 function setPoints(game, playerId, points) {
   if (game.playerPoints[playerId] !== undefined) {
     game.playerPoints[playerId] = Math.max(0, points);
@@ -234,9 +337,29 @@ app.get('/api/games/:id/points', (req, res) => {
   }
 });
 
+// Debug endpoint to check game state
+app.get('/api/debug/games/:id', (req, res) => {
+  const game = gameSessions.get(req.params.id);
+  if (game) {
+    res.json({
+      gameId: req.params.id,
+      players: game.players,
+      playerNames: game.playerNames,
+      playerPoints: game.playerPoints,
+      status: game.status
+    });
+  } else {
+    res.status(404).json({ error: 'Game not found' });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Socket.io server ready for connections`);
+  
+  // Set up periodic cleanup of disconnected players
+  setInterval(cleanupDisconnectedPlayers, 60000); // Run every minute
+  console.log('Player reconnection system enabled (5 minute timeout)');
 });

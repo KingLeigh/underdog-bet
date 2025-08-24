@@ -39,9 +39,17 @@ function Home() {
 
   // Auto-navigate when game is created/joined
   useEffect(() => {
+    console.log('Home: Navigation effect triggered', { currentGame, gameState: gameState?.id, status: gameState?.status })
     if (currentGame && gameState) {
       console.log(`Navigating to lobby for game: ${currentGame}`)
       navigate(`/lobby/${currentGame}`)
+    } else {
+      console.log('Home: Navigation conditions not met', { 
+        hasCurrentGame: !!currentGame, 
+        hasGameState: !!gameState,
+        currentGame,
+        gameStateId: gameState?.id
+      })
     }
   }, [currentGame, gameState, navigate])
 

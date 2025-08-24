@@ -11,6 +11,7 @@ const initialState = {
   players: [],
   playerPoints: {},
   playerNames: {},
+  disconnectedPlayers: [],
   error: null
 }
 
@@ -33,6 +34,9 @@ function gameReducer(state, action) {
     
     case 'SET_PLAYER_NAMES':
       return { ...state, playerNames: action.payload }
+    
+    case 'SET_DISCONNECTED_PLAYERS':
+      return { ...state, disconnectedPlayers: action.payload }
     
     case 'SET_IS_HOST':
       return { ...state, isHost: action.payload }
@@ -73,17 +77,46 @@ export function GameProvider({ children, socket }) {
     })
 
     // Handle joining a game
-    socket.on('gameJoined', ({ gameId, gameState }) => {
+    socket.on('gameJoined', ({ gameId, gameState, wasReconnection }) => {
+      console.log('gameJoined event received:', { gameId, wasReconnection, players: gameState.players, status: gameState.status })
+      
       dispatch({ type: 'SET_CURRENT_GAME', payload: gameId })
       dispatch({ type: 'SET_GAME_STATE', payload: gameState })
       dispatch({ type: 'SET_IS_HOST', payload: false })
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
+      
+      if (wasReconnection) {
+        console.log('Successfully reconnected to existing game session')
+        console.log('Current state after reconnection:', { currentGame: gameId, gameState: gameState })
+      }
     })
 
     // Handle game state updates
     socket.on('gameStateUpdate', (gameState) => {
+      console.log('gameStateUpdate received:', { 
+        players: gameState.players, 
+        playerNames: gameState.playerNames,
+        currentPlayers: state.players 
+      })
+      
+      // Check if this update includes any previously disconnected players
+      const previouslyDisconnected = state.disconnectedPlayers || [];
+      const newlyConnected = gameState.players.filter(playerId => 
+        !state.players.includes(playerId) && 
+        previouslyDisconnected.some(dp => dp.id === playerId)
+      );
+      
+      if (newlyConnected.length > 0) {
+        console.log('Game state update includes reconnected players:', newlyConnected);
+        // Remove these players from the disconnected list
+        const updatedDisconnected = previouslyDisconnected.filter(dp => 
+          !newlyConnected.includes(dp.id)
+        );
+        dispatch({ type: 'SET_DISCONNECTED_PLAYERS', payload: updatedDisconnected });
+      }
+      
       dispatch({ type: 'SET_GAME_STATE', payload: gameState })
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
@@ -118,6 +151,46 @@ export function GameProvider({ children, socket }) {
       }
     })
 
+    // Handle player disconnection (can reconnect)
+    socket.on('playerDisconnected', ({ playerId, playerName, canReconnect }) => {
+      if (state.gameState) {
+        const updatedPlayers = state.gameState.players.filter(id => id !== playerId)
+        dispatch({ type: 'SET_PLAYERS', payload: updatedPlayers })
+        
+        // Add to disconnected players list
+        const disconnectedPlayer = { id: playerId, name: playerName, canReconnect }
+        const updatedDisconnected = [...state.disconnectedPlayers, disconnectedPlayer]
+        dispatch({ type: 'SET_DISCONNECTED_PLAYERS', payload: updatedDisconnected })
+        
+        console.log(`Player ${playerName} disconnected (can reconnect)`)
+      }
+    })
+
+    // Handle player reconnection (for other players, not the reconnecting player)
+    // DISABLED: Now handled via gameStateUpdate events to avoid "Unknown Player" issue
+    /*
+    socket.on('playerReconnected', ({ playerId, playerName }) => {
+      console.log('playerReconnected event received (for other players):', { playerId, playerName })
+      
+      if (state.gameState) {
+        // Only add player if they're not already in the active players list
+        if (!state.players.includes(playerId)) {
+          console.log(`Adding reconnected player ${playerName} to active players list`)
+          const updatedPlayers = [...state.players, playerId]
+          dispatch({ type: 'SET_PLAYERS', payload: updatedPlayers })
+        } else {
+          console.log(`Player ${playerName} is already in active players list, skipping duplicate add`)
+        }
+        
+        // Remove from disconnected players list
+        const updatedDisconnected = state.disconnectedPlayers.filter(p => p.id !== playerId)
+        dispatch({ type: 'SET_DISCONNECTED_PLAYERS', payload: updatedDisconnected })
+        
+        console.log(`Player ${playerName} reconnected successfully`)
+      }
+    })
+    */
+
     // Handle game ending
     socket.on('gameEnded', ({ reason }) => {
       dispatch({ type: 'SET_ERROR', payload: `Game ended: ${reason}` })
@@ -135,6 +208,8 @@ export function GameProvider({ children, socket }) {
       socket.off('gameStateUpdate')
       socket.off('playerJoined')
       socket.off('playerLeft')
+      socket.off('playerDisconnected')
+      // socket.off('playerReconnected') // No longer used
       socket.off('gameEnded')
       socket.off('error')
     }
