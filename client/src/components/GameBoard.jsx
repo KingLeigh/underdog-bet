@@ -120,7 +120,7 @@ function GameBoard() {
                   </div>
                 ) : (
                   <div className="choice-made">
-                    <p>You chose: <strong>Option {playerChoices[playerId].choice === 0 ? 'A' : 'B'}</strong></p>
+                    <p>✅ You have submitted your choice</p>
                   </div>
                 )}
 
@@ -128,9 +128,12 @@ function GameBoard() {
                   <h4>Player Choices</h4>
                   {Object.entries(playerChoices).map(([pid, choiceData]) => (
                     <div key={pid} className="player-choice-item">
-                      {choiceData.playerName || 'Unknown Player'}: Option {choiceData.choice === 0 ? 'A' : 'B'}
+                      {choiceData.playerName || 'Unknown Player'}: ✅ Choice Submitted
                     </div>
                   ))}
+                  {Object.keys(playerChoices).length === 0 && (
+                    <p className="no-choices">No players have made choices yet...</p>
+                  )}
                 </div>
 
                 {isHost && Object.keys(playerChoices).length > 0 && (
@@ -149,7 +152,12 @@ function GameBoard() {
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
-                      {result.playerName}: {result.correct ? '✅ Correct (+100 points)' : '❌ Incorrect (0 points)'}
+                      <div className="result-header">
+                        {result.playerName}: {result.correct ? '✅ Correct (+100 points)' : '❌ Incorrect (0 points)'}
+                      </div>
+                      <div className="result-detail">
+                        Chose: Option {result.choice === 0 ? 'A' : 'B'} ({wagerOptions[result.choice]})
+                      </div>
                     </div>
                   ))}
                 </div>

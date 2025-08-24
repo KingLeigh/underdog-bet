@@ -248,6 +248,8 @@ function processGameAction(game, action, payload, socket) {
       // Host proposes a wager with two options
       if (game.host === socket.id && payload.option1 && payload.option2) {
         const wagerState = wagerStates.get(game.id);
+        console.log(`Proposing wager for game ${game.id}. Current wager state:`, wagerState);
+        
         if (wagerState) {
           // Clear any previous wager state completely
           wagerState.isActive = true;
@@ -257,6 +259,26 @@ function processGameAction(game, action, payload, socket) {
           wagerState.correctOption = null;
           
           console.log(`Host ${game.playerNames[socket.id]} proposed wager: "${payload.option1}" vs "${payload.option2}"`);
+          console.log(`Updated wager state:`, wagerState);
+          
+          // Emit wager proposed event to all players
+          io.to(game.id).emit('wagerProposed', {
+            options: [payload.option1, payload.option2],
+            wagerId: Date.now().toString()
+          });
+        } else {
+          console.error(`No wager state found for game ${game.id}. Creating new one.`);
+          // Create a new wager state if it doesn't exist
+          const newWagerState = {
+            isActive: true,
+            options: [payload.option1, payload.option2],
+            playerChoices: {},
+            resolved: false,
+            correctOption: null
+          };
+          wagerStates.set(game.id, newWagerState);
+          
+          console.log(`Created new wager state for game ${game.id}:`, newWagerState);
           
           // Emit wager proposed event to all players
           io.to(game.id).emit('wagerProposed', {
@@ -264,6 +286,14 @@ function processGameAction(game, action, payload, socket) {
             wagerId: Date.now().toString()
           });
         }
+      } else {
+        console.error(`Invalid wager proposal:`, { 
+          isHost: game.host === socket.id, 
+          hasOption1: !!payload.option1, 
+          hasOption2: !!payload.option2,
+          hostId: game.host,
+          socketId: socket.id
+        });
       }
       return { 
         ...game, 
@@ -279,11 +309,12 @@ function processGameAction(game, action, payload, socket) {
           
           console.log(`Player ${game.playerNames[socket.id]} chose option ${payload.choice} (${wagerState.options[payload.choice]})`);
           
-          // Emit choice made event to all players
+          // Emit choice made event to all players (without revealing the choice)
           io.to(game.id).emit('choiceMade', {
             playerId: socket.id,
             playerName: game.playerNames[socket.id] || 'Unknown Player',
-            choice: payload.choice
+            hasChosen: true,
+            choice: null // Don't reveal the choice until resolution
           });
         }
       }
@@ -296,6 +327,8 @@ function processGameAction(game, action, payload, socket) {
       // Host resolves the wager and awards points
       if (game.host === socket.id && payload.correctChoice !== undefined) {
         const wagerState = wagerStates.get(game.id);
+        console.log(`Resolving wager for game ${game.id}. Current wager state:`, wagerState);
+        
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
           wagerState.resolved = true;
           wagerState.correctOption = payload.correctChoice;
@@ -338,7 +371,23 @@ function processGameAction(game, action, payload, socket) {
           wagerState.playerChoices = {};
           wagerState.correctOption = null;
           wagerState.resolved = false;
+          
+          console.log(`Wager state reset for game ${game.id}. New state:`, wagerState);
+        } else {
+          console.error(`Cannot resolve wager for game ${game.id}:`, {
+            hasWagerState: !!wagerState,
+            isActive: wagerState?.isActive,
+            isResolved: wagerState?.resolved,
+            wagerState: wagerState
+          });
         }
+      } else {
+        console.error(`Invalid wager resolution:`, {
+          isHost: game.host === socket.id,
+          hasCorrectChoice: payload.correctChoice !== undefined,
+          hostId: game.host,
+          socketId: socket.id
+        });
       }
       return { 
         ...game, 
@@ -477,6 +526,23 @@ app.get('/api/debug/games/:id', (req, res) => {
       playerPoints: game.playerPoints,
       status: game.status,
       wagerState: wagerState
+    });
+  } else {
+    res.status(404).json({ error: 'Game not found' });
+  }
+});
+
+// Debug endpoint specifically for wager state
+app.get('/api/debug/games/:id/wager', (req, res) => {
+  const game = gameSessions.get(req.params.id);
+  if (game) {
+    const wagerState = getWagerState(req.params.id);
+    res.json({
+      gameId: req.params.id,
+      gameStatus: game.status,
+      hostId: game.host,
+      wagerState: wagerState,
+      wagerStatesMap: Array.from(wagerStates.entries()).map(([id, state]) => ({ id, state }))
     });
   } else {
     res.status(404).json({ error: 'Game not found' });

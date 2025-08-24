@@ -220,27 +220,30 @@ export function GameProvider({ children, socket }) {
 
     // Handle wager events
     socket.on('wagerProposed', ({ options, wagerId }) => {
+      console.log('🎯 wagerProposed event received:', { options, wagerId })
       dispatch({ type: 'SET_WAGER_OPTIONS', payload: options })
       dispatch({ type: 'SET_WAGER_ACTIVE', payload: true })
       dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
       dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
       dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
-      console.log('Wager proposed:', options)
+      console.log('✅ Wager state updated after proposal')
     })
 
-    socket.on('choiceMade', ({ playerId, playerName, choice }) => {
+    socket.on('choiceMade', ({ playerId, playerName, hasChosen, choice }) => {
+      console.log('🎯 choiceMade event received:', { playerId, playerName, hasChosen, choice })
       dispatch({ type: 'SET_PLAYER_CHOICES', payload: { 
         ...state.playerChoices, 
-        [playerId]: { choice, playerName } 
+        [playerId]: { hasChosen, choice, playerName } 
       }})
-      console.log(`Player ${playerName} chose option ${choice}`)
+      console.log(`✅ Player ${playerName} choice recorded (choice hidden until resolution)`)
     })
 
     socket.on('wagerResolved', ({ correctChoice, results, wagerState }) => {
+      console.log('🎯 wagerResolved event received:', { correctChoice, results, wagerState })
       dispatch({ type: 'SET_WAGER_RESOLVED', payload: true })
       dispatch({ type: 'SET_WAGER_RESULTS', payload: { correctChoice, results, wagerState } })
       dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
-      console.log('Wager resolved:', { correctChoice, results })
+      console.log('✅ Wager state updated after resolution')
     })
 
     // Handle errors
@@ -258,6 +261,10 @@ export function GameProvider({ children, socket }) {
       // socket.off('playerReconnected') // No longer used
       socket.off('gameEnded')
       socket.off('error')
+      // Clean up wager events
+      socket.off('wagerProposed')
+      socket.off('choiceMade')
+      socket.off('wagerResolved')
     }
   }, [socket, state.gameState])
 
@@ -297,6 +304,7 @@ export function GameProvider({ children, socket }) {
 
   // Wager system functions
   const proposeWager = (option1, option2) => {
+    console.log('🎯 proposeWager called with:', { option1, option2, currentGame: state.currentGame })
     sendGameAction('proposeWager', { option1, option2 })
   }
 
