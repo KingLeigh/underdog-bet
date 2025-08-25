@@ -86,24 +86,24 @@ function GameBoard() {
         <div className="game-area">
           {/* Wager System Interface */}
           <div className="wager-section">
-            <h3>Betting</h3>
+            <h3>Active Contest</h3>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
                 {isHost ? (
                   <div className="host-wager-controls">
-                    <h4>Propose a Wager</h4>
+                    <h4>Propose a Player Contest</h4>
                     <WagerProposalForm onSubmit={proposeWager} />
                   </div>
                 ) : (
-                  <p>Waiting for host to propose a wager...</p>
+                  <p>Waiting for host to propose a player contest...</p>
                 )}
               </div>
             )}
 
             {wagerActive && (
               <div className="active-wager">
-                <h4>Current Wager</h4>
+                <h4>Choose Your Winner</h4>
                 <div className="wager-options">
                   <div 
                     className={`wager-option ${playerChoices[playerId]?.choice === 0 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
@@ -114,7 +114,7 @@ function GameBoard() {
                       }
                     }}
                   >
-                    <strong>Option A:</strong> {wagerOptions.options?.[0] || wagerOptions[0]} 
+                    <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
                     <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
                   </div>
                   <div 
@@ -126,14 +126,14 @@ function GameBoard() {
                       }
                     }}
                   >
-                    <strong>Option B:</strong> {wagerOptions.options?.[1] || wagerOptions[1]} 
+                    <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
                     <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
                   </div>
                 </div>
                 
                 {!playerChoices[playerId] && selectedOption !== null && (
                   <div className="wager-input-section">
-                    <h4>Wager Points for Option {selectedOption === 0 ? 'A' : 'B'}</h4>
+                    <h4>Wager Points for {wagerOptions.options?.[selectedOption] || wagerOptions[selectedOption]}</h4>
                     <WagerInputForm 
                       onSubmit={(points) => {
                         makeChoice(selectedOption, points);
@@ -165,7 +165,7 @@ function GameBoard() {
 
                 {isHost && Object.keys(playerChoices).length > 0 && (
                   <div className="host-resolve-controls">
-                    <h4>Resolve Wager</h4>
+                    <h4>Resolve Contest</h4>
                     <WagerResolutionForm onSubmit={resolveWager} wagerOptions={wagerOptions} />
                   </div>
                 )}
@@ -174,8 +174,8 @@ function GameBoard() {
 
             {wagerResolved && wagerResults && (
               <div className="wager-results">
-                <h4>Wager Results</h4>
-                <p><strong>Correct Answer:</strong> Option {wagerResults.correctChoice === 0 ? 'A' : 'B'} ({wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]}) ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}x)</p>
+                <h4>Contest Results</h4>
+                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}x)</p>
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
@@ -191,19 +191,19 @@ function GameBoard() {
                   ))}
                 </div>
                 {isHost && (
-                  <button 
-                    onClick={() => {
-                      // Reset wager state for next round
-                      resetWagerState();
-                    }}
-                    className="btn btn-secondary"
-                  >
-                    Propose New Wager
-                  </button>
-                )}
-                {!isHost && (
-                  <p className="waiting-message">Waiting for host to propose a new wager...</p>
-                )}
+                                      <button 
+                      onClick={() => {
+                        // Reset wager state for next round
+                        resetWagerState();
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Propose New Contest
+                    </button>
+                  )}
+                  {!isHost && (
+                    <p className="waiting-message">Waiting for host to propose a new contest...</p>
+                  )}
               </div>
             )}
           </div>
@@ -282,6 +282,7 @@ function GameBoard() {
 
 // Wager Proposal Form Component
 function WagerProposalForm({ onSubmit }) {
+  const { players, playerNames } = useGame()
   const [option1, setOption1] = useState('')
   const [option2, setOption2] = useState('')
   const [odds1, setOdds1] = useState(1)
@@ -289,8 +290,8 @@ function WagerProposalForm({ onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (option1.trim() && option2.trim()) {
-      onSubmit(option1.trim(), option2.trim(), odds1, odds2)
+    if (option1 && option2 && option1 !== option2) {
+      onSubmit(option1, option2, odds1, odds2)
       setOption1('')
       setOption2('')
       setOdds1(1)
@@ -298,35 +299,56 @@ function WagerProposalForm({ onSubmit }) {
     }
   }
 
+  // Get unique player names for dropdowns
+  const playerNameList = players
+    .map(pid => playerNames[pid])
+    .filter(name => name && name.trim())
+    .sort()
+
   return (
     <form onSubmit={handleSubmit} className="wager-proposal-form">
       <div className="form-group">
-        <label htmlFor="option1">Option A:</label>
-        <input
-          type="text"
+        <label htmlFor="option1">First Player:</label>
+        <select
           id="option1"
           value={option1}
           onChange={(e) => setOption1(e.target.value)}
-          placeholder="Enter first option"
           required
-          className="form-input"
-        />
+          className="form-input player-select"
+        >
+          <option value="">Select a player</option>
+          {playerNameList.map((playerName, index) => (
+            <option key={index} value={playerName} disabled={playerName === option2}>
+              {playerName} {playerName === option2 ? '(Already selected)' : ''}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="form-group">
-        <label htmlFor="option2">Option B:</label>
-        <input
-          type="text"
+        <label htmlFor="option2">Second Player:</label>
+        <select
           id="option2"
           value={option2}
           onChange={(e) => setOption2(e.target.value)}
-          placeholder="Enter second option"
           required
-          className="form-input"
-        />
+          className="form-input player-select"
+        >
+          <option value="">Select a player</option>
+          {playerNameList.map((playerName, index) => (
+            <option key={index} value={playerName} disabled={playerName === option1}>
+              {playerName} {playerName === option1 ? '(Already selected)' : ''}
+            </option>
+          ))}
+        </select>
       </div>
+      {option1 && option2 && option1 === option2 && (
+        <div className="error-message">
+          Please select two different players.
+        </div>
+      )}
       <div className="odds-section">
         <div className="form-group">
-          <label htmlFor="odds1">Odds for Option A:</label>
+          <label htmlFor="odds1">Odds for {option1 || 'First Player'}:</label>
           <input
             type="number"
             id="odds1"
@@ -338,7 +360,7 @@ function WagerProposalForm({ onSubmit }) {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="odds2">Odds for Option B:</label>
+          <label htmlFor="odds2">Odds for {option2 || 'Second Player'}:</label>
           <input
             type="number"
             id="odds2"
@@ -350,8 +372,12 @@ function WagerProposalForm({ onSubmit }) {
           />
         </div>
       </div>
-      <button type="submit" className="btn btn-primary">
-        Propose Wager
+      <button 
+        type="submit" 
+        className="btn btn-primary"
+        disabled={!option1 || !option2 || option1 === option2}
+      >
+        Propose Contest
       </button>
     </form>
   )
@@ -417,26 +443,26 @@ function WagerResolutionForm({ onSubmit, wagerOptions }) {
   return (
     <form onSubmit={handleSubmit} className="wager-resolution-form">
       <div className="form-group">
-        <label className="resolution-label">Which option was correct?</label>
+        <label className="resolution-label">Who won the contest?</label>
         <div className="resolution-options">
           <div 
             className={`resolution-option ${correctChoice === '0' ? 'selected' : 'clickable'}`}
             onClick={() => setCorrectChoice('0')}
           >
-            <strong>Option A:</strong> {wagerOptions.options?.[0] || wagerOptions[0]} 
+            <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
             <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
           </div>
           <div 
             className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
             onClick={() => setCorrectChoice('1')}
           >
-            <strong>Option B:</strong> {wagerOptions.options?.[1] || wagerOptions[1]} 
+            <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
             <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
           </div>
         </div>
       </div>
       <button type="submit" className="btn btn-primary" disabled={correctChoice === ''}>
-        Resolve Wager
+        Resolve Contest
       </button>
     </form>
   )

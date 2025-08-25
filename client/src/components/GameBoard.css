@@ -285,6 +285,50 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Player select dropdown styling */
+.player-select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.player-select:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%234ade80' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+.player-select option {
+  background: #1f2937;
+  color: white;
+  padding: 0.5rem;
+}
+
+.player-select option:hover {
+  background: #374151;
+}
+
+.player-select option:disabled {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+/* Error message styling */
+.error-message {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 /* Odds styling */
 .odds-section {
   display: grid;
