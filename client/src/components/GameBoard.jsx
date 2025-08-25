@@ -190,11 +190,35 @@ function GameBoard() {
 
                 <div className="player-choices-summary">
                   <h4>Player Choices</h4>
-                  {Object.entries(playerChoices).map(([pid, choiceData]) => (
-                    <div key={pid} className="player-choice-item">
-                      <strong>{choiceData.playerName || 'Unknown Player'}</strong> wagered <strong>{choiceData.points || 0}</strong> points
-                    </div>
-                  ))}
+                  {(() => {
+                    const hasContestParticipants = Object.entries(playerChoices).some(([pid, choiceData]) => {
+                      const playerName = choiceData.playerName || 'Unknown Player';
+                      return playerName === wagerOptions.options?.[0] || playerName === wagerOptions.options?.[1];
+                    });
+                    
+                    return (
+                      <>
+                        {hasContestParticipants && (
+                          <div className="betting-rules-notice">
+                            <p>💡 Contest participants' bet amounts are hidden to prevent bias</p>
+                          </div>
+                        )}
+                        {Object.entries(playerChoices).map(([pid, choiceData]) => {
+                          const playerName = choiceData.playerName || 'Unknown Player';
+                          const isPlayerInContest = playerName === wagerOptions.options?.[0] || playerName === wagerOptions.options?.[1];
+                          
+                          return (
+                            <div key={pid} className="player-choice-item">
+                              <strong>{playerName}</strong> wagered <strong>{isPlayerInContest ? '??' : (choiceData.points || 0)}</strong> points
+                              {isPlayerInContest && (
+                                <span className="contest-participant-badge">🎯 Competing</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
                   {Object.keys(playerChoices).length === 0 && (
                     <p className="no-choices">No players have made choices yet...</p>
                   )}
