@@ -105,45 +105,82 @@ function GameBoard() {
               <div className="active-wager">
                 <h4>Choose Your Winner</h4>
                 <div className="wager-options">
-                  <div 
-                    className={`wager-option ${playerChoices[playerId]?.choice === 0 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
-                    onClick={() => {
-                      if (!playerChoices[playerId]) {
-                        // Show points input for this option
-                        setSelectedOption(0);
-                      }
-                    }}
-                  >
-                    <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
-                    <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
-                  </div>
-                  <div 
-                    className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] ? 'clickable' : ''}`}
-                    onClick={() => {
-                      if (!playerChoices[playerId]) {
-                        // Show points input for this option
-                        setSelectedOption(1);
-                      }
-                    }}
-                  >
-                    <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
-                    <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
-                  </div>
+                  {(() => {
+                    const currentPlayerName = playerNames[playerId];
+                    const option0Name = wagerOptions.options?.[0] || wagerOptions[0];
+                    const option1Name = wagerOptions.options?.[1] || wagerOptions[1];
+                    const isPlayerInContest = currentPlayerName === option0Name || currentPlayerName === option1Name;
+                    const canBetOnOption0 = !isPlayerInContest || currentPlayerName === option0Name;
+                    const canBetOnOption1 = !isPlayerInContest || currentPlayerName === option1Name;
+                    
+                    return (
+                      <>
+                        <div 
+                          className={`wager-option ${playerChoices[playerId]?.choice === 0 ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnOption0 ? 'clickable' : ''} ${!canBetOnOption0 ? 'disabled' : ''}`}
+                          onClick={() => {
+                            if (!playerChoices[playerId] && canBetOnOption0) {
+                              setSelectedOption(0);
+                            } else if (!canBetOnOption0) {
+                              setSelectedOption(null); // Clear selection if they can't bet on this option
+                            }
+                          }}
+                        >
+                          <strong>{option0Name}</strong>
+                          <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
+                          {!canBetOnOption0 && (
+                            <div className="restriction-notice">You can only bet on yourself</div>
+                          )}
+                        </div>
+                        <div 
+                          className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnOption1 ? 'clickable' : ''} ${!canBetOnOption1 ? 'disabled' : ''}`}
+                          onClick={() => {
+                            if (!playerChoices[playerId] && canBetOnOption1) {
+                              setSelectedOption(1);
+                            } else if (!canBetOnOption1) {
+                              setSelectedOption(null); // Clear selection if they can't bet on this option
+                            }
+                          }}
+                        >
+                          <strong>{option1Name}</strong>
+                          <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
+                          {!canBetOnOption1 && (
+                            <div className="restriction-notice">You can only bet on yourself</div>
+                          )}
+                        </div>
+                        {isPlayerInContest && (
+                          <div className="contest-participant-notice">
+                            <p>🎯 You're competing in this contest! You can only bet on yourself.</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 
-                {!playerChoices[playerId] && selectedOption !== null && (
-                  <div className="wager-input-section">
-                    <h4>Wager Points for {wagerOptions.options?.[selectedOption] || wagerOptions[selectedOption]}</h4>
-                    <WagerInputForm 
-                      onSubmit={(points) => {
-                        makeChoice(selectedOption, points);
-                        setSelectedOption(null);
-                      }}
-                      currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
-                      onCancel={() => setSelectedOption(null)}
-                    />
-                  </div>
-                )}
+                {!playerChoices[playerId] && selectedOption !== null && (() => {
+                  const currentPlayerName = playerNames[playerId];
+                  const selectedOptionName = wagerOptions.options?.[selectedOption] || wagerOptions[selectedOption];
+                  const isPlayerInContest = currentPlayerName === wagerOptions.options?.[0] || currentPlayerName === wagerOptions.options?.[1];
+                  const canBetOnSelectedOption = !isPlayerInContest || currentPlayerName === selectedOptionName;
+                  
+                  if (!canBetOnSelectedOption) {
+                    return null; // Don't show wager input if they can't bet on this option
+                  }
+                  
+                  return (
+                    <div className="wager-input-section">
+                      <h4>Wager Points for {selectedOptionName}</h4>
+                      <WagerInputForm 
+                        onSubmit={(points) => {
+                          makeChoice(selectedOption, points);
+                          setSelectedOption(null);
+                        }}
+                        currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
+                        onCancel={() => setSelectedOption(null)}
+                      />
+                    </div>
+                  );
+                })()}
 
                 {playerChoices[playerId] && (
                   <div className="choice-made">

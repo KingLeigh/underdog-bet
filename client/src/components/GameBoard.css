@@ -402,6 +402,47 @@
   box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
 }
 
+.wager-option.disabled {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(239, 68, 68, 0.5);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.wager-option.disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: none;
+  box-shadow: none;
+}
+
+.restriction-notice {
+  color: #ef4444;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.contest-participant-notice {
+  grid-column: 1 / -1;
+  text-align: center;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  color: #3b82f6;
+}
+
+.contest-participant-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 .wager-option strong {
   color: #4ade80;
 }

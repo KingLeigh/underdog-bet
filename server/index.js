@@ -540,8 +540,24 @@ function processGameAction(game, action, payload, playerID) {
             return game;
           }
           
-          // Note: Players can always bet up to maxWager points, even if they go negative
-          console.log(`Player ${game.playerNames[playerID]} wagering ${payload.points} points (current balance: ${currentPoints}, max allowed: ${maxWager})`);
+          // Prevent players from betting against themselves
+          const currentPlayerName = game.playerNames[playerID];
+          const option0Name = wagerState.options[0];
+          const option1Name = wagerState.options[1];
+          const isPlayerInContest = currentPlayerName === option0Name || currentPlayerName === option1Name;
+          
+          if (isPlayerInContest) {
+            // Player is in the contest - they can only bet on themselves
+            const chosenOptionName = wagerState.options[payload.choice];
+            if (chosenOptionName !== currentPlayerName) {
+              console.log(`Player ${currentPlayerName} tried to bet against themselves on ${chosenOptionName}, but this is not allowed`);
+              return game;
+            }
+            console.log(`Player ${currentPlayerName} is betting on themselves (${chosenOptionName}) with ${payload.points} points`);
+          } else {
+            // Player is not in the contest - they can bet on either option
+            console.log(`Player ${currentPlayerName} wagering ${payload.points} points on ${wagerState.options[payload.choice]} (current balance: ${currentPoints}, max allowed: ${maxWager})`);
+          }
           
           // Store the choice and wager amount
           wagerState.playerChoices[playerID] = {
