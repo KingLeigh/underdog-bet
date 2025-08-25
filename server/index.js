@@ -30,7 +30,7 @@ let nextPlayerID = 1;
 
 // Generate unique player ID
 function generatePlayerID() {
-  return `player_${nextPlayerID++}_${Date.now()}`;
+  return `p${nextPlayerID++}`;
 }
 
 // Get or create player ID for a socket
@@ -203,7 +203,7 @@ io.on('connection', (socket) => {
         [playerID]: 100
       },
       playerNames: {
-        [playerID]: gameConfig.playerName || `Player${Math.floor(Math.random() * 1000)}`
+        [playerID]: gameConfig.playerName || `Player${nextPlayerID - 1}`
       }
     };
     
