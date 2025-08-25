@@ -288,28 +288,21 @@
 /* Player select dropdown styling */
 .player-select {
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.75rem center;
-  background-repeat: no-repeat;
-  background-size: 1.5em 1.5em;
-  padding-right: 2.5rem;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
 }
 
-.player-select:focus {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%234ade80' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-}
-
+/* Ensure dropdown options don't inherit the arrow background */
 .player-select option {
-  background: #1f2937;
+  background: #1f2937 !important;
   color: white;
   padding: 0.5rem;
+  background-image: none !important;
 }
 
 .player-select option:hover {
-  background: #374151;
+  background: #374151 !important;
 }
 
 .player-select option:disabled {
