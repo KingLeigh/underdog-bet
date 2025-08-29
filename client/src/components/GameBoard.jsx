@@ -7,6 +7,7 @@ function GameBoard() {
   const { gameId, playerId: urlPlayerId } = useParams()
   const navigate = useNavigate()
   const [selectedOption, setSelectedOption] = useState(null)
+  const [userChoice, setUserChoice] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
   const { 
     gameState, 
@@ -40,10 +41,11 @@ function GameBoard() {
     }
   }, [gameState, gameId, navigate])
 
-  // Reset selectedOption when wager state changes
+  // Reset selectedOption and userChoice when wager state changes
   useEffect(() => {
     if (!wagerActive) {
       setSelectedOption(null)
+      setUserChoice(null)
     }
   }, [wagerActive])
 
@@ -163,6 +165,7 @@ function GameBoard() {
                       <WagerInputForm 
                         onSubmit={(points) => {
                           makeChoice(selectedOption, points);
+                          setUserChoice(selectedOption); // Store the user's choice
                           setSelectedOption(null);
                         }}
                         currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
@@ -172,11 +175,19 @@ function GameBoard() {
                   );
                 })()}
 
-                {playerChoices[playerId] && (
-                  <div className="choice-made">
-                    <p>✅ You have submitted your choice</p>
-                  </div>
-                )}
+                {playerChoices[playerId] && (() => {
+                  const choiceData = playerChoices[playerId];
+                  const betAmount = choiceData.points;
+                  
+                  // Use the locally stored userChoice to show which option the user selected
+                  const selectedOptionName = wagerOptions.options?.[userChoice] || 'Unknown Player';
+                  
+                  return (
+                    <div className="choice-made">
+                      <p>✅ You bet <strong>{betAmount}</strong> points that <strong>{selectedOptionName}</strong> will win</p>
+                    </div>
+                  );
+                })()}
 
                 <div className="player-choices-summary">
                   <h4>Player Choices</h4>
