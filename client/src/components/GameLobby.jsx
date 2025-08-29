@@ -79,9 +79,7 @@ function GameLobby() {
                 <div className="player-info">
                   <div className="player-name">
                     {playerNames[playerId] || 'Unknown Player'}
-                    {playerId === gameState.host && ' 🎯'}
                   </div>
-                  <div className="player-id">{playerId.slice(0, 8)}...</div>
                   <div className="player-points">
                     Points: <span className={`points-value ${(playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0) < 0 ? 'negative' : ''}`}>{playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}</span>
                   </div>
@@ -103,9 +101,6 @@ function GameLobby() {
             >
               Start Game
             </button>
-            <p className="start-hint">
-              Need at least 2 players to start
-            </p>
           </div>
         )}
 

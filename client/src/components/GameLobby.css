@@ -140,11 +140,7 @@
   margin-bottom: 0.25rem;
 }
 
-.player-id {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-family: monospace;
-}
+
 
 .player-points {
   font-size: 0.9rem;
@@ -182,13 +178,9 @@
 .start-game-btn {
   font-size: 1.2rem;
   padding: 1rem 2rem;
-  margin-bottom: 1rem;
 }
 
-.start-hint {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.9rem;
-}
+
 
 .waiting-message {
   text-align: center;

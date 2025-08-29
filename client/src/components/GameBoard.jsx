@@ -126,10 +126,7 @@ function GameBoard() {
                           }}
                         >
                           <strong>{option0Name}</strong>
-                          <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
-                          {!canBetOnOption0 && (
-                            <div className="restriction-notice">You can only bet on yourself</div>
-                          )}
+                          <span className="odds-display">{wagerOptions.odds?.[0] || 1}:1</span>
                         </div>
                         <div 
                           className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnOption1 ? 'clickable' : ''} ${!canBetOnOption1 ? 'disabled' : ''}`}
@@ -142,16 +139,9 @@ function GameBoard() {
                           }}
                         >
                           <strong>{option1Name}</strong>
-                          <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
-                          {!canBetOnOption1 && (
-                            <div className="restriction-notice">You can only bet on yourself</div>
-                          )}
+                          <span className="odds-display">{wagerOptions.odds?.[1] || 1}:1</span>
                         </div>
-                        {isPlayerInContest && (
-                          <div className="contest-participant-notice">
-                            <p>🎯 You're competing in this contest! You can only bet on yourself.</p>
-                          </div>
-                        )}
+
                       </>
                     );
                   })()}
@@ -198,11 +188,7 @@ function GameBoard() {
                     
                     return (
                       <>
-                        {hasContestParticipants && (
-                          <div className="betting-rules-notice">
-                            <p>💡 Contest participants' bet amounts are hidden to prevent bias</p>
-                          </div>
-                        )}
+
                         {Object.entries(playerChoices).map(([pid, choiceData]) => {
                           const playerName = choiceData.playerName || 'Unknown Player';
                           const isPlayerInContest = playerName === wagerOptions.options?.[0] || playerName === wagerOptions.options?.[1];
@@ -210,9 +196,6 @@ function GameBoard() {
                           return (
                             <div key={pid} className="player-choice-item">
                               <strong>{playerName}</strong> wagered <strong>{isPlayerInContest ? '??' : (choiceData.points || 0)}</strong> points
-                              {isPlayerInContest && (
-                                <span className="contest-participant-badge">🎯 Competing</span>
-                              )}
                             </div>
                           );
                         })}
@@ -236,7 +219,7 @@ function GameBoard() {
             {wagerResolved && wagerResults && (
               <div className="wager-results">
                 <h4>Contest Results</h4>
-                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}x)</p>
+                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1)</p>
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
@@ -511,14 +494,14 @@ function WagerResolutionForm({ onSubmit, wagerOptions }) {
             onClick={() => setCorrectChoice('0')}
           >
             <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
-            <span className="odds-display">({wagerOptions.odds?.[0] || 1}x)</span>
+            <span className="odds-display">{wagerOptions.odds?.[0] || 1}:1</span>
           </div>
           <div 
             className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
             onClick={() => setCorrectChoice('1')}
           >
             <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
-            <span className="odds-display">({wagerOptions.odds?.[1] || 1}x)</span>
+            <span className="odds-display">{wagerOptions.odds?.[1] || 1}:1</span>
           </div>
         </div>
       </div>
