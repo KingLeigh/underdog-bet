@@ -190,7 +190,7 @@ function GameBoard() {
                 })()}
 
                 <div className="player-choices-summary">
-                  <h4>Player Choices</h4>
+                  <h4>Player Choices ({Object.keys(playerChoices).length}/{players.length})</h4>
                   {(() => {
                     const hasContestParticipants = Object.entries(playerChoices).some(([pid, choiceData]) => {
                       const playerName = choiceData.playerName || 'Unknown Player';
