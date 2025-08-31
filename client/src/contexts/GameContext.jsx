@@ -18,7 +18,12 @@ const initialState = {
   wagerActive: false,
   playerChoices: {},
   wagerResolved: false,
-  wagerResults: null
+  wagerResults: null,
+  // Category ranking state
+  categories: [],
+  playerRankings: {},
+  rankingsComplete: false,
+  showRankingForm: false
 }
 
 function gameReducer(state, action) {
@@ -67,6 +72,18 @@ function gameReducer(state, action) {
     
     case 'SET_WAGER_RESULTS':
       return { ...state, wagerResults: action.payload }
+    
+    case 'SET_CATEGORIES':
+      return { ...state, categories: action.payload }
+    
+    case 'SET_PLAYER_RANKINGS':
+      return { ...state, playerRankings: action.payload }
+    
+    case 'SET_RANKINGS_COMPLETE':
+      return { ...state, rankingsComplete: action.payload }
+    
+    case 'SET_SHOW_RANKING_FORM':
+      return { ...state, showRankingForm: action.payload }
     
     case 'RESET_GAME':
       return { ...initialState, playerId: state.playerId }
@@ -154,6 +171,22 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
       dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
       
+      // Update category ranking state
+      if (gameState.categories) {
+        dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
+      }
+      if (gameState.playerRankings) {
+        dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
+      }
+      if (gameState.rankingsComplete !== undefined) {
+        dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: gameState.rankingsComplete })
+      }
+      
+      // Show ranking form if categories exist and rankings are not complete
+      if (gameState.categories && gameState.categories.length > 0 && !gameState.rankingsComplete) {
+        dispatch({ type: 'SET_SHOW_RANKING_FORM', payload: true })
+      }
+      
       if (wasReconnection) {
         console.log('Successfully reconnected to existing game session')
         console.log('Current state after reconnection:', { currentGame: gameId, gameState: gameState, isHost })
@@ -179,6 +212,22 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
       dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
       dispatch({ type: 'SET_IS_HOST', payload: isHost })
+      
+      // Update category ranking state
+      if (gameState.categories) {
+        dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
+      }
+      if (gameState.playerRankings) {
+        dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
+      }
+      if (gameState.rankingsComplete !== undefined) {
+        dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: gameState.rankingsComplete })
+      }
+      
+      // Show ranking form if categories exist and rankings are not complete
+      if (gameState.categories && gameState.categories.length > 0 && !gameState.rankingsComplete) {
+        dispatch({ type: 'SET_SHOW_RANKING_FORM', payload: true })
+      }
     })
 
     // Note: playerJoined events are no longer used - all state updates come via gameStateUpdate
@@ -236,6 +285,21 @@ export function GameProvider({ children, socket }) {
       console.log('✅ Wager state updated after resolution')
     })
 
+    // Handle category ranking events
+    socket.on('rankingSubmitted', ({ playerId, playerName, totalPlayers, rankedPlayers }) => {
+      console.log('📊 rankingSubmitted event received:', { playerId, playerName, totalPlayers, rankedPlayers })
+      // This event is mainly for UI feedback - the actual rankings are updated via gameStateUpdate
+    })
+
+    socket.on('rankingsComplete', ({ playerRankings, categories }) => {
+      console.log('📊 rankingsComplete event received:', { playerRankings, categories })
+      dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: true })
+      dispatch({ type: 'SET_PLAYER_RANKINGS', payload: playerRankings })
+      dispatch({ type: 'SET_CATEGORIES', payload: categories })
+      dispatch({ type: 'SET_SHOW_RANKING_FORM', payload: false })
+      console.log('✅ All players have completed category rankings')
+    })
+
     // Handle errors
     socket.on('error', ({ message }) => {
       console.error('Server error:', message);
@@ -268,6 +332,9 @@ export function GameProvider({ children, socket }) {
       socket.off('wagerProposed')
       socket.off('choiceMade')
       socket.off('wagerResolved')
+      // Clean up category ranking events
+      socket.off('rankingSubmitted')
+      socket.off('rankingsComplete')
     }
   }, [socket, state.gameState])
 
@@ -344,6 +411,10 @@ export function GameProvider({ children, socket }) {
     dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
   }
 
+  const submitRankings = (rankings) => {
+    sendGameAction('submitRankings', { rankings })
+  }
+
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' })
   }
@@ -360,6 +431,7 @@ export function GameProvider({ children, socket }) {
     makeChoice,
     resolveWager,
     resetWagerState,
+    submitRankings,
     clearError
   }
 

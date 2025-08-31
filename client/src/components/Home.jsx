@@ -8,13 +8,22 @@ function Home() {
   const [playerName, setPlayerName] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [createPlayerName, setCreatePlayerName] = useState('')
+  const [categories, setCategories] = useState('')
   
   const navigate = useNavigate()
   const { createGame, joinGame, currentGame, gameState, error, clearError } = useGame()
 
   const handleCreateGame = (e) => {
     e.preventDefault()
-    createGame({ playerName: createPlayerName })
+    // Parse categories from comma-separated string
+    const categoriesList = categories.trim() 
+      ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
+      : []
+    
+    createGame({ 
+      playerName: createPlayerName,
+      categories: categoriesList
+    })
     setShowCreateForm(false)
   }
 
@@ -103,6 +112,22 @@ function Home() {
                     placeholder="Enter your name"
                     required
                   />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="categories">Categories (Optional):</label>
+                  <input
+                    type="text"
+                    id="categories"
+                    name="categories"
+                    value={categories}
+                    onChange={(e) => setCategories(e.target.value)}
+                    placeholder="e.g., Speed, Strength, Intelligence, Luck"
+                    className="categories-input"
+                  />
+                  <small className="form-help">
+                    Comma-separated list of categories for player ranking. Players will rank themselves 1-4 in each category before the game starts.
+                  </small>
                 </div>
                 
                 <div className="modal-actions">

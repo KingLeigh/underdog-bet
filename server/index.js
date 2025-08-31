@@ -159,6 +159,13 @@ io.on('connection', (socket) => {
         socket.join(gameId);
         socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID });
         
+        // Debug logging for category ranking
+        console.log(`New player ${playerName} joined game ${gameId}. Category data:`, {
+          categories: game.categories,
+          playerRankings: game.playerRankings,
+          rankingsComplete: game.rankingsComplete
+        });
+        
         // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
         socket.to(gameId).emit('gameStateUpdate', game);
         
@@ -204,7 +211,10 @@ io.on('connection', (socket) => {
       },
       playerNames: {
         [playerID]: gameConfig.playerName || `Player${nextPlayerID - 1}`
-      }
+      },
+      categories: gameConfig.categories || [],
+      playerRankings: {},
+      rankingsComplete: false
     };
     
     // Initialize wager state
@@ -224,7 +234,8 @@ io.on('connection', (socket) => {
     console.log(`Initial game state:`, {
       players: gameState.players,
       playerPoints: gameState.playerPoints,
-      playerNames: gameState.playerNames
+      playerNames: gameState.playerNames,
+      categories: gameState.categories
     });
   });
 
@@ -673,6 +684,56 @@ function processGameAction(game, action, payload, playerID) {
           hostId: game.host,
           socketId: playerID
         });
+      }
+      return game;
+      
+    case 'submitRankings':
+      // Player submits their category rankings
+      if (payload.rankings && game.categories && game.categories.length > 0) {
+        // Validate rankings
+        const expectedRanks = game.categories.length;
+        const submittedRanks = Object.values(payload.rankings);
+        
+        // Check if all categories are ranked
+        if (submittedRanks.length !== expectedRanks) {
+          console.log(`Player ${game.playerNames[playerID]} submitted incomplete rankings`);
+          return game;
+        }
+        
+        // Check if ranks are unique and valid (1 to expectedRanks)
+        const validRanks = new Set(Array.from({length: expectedRanks}, (_, i) => i + 1));
+        const submittedRanksSet = new Set(submittedRanks);
+        
+        if (submittedRanksSet.size !== expectedRanks || 
+            !submittedRanks.every(rank => validRanks.has(rank))) {
+          console.log(`Player ${game.playerNames[playerID]} submitted invalid rankings`);
+          return game;
+        }
+        
+        // Store the rankings
+        game.playerRankings[playerID] = payload.rankings;
+        console.log(`Player ${game.playerNames[playerID]} submitted rankings:`, payload.rankings);
+        
+        // Check if all players have submitted rankings
+        const allPlayersRanked = game.players.every(pid => game.playerRankings[pid]);
+        if (allPlayersRanked) {
+          game.rankingsComplete = true;
+          console.log(`All players have submitted rankings for game ${game.id}`);
+          
+          // Emit rankings complete event
+          io.to(game.id).emit('rankingsComplete', {
+            playerRankings: game.playerRankings,
+            categories: game.categories
+          });
+        } else {
+          // Emit ranking submitted event
+          io.to(game.id).emit('rankingSubmitted', {
+            playerId: playerID,
+            playerName: game.playerNames[playerID],
+            totalPlayers: game.players.length,
+            rankedPlayers: Object.keys(game.playerRankings).length
+          });
+        }
       }
       return game;
       

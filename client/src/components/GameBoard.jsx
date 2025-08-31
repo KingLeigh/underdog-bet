@@ -27,7 +27,10 @@ function GameBoard() {
     resetWagerState,
     error,
     rejoinGame,
-    socket
+    socket,
+    categories,
+    playerRankings,
+    rankingsComplete
   } = useGame()
 
   useEffect(() => {
@@ -311,6 +314,34 @@ function GameBoard() {
             </table>
           </div>
         </div>
+
+        {/* Player Rankings Section */}
+        {categories && categories.length > 0 && rankingsComplete && (
+          <div className="player-rankings-section">
+            <h3>Player Rankings</h3>
+            <div className="rankings-grid">
+              {players.map(pid => (
+                <div key={pid} className="player-ranking-card">
+                  <h4>{playerNames[pid] || 'Unknown Player'}</h4>
+                  <div className="ranking-items">
+                    {categories
+                      .map(category => ({
+                        category,
+                        rank: playerRankings[pid]?.[category] || 999
+                      }))
+                      .sort((a, b) => a.rank - b.rank)
+                      .map(({ category, rank }) => (
+                        <div key={category} className="ranking-item">
+                          <span className="category-name">{category}:</span>
+                          <span className="rank-value">Rank {rank === 999 ? 'N/A' : rank}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="error-message">
