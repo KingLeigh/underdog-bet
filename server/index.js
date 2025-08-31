@@ -613,8 +613,17 @@ function processGameAction(game, action, payload, playerID) {
             const { choice, points } = choiceData;
             console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
             
-            // Increment wager count for this player
-            game.playerWagerCount[playerId] = (game.playerWagerCount[playerId] || 0) + 1;
+            // Check if this player is one of the two being compared in the contest
+            const playerName = game.playerNames[playerId];
+            const isPlayerInContest = playerName === wagerState.options[0] || playerName === wagerState.options[1];
+            
+            // Only increment wager count for players who are actually in the contest
+            if (isPlayerInContest) {
+              game.playerWagerCount[playerId] = (game.playerWagerCount[playerId] || 0) + 1;
+              console.log(`📊 Incremented wager count for contest participant ${playerName}: ${game.playerWagerCount[playerId]}`);
+            } else {
+              console.log(`📊 Skipping wager count increment for bettor ${playerName} (not in contest)`);
+            }
             
             if (choice === payload.correctChoice) {
               // Player was correct - they gain the points they wagered MULTIPLIED BY the odds
@@ -650,6 +659,7 @@ function processGameAction(game, action, payload, playerID) {
           }
           
           console.log(`🎯 Player points after resolution:`, game.playerPoints);
+          console.log(`📊 Final wager counts after resolution:`, game.playerWagerCount);
           
           console.log(`Wager resolved by host ${game.playerNames[playerID]}. Correct answer: Option ${payload.correctChoice}. Results:`, results);
           
@@ -765,7 +775,6 @@ function addPoints(game, playerId, points) {
   }
   return false;
 }
-
 
 
 function getPlayerPoints(game, playerId) {
