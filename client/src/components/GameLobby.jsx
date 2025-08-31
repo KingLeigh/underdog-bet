@@ -120,59 +120,30 @@ function GameLobby() {
           <div className="categories-section">
             <h3>Game Categories</h3>
             
-            {!rankingsComplete && (
-              <div className="ranking-status">
-                <p>
-                  {Object.keys(playerRankings).length} of {players.length} players have submitted rankings
-                </p>
-                {categories && categories.length > 0 && !playerRankings[playerId] && (
-                  <DragDropRanking 
-                    categories={categories}
-                    onSubmit={handleRankingsSubmit}
-                  />
-                )}
-                {playerRankings[playerId] && (
-                  <div className="ranking-submitted">
-                    <p>✅ Your rankings have been submitted!</p>
-                    <div className="your-rankings">
-                      {categories.map(category => (
-                        <div key={category} className="ranking-item">
-                          <span className="category-name">{category}:</span>
-                          <span className="rank-value">Rank {playerRankings[playerId][category]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {rankingsComplete && (
-              <div className="rankings-complete">
-                <h4>All Rankings Complete!</h4>
-                <div className="all-rankings">
-                  {players.map(pid => (
-                    <div key={pid} className="player-rankings">
-                      <h5>{playerNames[pid] || 'Unknown Player'}</h5>
-                      <div className="player-categories">
-                        {categories
-                          .map(category => ({
-                            category,
-                            rank: playerRankings[pid]?.[category] || 999
-                          }))
-                          .sort((a, b) => a.rank - b.rank)
-                          .map(({ category, rank }) => (
-                            <div key={category} className="ranking-item">
-                              <span className="category-name">{category}:</span>
-                              <span className="rank-value">Rank {rank === 999 ? 'N/A' : rank}</span>
-                            </div>
-                          ))}
+            <div className="ranking-status">
+              <p>
+                {Object.keys(playerRankings).length} of {players.length} players have submitted rankings
+              </p>
+              {categories && categories.length > 0 && !playerRankings[playerId] && (
+                <DragDropRanking 
+                  categories={categories}
+                  onSubmit={handleRankingsSubmit}
+                />
+              )}
+              {playerRankings[playerId] && (
+                <div className="ranking-submitted">
+                  <p>✅ Your rankings have been submitted!</p>
+                  <div className="your-rankings">
+                    {categories.map(category => (
+                      <div key={category} className="ranking-item">
+                        <span className="category-name">{category}:</span>
+                        <span className="rank-value">Rank {playerRankings[playerId][category]}</span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -181,13 +152,23 @@ function GameLobby() {
             <button 
               onClick={startGame} 
               className="btn btn-primary start-game-btn"
-              disabled={players.length < 2 || (categories && categories.length > 0 && !rankingsComplete)}
+              disabled={players.length < 2 || (categories && categories.length > 0 && players.some(pid => !playerRankings[pid]))}
             >
               Start Game
             </button>
-            {categories && categories.length > 0 && !rankingsComplete && (
+            {categories && categories.length > 0 && players.some(pid => !playerRankings[pid]) && (
               <p className="start-game-note">
                 Waiting for all players to complete category rankings...
+              </p>
+            )}
+            {categories && categories.length > 0 && !players.some(pid => !playerRankings[pid]) && (
+              <p className="start-game-note">
+                All players have submitted rankings! Ready to start.
+              </p>
+            )}
+            {(!categories || categories.length === 0) && (
+              <p className="start-game-note">
+                Share the Game ID with other players so they can join!
               </p>
             )}
           </div>

@@ -149,6 +149,22 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
       dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
+      
+      // Update category ranking state
+      if (gameState.categories) {
+        dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
+      }
+      if (gameState.playerRankings) {
+        dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
+      }
+      if (gameState.rankingsComplete !== undefined) {
+        dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: gameState.rankingsComplete })
+      }
+      
+      // Show ranking form if categories exist and rankings are not complete
+      if (gameState.categories && gameState.categories.length > 0 && !gameState.rankingsComplete) {
+        dispatch({ type: 'SET_SHOW_RANKING_FORM', payload: true })
+      }
     })
 
     // Handle joining a game
@@ -313,12 +329,6 @@ export function GameProvider({ children, socket }) {
         
         // Redirect to home page
         window.location.href = '/';
-        return;
-      }
-      
-      // Handle late-join restriction with a more user-friendly message
-      if (message.includes('already started') && message.includes('cannot join mid-game')) {
-        dispatch({ type: 'SET_ERROR', payload: 'This game has already started. Only existing players can rejoin mid-game. Please ask the host to share a new game ID.' });
         return;
       }
       
