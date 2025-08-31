@@ -11,6 +11,7 @@ const initialState = {
   players: [],
   playerPoints: {},
   playerNames: {},
+  playerWagerCount: {}, // Track how many wagers each player has participated in
   error: null,
   // Wager system state
   wagerOptions: [],
@@ -39,6 +40,9 @@ function gameReducer(state, action) {
     
     case 'SET_PLAYER_NAMES':
       return { ...state, playerNames: action.payload }
+    
+    case 'SET_PLAYER_WAGER_COUNT':
+      return { ...state, playerWagerCount: action.payload }
     
     case 'SET_IS_HOST':
       return { ...state, isHost: action.payload }
@@ -127,6 +131,7 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
+      dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
     })
 
     // Handle joining a game
@@ -147,6 +152,7 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
+      dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
       
       if (wasReconnection) {
         console.log('Successfully reconnected to existing game session')
@@ -171,6 +177,7 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
       dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
       dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
+      dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
       dispatch({ type: 'SET_IS_HOST', payload: isHost })
     })
 

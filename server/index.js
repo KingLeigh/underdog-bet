@@ -592,10 +592,18 @@ function processGameAction(game, action, payload, playerID) {
           // Process wager results with point gains/losses
           console.log(`🎯 Processing wager results. Player points before resolution:`, game.playerPoints);
           
+          // Initialize playerWagerCount if it doesn't exist
+          if (!game.playerWagerCount) {
+            game.playerWagerCount = {};
+          }
+          
           let results = [];
           for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const { choice, points } = choiceData;
             console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
+            
+            // Increment wager count for this player
+            game.playerWagerCount[playerId] = (game.playerWagerCount[playerId] || 0) + 1;
             
             if (choice === payload.correctChoice) {
               // Player was correct - they gain the points they wagered MULTIPLIED BY the odds

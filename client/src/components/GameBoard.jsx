@@ -337,7 +337,7 @@ function GameBoard() {
 
 // Wager Proposal Form Component
 function WagerProposalForm({ onSubmit }) {
-  const { players, playerNames } = useGame()
+  const { players, playerNames, playerWagerCount } = useGame()
   const [option1, setOption1] = useState('')
   const [option2, setOption2] = useState('')
   const [odds1, setOdds1] = useState(1)
@@ -354,11 +354,15 @@ function WagerProposalForm({ onSubmit }) {
     }
   }
 
-  // Get unique player names for dropdowns
+  // Get unique player names for dropdowns with wager counts
   const playerNameList = players
-    .map(pid => playerNames[pid])
-    .filter(name => name && name.trim())
-    .sort()
+    .map(pid => {
+      const name = playerNames[pid];
+      const wagerCount = playerWagerCount[pid] || 0;
+      return { pid, name, wagerCount };
+    })
+    .filter(player => player.name && player.name.trim())
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <form onSubmit={handleSubmit} className="wager-proposal-form">
@@ -372,9 +376,9 @@ function WagerProposalForm({ onSubmit }) {
           className="form-input player-select"
         >
           <option value="">Select a player</option>
-          {playerNameList.map((playerName, index) => (
-            <option key={index} value={playerName} disabled={playerName === option2}>
-              {playerName} {playerName === option2 ? '(Already selected)' : ''}
+          {playerNameList.map((player, index) => (
+            <option key={index} value={player.name} disabled={player.name === option2}>
+              {player.name} ({player.wagerCount}) {player.name === option2 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
@@ -389,9 +393,9 @@ function WagerProposalForm({ onSubmit }) {
           className="form-input player-select"
         >
           <option value="">Select a player</option>
-          {playerNameList.map((playerName, index) => (
-            <option key={index} value={playerName} disabled={playerName === option1}>
-              {playerName} {playerName === option1 ? '(Already selected)' : ''}
+          {playerNameList.map((player, index) => (
+            <option key={index} value={player.name} disabled={player.name === option1}>
+              {player.name} ({player.wagerCount}) {player.name === option1 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
