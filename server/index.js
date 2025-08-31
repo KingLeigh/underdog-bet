@@ -144,7 +144,14 @@ io.on('connection', (socket) => {
         
         console.log(`Player ${playerName} rejoined successfully`);
       } else {
-        // New player joining - add them to the game
+        // New player joining - check if game has started
+        if (game.status === 'playing') {
+          console.log(`New player ${playerName} attempted to join game ${gameId} that has already started. Rejected.`);
+          socket.emit('error', { message: 'This game has already started. New players cannot join mid-game.' });
+          return;
+        }
+        
+        // Game is still in waiting status - allow new player to join
         game.players.push(playerID);
         game.playerPoints[playerID] = 100;
         game.playerNames[playerID] = playerName || `Player${game.players.length}`;

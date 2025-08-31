@@ -316,6 +316,12 @@ export function GameProvider({ children, socket }) {
         return;
       }
       
+      // Handle late-join restriction with a more user-friendly message
+      if (message.includes('already started') && message.includes('cannot join mid-game')) {
+        dispatch({ type: 'SET_ERROR', payload: 'This game has already started. Only existing players can rejoin mid-game. Please ask the host to share a new game ID.' });
+        return;
+      }
+      
       // Handle other errors normally
       dispatch({ type: 'SET_ERROR', payload: message });
     })
