@@ -634,26 +634,6 @@
   font-style: italic;
 }
 
-.points-info {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 0.25rem;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.points-available {
-  color: #4ade80;
-  font-weight: 600;
-}
-
-.wager-limit {
-  color: #f59e0b;
-  font-weight: 500;
-}
-
 .wager-amount {
   color: #f59e0b;
   font-weight: 600;

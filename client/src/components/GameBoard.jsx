@@ -501,10 +501,6 @@ function WagerInputForm({ onSubmit, currentPoints, onCancel }) {
           required
           className="form-input"
         />
-        <div className="points-info">
-          <span className="points-available">Current: {currentPoints}</span> points
-          <span className="wager-limit"> | Max wager: {Math.max(50, currentPoints)} points</span>
-        </div>
       </div>
       
       <div className="form-actions">
