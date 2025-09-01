@@ -368,11 +368,12 @@ function GameBoard() {
 
 // Wager Proposal Form Component
 function WagerProposalForm({ onSubmit }) {
-  const { players, playerNames, playerWagerCount } = useGame()
+  const { players, playerNames, playerWagerCount, categories, playerRankings, rankingsComplete } = useGame()
   const [option1, setOption1] = useState('')
   const [option2, setOption2] = useState('')
   const [odds1, setOdds1] = useState(1)
   const [odds2, setOdds2] = useState(1)
+  const [selectedCategory, setSelectedCategory] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -382,21 +383,67 @@ function WagerProposalForm({ onSubmit }) {
       setOption2('')
       setOdds1(1)
       setOdds2(1)
+      setSelectedCategory('')
     }
   }
 
-  // Get unique player names for dropdowns with wager counts
+  // Get unique player names for dropdowns with wager counts and category rankings
   const playerNameList = players
     .map(pid => {
       const name = playerNames[pid];
       const wagerCount = playerWagerCount[pid] || 0;
-      return { pid, name, wagerCount };
+      const categoryRank = selectedCategory && playerRankings[pid] ? playerRankings[pid][selectedCategory] : null;
+      return { pid, name, wagerCount, categoryRank };
     })
     .filter(player => player.name && player.name.trim())
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      // If category is selected, sort by rank (lowest first), then by name
+      if (selectedCategory && a.categoryRank && b.categoryRank) {
+        if (a.categoryRank !== b.categoryRank) {
+          return a.categoryRank - b.categoryRank;
+        }
+      }
+      // If no category selected, sort by games played (lowest first), then by name
+      if (!selectedCategory) {
+        if (a.wagerCount !== b.wagerCount) {
+          return a.wagerCount - b.wagerCount;
+        }
+      }
+      // Fallback to alphabetical sorting
+      return a.name.localeCompare(b.name);
+    })
+
+  // Format player display name based on whether category is selected
+  const formatPlayerDisplay = (player) => {
+    if (selectedCategory && player.categoryRank) {
+      return `${player.name} (Rank ${player.categoryRank}, Played ${player.wagerCount})`;
+    } else {
+      return `${player.name} (Played ${player.wagerCount})`;
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="wager-proposal-form">
+      {/* Category dropdown - only show if categories exist and rankings are complete */}
+      {categories && categories.length > 0 && rankingsComplete && (
+        <div className="form-group">
+          <label htmlFor="category-select">Category Filter:</label>
+          <select
+            id="category-select"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="form-input category-select"
+          >
+            <option value="">All Categories</option>
+            {categories.map((category, index) => (
+              <option key={index} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      
       <div className="form-group">
         <label htmlFor="option1">First Player:</label>
         <select
@@ -409,7 +456,7 @@ function WagerProposalForm({ onSubmit }) {
           <option value="">Select a player</option>
           {playerNameList.map((player, index) => (
             <option key={index} value={player.name} disabled={player.name === option2}>
-              {player.name} ({player.wagerCount}) {player.name === option2 ? '(Already selected)' : ''}
+              {formatPlayerDisplay(player)} {player.name === option2 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
@@ -426,7 +473,7 @@ function WagerProposalForm({ onSubmit }) {
           <option value="">Select a player</option>
           {playerNameList.map((player, index) => (
             <option key={index} value={player.name} disabled={player.name === option1}>
-              {player.name} ({player.wagerCount}) {player.name === option1 ? '(Already selected)' : ''}
+              {formatPlayerDisplay(player)} {player.name === option1 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
