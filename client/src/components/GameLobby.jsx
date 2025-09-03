@@ -134,12 +134,18 @@ function GameLobby() {
                 <div className="ranking-submitted">
                   <p>✅ Your rankings have been submitted!</p>
                   <div className="your-rankings">
-                    {categories.map(category => (
-                      <div key={category} className="ranking-item">
-                        <span className="category-name">{category}:</span>
-                        <span className="rank-value">Rank {playerRankings[playerId][category]}</span>
-                      </div>
-                    ))}
+                    {categories
+                      .map(category => ({
+                        category,
+                        rank: playerRankings[playerId][category]
+                      }))
+                      .sort((a, b) => a.rank - b.rank)
+                      .map(({ category, rank }) => (
+                        <div key={category} className="ranking-item">
+                          <span className="category-name">{category}:</span>
+                          <span className="rank-value">Rank {rank}</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
