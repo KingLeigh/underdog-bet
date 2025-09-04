@@ -7,8 +7,18 @@ import GameBoard from './components/GameBoard'
 import { GameProvider } from './contexts/GameContext'
 import './App.css'
 
-// Socket connection
-const socket = io(import.meta.env.VITE_SERVER_URL || 'http://localhost:3001')
+// Socket connection - use relative URL in production, absolute in development
+const getSocketUrl = () => {
+  if (import.meta.env.PROD) {
+    // In production, connect to the same domain
+    return window.location.origin;
+  } else {
+    // In development, use the environment variable or default
+    return import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+  }
+};
+
+const socket = io(getSocketUrl())
 
 function App() {
   const [isConnected, setIsConnected] = useState(false)

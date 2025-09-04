@@ -38,41 +38,79 @@ The game now includes a complete wager system where:
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v18 or higher)
 - npm
 
 ### Installation
 
 1. Clone the repository
-2. Install server dependencies:
+2. Install all dependencies:
    ```bash
-   cd server
-   npm install
+   npm run install:all
    ```
 
-3. Install client dependencies:
-   ```bash
-   cd client
-   npm install
-   ```
+### Running the Application Locally
 
-### Running the Application
+1. **Start both server and client in development mode:**
+   ```bash
+   npm run dev
+   ```
+   This starts the server on port 3001 and client on port 5173
+
+2. **Open your browser** and navigate to `http://localhost:5173`
+
+### Running Server and Client Separately
 
 1. **Start the server:**
    ```bash
-   cd server
-   npm start
+   npm run server:dev
    ```
    Server runs on port 3001
 
 2. **Start the client:**
    ```bash
-   cd client
-   npm run dev
+   npm run client:dev
    ```
    Client runs on port 5173
 
-3. **Open your browser** and navigate to `http://localhost:5173`
+## Deployment to Heroku
+
+### Prerequisites
+
+- Heroku CLI installed
+- Git repository set up
+
+### Deployment Steps
+
+1. **Create a new Heroku app:**
+   ```bash
+   heroku create your-app-name
+   ```
+
+2. **Set environment variables (optional):**
+   ```bash
+   heroku config:set NODE_ENV=production
+   ```
+
+3. **Deploy to Heroku:**
+   ```bash
+   git add .
+   git commit -m "Prepare for Heroku deployment"
+   git push heroku main
+   ```
+
+4. **Open your app:**
+   ```bash
+   heroku open
+   ```
+
+### How Deployment Works
+
+- Heroku runs `npm install` to install dependencies
+- The `heroku-postbuild` script builds your React app
+- The `start` script starts the server
+- The server serves both the API and the built React files
+- Socket.IO connections work seamlessly in production
 
 ## Game Flow
 
