@@ -12,7 +12,7 @@
     "server:start": "cd server && npm start",
     "client:build": "cd client && npm run build",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "heroku-postbuild": "npm run client:build"
+    "heroku-postbuild": "cd server && npm install && cd ../client && npm install && npm run build"
   },
   "engines": {
     "node": "18.x"
