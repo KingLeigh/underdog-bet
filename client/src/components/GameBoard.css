@@ -290,7 +290,7 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  -moz-appearance: none;
+  -moz-appearance: none;  
 }
 
 /* Category select dropdown styling */

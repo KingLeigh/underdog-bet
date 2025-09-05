@@ -29,7 +29,7 @@ function Home() {
     createGame({ 
       playerName: createPlayerName,
       categories: categoriesList,
-      startingPoints: startingPoints,
+      startingPoints: startingPoints === '' ? 100 : startingPoints,
       maxBetSize: maxBetValue
     })
     setShowCreateForm(false)
@@ -137,7 +137,17 @@ function Home() {
                     id="startingPoints"
                     name="startingPoints"
                     value={startingPoints}
-                    onChange={(e) => setStartingPoints(parseInt(e.target.value) || 100)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '') {
+                        setStartingPoints('');
+                      } else {
+                        const numValue = parseInt(value);
+                        if (!isNaN(numValue)) {
+                          setStartingPoints(numValue);
+                        }
+                      }
+                    }}
                     min="1"
                     max="10000"
                     className="starting-points-input"

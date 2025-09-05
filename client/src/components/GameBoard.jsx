@@ -378,7 +378,7 @@ function WagerProposalForm({ onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (option1 && option2 && option1 !== option2) {
+    if (option1 && option2 && option1 !== option2 && odds1 && odds2) {
       onSubmit(option1, option2, odds1, odds2)
       setOption1('')
       setOption2('')
@@ -491,7 +491,17 @@ function WagerProposalForm({ onSubmit }) {
             type="number"
             id="odds1"
             value={odds1}
-            onChange={(e) => setOdds1(Math.max(1, parseFloat(e.target.value) || 1))}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setOdds1('');
+              } else {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  setOdds1(Math.max(1, numValue));
+                }
+              }
+            }}
             min="1"
             step="0.1"
             className="form-input odds-input"
@@ -503,7 +513,17 @@ function WagerProposalForm({ onSubmit }) {
             type="number"
             id="odds2"
             value={odds2}
-            onChange={(e) => setOdds2(Math.max(1, parseFloat(e.target.value) || 1))}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === '') {
+                setOdds2('');
+              } else {
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                  setOdds2(Math.max(1, numValue));
+                }
+              }
+            }}
             min="1"
             step="0.1"
             className="form-input odds-input"
@@ -513,7 +533,7 @@ function WagerProposalForm({ onSubmit }) {
       <button 
         type="submit" 
         className="btn btn-primary"
-        disabled={!option1 || !option2 || option1 === option2}
+        disabled={!option1 || !option2 || option1 === option2 || !odds1 || !odds2}
       >
         Propose Contest
       </button>
