@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import './Home.css'
 
@@ -11,6 +11,7 @@ function Home() {
   const [categories, setCategories] = useState('')
   
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { createGame, joinGame, currentGame, gameState, error, clearError } = useGame()
 
   const handleCreateGame = (e) => {
@@ -56,6 +57,14 @@ function Home() {
       clearError()
     }
   }, [error, clearError])
+
+  // Parse query parameter to pre-populate game ID
+  useEffect(() => {
+    const gameParam = searchParams.get('game')
+    if (gameParam) {
+      setGameId(gameParam.toUpperCase())
+    }
+  }, [searchParams])
 
   return (
     <div className="home">

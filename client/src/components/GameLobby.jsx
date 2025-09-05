@@ -60,7 +60,8 @@ function GameLobby() {
   }, [categories, playerRankings, rankingsComplete, showRankingForm, playerId])
 
   const copyGameId = () => {
-    navigator.clipboard.writeText(gameId)
+    const fullUrl = `${window.location.origin}?game=${gameId}`
+    navigator.clipboard.writeText(fullUrl)
   }
 
   if (!gameState) {
