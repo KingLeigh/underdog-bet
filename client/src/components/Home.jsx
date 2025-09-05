@@ -9,6 +9,7 @@ function Home() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [createPlayerName, setCreatePlayerName] = useState('')
   const [categories, setCategories] = useState('')
+  const [startingPoints, setStartingPoints] = useState(100)
   
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -23,7 +24,8 @@ function Home() {
     
     createGame({ 
       playerName: createPlayerName,
-      categories: categoriesList
+      categories: categoriesList,
+      startingPoints: startingPoints
     })
     setShowCreateForm(false)
   }
@@ -121,6 +123,23 @@ function Home() {
                     placeholder="Enter your name"
                     required
                   />
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="startingPoints">Starting Points:</label>
+                  <input
+                    type="number"
+                    id="startingPoints"
+                    name="startingPoints"
+                    value={startingPoints}
+                    onChange={(e) => setStartingPoints(parseInt(e.target.value) || 100)}
+                    min="1"
+                    max="10000"
+                    className="starting-points-input"
+                  />
+                  <small className="form-help">
+                    The number of points each player starts with. Default is 100.
+                  </small>
                 </div>
                 
                 <div className="form-group">

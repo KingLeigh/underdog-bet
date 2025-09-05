@@ -165,14 +165,15 @@ io.on('connection', (socket) => {
         
         // New player joining - add them to the game
         game.players.push(playerID);
-        game.playerPoints[playerID] = 100;
+        game.playerPoints[playerID] = game.startingPoints || 100;
         game.playerNames[playerID] = playerName || `Player${game.players.length}`;
         
         console.log(`New player ${playerName} joined game ${gameId}. Initial points: ${game.playerPoints[playerID]} (PlayerID: ${playerID})`);
         console.log(`Current game state after join:`, {
           players: game.players,
           playerPoints: game.playerPoints,
-          playerNames: game.playerNames
+          playerNames: game.playerNames,
+          startingPoints: game.startingPoints
         });
         
         socket.join(gameId);
@@ -219,14 +220,18 @@ io.on('connection', (socket) => {
     const playerData = playerRegistry.get(playerID);
     playerData.gameId = gameId;
     
+    // Use configured starting points or default to 100
+    const startingPoints = gameConfig.startingPoints || 100;
+    
     const gameState = {
       id: gameId,
       host: playerID,
       players: [playerID],
       status: 'waiting',
       createdAt: new Date().toISOString(),
+      startingPoints: startingPoints,
       playerPoints: {
-        [playerID]: 100
+        [playerID]: startingPoints
       },
       playerNames: {
         [playerID]: gameConfig.playerName || `Player${nextPlayerID - 1}`
@@ -254,7 +259,8 @@ io.on('connection', (socket) => {
       players: gameState.players,
       playerPoints: gameState.playerPoints,
       playerNames: gameState.playerNames,
-      categories: gameState.categories
+      categories: gameState.categories,
+      startingPoints: gameState.startingPoints
     });
   });
 
