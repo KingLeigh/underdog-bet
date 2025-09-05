@@ -10,6 +10,7 @@ function Home() {
   const [createPlayerName, setCreatePlayerName] = useState('')
   const [categories, setCategories] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
+  const [maxBetSize, setMaxBetSize] = useState('')
   
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -22,10 +23,14 @@ function Home() {
       ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
       : []
     
+    // Parse max bet size - convert to number if provided, otherwise null
+    const maxBetValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
+    
     createGame({ 
       playerName: createPlayerName,
       categories: categoriesList,
-      startingPoints: startingPoints
+      startingPoints: startingPoints,
+      maxBetSize: maxBetValue
     })
     setShowCreateForm(false)
   }
@@ -139,6 +144,24 @@ function Home() {
                   />
                   <small className="form-help">
                     The number of points each player starts with. Default is 100.
+                  </small>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="maxBetSize">Maximum Bet Size (Optional):</label>
+                  <input
+                    type="number"
+                    id="maxBetSize"
+                    name="maxBetSize"
+                    value={maxBetSize}
+                    onChange={(e) => setMaxBetSize(e.target.value)}
+                    min="1"
+                    max="10000"
+                    className="max-bet-input"
+                    placeholder="Leave empty for no limit"
+                  />
+                  <small className="form-help">
+                    Maximum bet size per wager. If empty, players can bet any amount they have available.
                   </small>
                 </div>
                 

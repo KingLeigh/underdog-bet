@@ -222,6 +222,8 @@ io.on('connection', (socket) => {
     
     // Use configured starting points or default to 100
     const startingPoints = gameConfig.startingPoints || 100;
+    // Use configured max bet size or null if not provided
+    const maxBetSize = gameConfig.maxBetSize || null;
     
     const gameState = {
       id: gameId,
@@ -230,6 +232,7 @@ io.on('connection', (socket) => {
       status: 'waiting',
       createdAt: new Date().toISOString(),
       startingPoints: startingPoints,
+      maxBetSize: maxBetSize,
       playerPoints: {
         [playerID]: startingPoints
       },
@@ -260,7 +263,8 @@ io.on('connection', (socket) => {
       playerPoints: gameState.playerPoints,
       playerNames: gameState.playerNames,
       categories: gameState.categories,
-      startingPoints: gameState.startingPoints
+      startingPoints: gameState.startingPoints,
+      maxBetSize: gameState.maxBetSize
     });
   });
 
@@ -569,10 +573,16 @@ function processGameAction(game, action, payload, playerID) {
           }
           
           // Calculate maximum allowed wager: 50 points OR current points, whichever is larger
-          const maxWager = Math.max(50, currentPoints);
+          let maxWager = Math.max(50, currentPoints);
+          
+          // Apply game-level maximum bet size limit if configured
+          if (game.maxBetSize !== null && game.maxBetSize !== undefined) {
+            maxWager = Math.min(maxWager, game.maxBetSize);
+          }
           
           if (payload.points > maxWager) {
-            console.log(`Player ${game.playerNames[playerID]} tried to wager ${payload.points} points, but max allowed is ${maxWager} (current: ${currentPoints})`);
+            const reason = game.maxBetSize !== null ? `game max bet limit (${game.maxBetSize})` : `max allowed (${Math.max(50, currentPoints)})`;
+            console.log(`Player ${game.playerNames[playerID]} tried to wager ${payload.points} points, but exceeded ${reason} (current: ${currentPoints})`);
             return game;
           }
           

@@ -172,6 +172,7 @@ function GameBoard() {
                           setSelectedOption(null);
                         }}
                         currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
+                        maxBetSize={gameState?.maxBetSize}
                         onCancel={() => setSelectedOption(null)}
                       />
                     </div>
@@ -521,12 +522,25 @@ function WagerProposalForm({ onSubmit }) {
 }
 
 // Wager Input Form Component (for points only)
-function WagerInputForm({ onSubmit, currentPoints, onCancel }) {
+function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
   const [points, setPoints] = useState('')
+
+  // Calculate the effective maximum wager
+  const calculateMaxWager = () => {
+    let maxWager = Math.max(50, currentPoints);
+    
+    // Apply game-level maximum bet size limit if configured
+    if (maxBetSize !== null && maxBetSize !== undefined) {
+      maxWager = Math.min(maxWager, maxBetSize);
+    }
+    
+    return maxWager;
+  }
+
+  const maxWager = calculateMaxWager();
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const maxWager = Math.max(50, currentPoints);
     if (points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
       onSubmit(parseInt(points))
       setPoints('')
@@ -543,15 +557,15 @@ function WagerInputForm({ onSubmit, currentPoints, onCancel }) {
           value={points}
           onChange={(e) => setPoints(e.target.value)}
           min="1"
-          max={Math.max(50, currentPoints)}
-          placeholder={`1-${Math.max(50, currentPoints)}`}
+          max={maxWager}
+          placeholder={`1-${maxWager}`}
           required
           className="form-input"
         />
       </div>
       
       <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) <= 0 || parseInt(points) > Math.max(50, currentPoints)}>
+        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) <= 0 || parseInt(points) > maxWager}>
           Submit Wager
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel}>
