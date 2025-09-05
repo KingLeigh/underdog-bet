@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import io from 'socket.io-client'
 import Home from './components/Home'
+import CreateGame from './components/CreateGame'
 import GameLobby from './components/GameLobby'
 import GameBoard from './components/GameBoard'
 import { GameProvider } from './contexts/GameContext'
@@ -47,6 +48,7 @@ function App() {
           <main>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/create-game" element={<CreateGame />} />
               <Route path="/lobby/:gameId" element={<GameLobby />} />
               <Route path="/game/:gameId" element={<GameBoard />} />
               <Route path="/game/:gameId/player/:playerId" element={<GameBoard />} />

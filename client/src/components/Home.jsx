@@ -6,34 +6,11 @@ import './Home.css'
 function Home() {
   const [gameId, setGameId] = useState('')
   const [playerName, setPlayerName] = useState('')
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [createPlayerName, setCreatePlayerName] = useState('')
-  const [categories, setCategories] = useState('')
-  const [startingPoints, setStartingPoints] = useState(100)
-  const [maxBetSize, setMaxBetSize] = useState('')
   
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { createGame, joinGame, currentGame, gameState, error, clearError } = useGame()
+  const { joinGame, currentGame, gameState, error, clearError } = useGame()
 
-  const handleCreateGame = (e) => {
-    e.preventDefault()
-    // Parse categories from comma-separated string
-    const categoriesList = categories.trim() 
-      ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
-      : []
-    
-    // Parse max bet size - convert to number if provided, otherwise null
-    const maxBetValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
-    
-    createGame({ 
-      playerName: createPlayerName,
-      categories: categoriesList,
-      startingPoints: startingPoints === '' ? 100 : startingPoints,
-      maxBetSize: maxBetValue
-    })
-    setShowCreateForm(false)
-  }
 
   const handleJoinGame = (e) => {
     e.preventDefault()
@@ -81,7 +58,7 @@ function Home() {
         <div className="action-buttons">
           <button 
             className="btn btn-primary"
-            onClick={() => setShowCreateForm(true)}
+            onClick={() => navigate('/create-game')}
           >
             Host New Game
           </button>
@@ -112,101 +89,6 @@ function Home() {
           </form>
         </div>
 
-        {showCreateForm && (
-          <div className="create-game-modal">
-            <div className="modal-content">
-              <h3>Create New Game</h3>
-              <form onSubmit={handleCreateGame}>
-                <div className="form-group">
-                  <label htmlFor="playerName">Your Name:</label>
-                  <input
-                    type="text"
-                    id="playerName"
-                    name="playerName"
-                    value={createPlayerName}
-                    onChange={(e) => setCreatePlayerName(e.target.value)}
-                    placeholder="Enter your name"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="startingPoints">Starting Points:</label>
-                  <input
-                    type="number"
-                    id="startingPoints"
-                    name="startingPoints"
-                    value={startingPoints}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === '') {
-                        setStartingPoints('');
-                      } else {
-                        const numValue = parseInt(value);
-                        if (!isNaN(numValue)) {
-                          setStartingPoints(numValue);
-                        }
-                      }
-                    }}
-                    min="1"
-                    max="10000"
-                    className="starting-points-input"
-                  />
-                  <small className="form-help">
-                    The number of points each player starts with. Default is 100.
-                  </small>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="maxBetSize">Maximum Bet Size (Optional):</label>
-                  <input
-                    type="number"
-                    id="maxBetSize"
-                    name="maxBetSize"
-                    value={maxBetSize}
-                    onChange={(e) => setMaxBetSize(e.target.value)}
-                    min="1"
-                    max="10000"
-                    className="max-bet-input"
-                    placeholder="Leave empty for no limit"
-                  />
-                  <small className="form-help">
-                    Maximum bet size per wager. If empty, players can bet any amount they have available.
-                  </small>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="categories">Categories (Optional):</label>
-                  <input
-                    type="text"
-                    id="categories"
-                    name="categories"
-                    value={categories}
-                    onChange={(e) => setCategories(e.target.value)}
-                    placeholder="e.g., Speed, Strength, Intelligence, Luck"
-                    className="categories-input"
-                  />
-                  <small className="form-help">
-                    Comma-separated list of categories for player ranking. Players will rank themselves 1-4 in each category before the game starts.
-                  </small>
-                </div>
-                
-                <div className="modal-actions">
-                  <button type="submit" className="btn btn-primary">
-                    Create Game
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary"
-                    onClick={() => setShowCreateForm(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
