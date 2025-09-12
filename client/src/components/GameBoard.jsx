@@ -32,7 +32,8 @@ function GameBoard() {
     playerRankings,
     rankingsComplete,
     bountyAmount,
-    bountyVisible
+    bountyVisible,
+    wagerCategory
   } = useGame()
 
   useEffect(() => {
@@ -93,14 +94,14 @@ function GameBoard() {
         <div className="game-area">
           {/* Wager System Interface */}
           <div className="wager-section">
-            <h3>Active Contest</h3>
+            <h3>Active Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h3>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
                 {isHost ? (
                   <div className="host-wager-controls">
                     <h4>Propose a Player Contest</h4>
-                    <WagerProposalForm onSubmit={proposeWager} />
+                    <WagerProposalForm onSubmit={(option1, option2, odds1, odds2, category) => proposeWager(option1, option2, odds1, odds2, category)} />
                   </div>
                 ) : (
                   <p>Waiting for host to propose a player contest...</p>
@@ -116,37 +117,73 @@ function GameBoard() {
                     const currentPlayerName = playerNames[playerId];
                     const option0Name = wagerOptions.options?.[0] || wagerOptions[0];
                     const option1Name = wagerOptions.options?.[1] || wagerOptions[1];
+                    const odds0 = wagerOptions.odds?.[0] || 1;
+                    const odds1 = wagerOptions.odds?.[1] || 1;
+                    
+                    // Sort options by odds (lower odds on the left)
+                    const sortedOptions = [
+                      { name: option0Name, odds: odds0, originalIndex: 0 },
+                      { name: option1Name, odds: odds1, originalIndex: 1 }
+                    ].sort((a, b) => a.odds - b.odds);
+                    
+                    const leftOption = sortedOptions[0];
+                    const rightOption = sortedOptions[1];
+                    
                     const isPlayerInContest = currentPlayerName === option0Name || currentPlayerName === option1Name;
-                    const canBetOnOption0 = !isPlayerInContest || currentPlayerName === option0Name;
-                    const canBetOnOption1 = !isPlayerInContest || currentPlayerName === option1Name;
+                    const canBetOnLeft = !isPlayerInContest || currentPlayerName === leftOption.name;
+                    const canBetOnRight = !isPlayerInContest || currentPlayerName === rightOption.name;
+                    
+                    // Get player ranks for the selected category
+                    const getPlayerRank = (playerName) => {
+                      if (!wagerCategory || !playerRankings) return null;
+                      
+                      // Find the player ID for this name
+                      const playerId = Object.keys(playerNames).find(pid => playerNames[pid] === playerName);
+                      if (!playerId || !playerRankings[playerId]) return null;
+                      
+                      return playerRankings[playerId][wagerCategory] || null;
+                    };
+                    
+                    const leftRank = getPlayerRank(leftOption.name);
+                    const rightRank = getPlayerRank(rightOption.name);
                     
                     return (
                       <>
                         <div 
-                          className={`wager-option ${playerChoices[playerId]?.choice === 0 ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnOption0 ? 'clickable' : ''} ${!canBetOnOption0 ? 'disabled' : ''}`}
+                          className={`wager-option ${playerChoices[playerId]?.choice === leftOption.originalIndex ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnLeft ? 'clickable' : ''} ${!canBetOnLeft ? 'disabled' : ''}`}
                           onClick={() => {
-                            if (!playerChoices[playerId] && canBetOnOption0) {
-                              setSelectedOption(0);
-                            } else if (!canBetOnOption0) {
+                            if (!playerChoices[playerId] && canBetOnLeft) {
+                              setSelectedOption(leftOption.originalIndex);
+                            } else if (!canBetOnLeft) {
                               setSelectedOption(null); // Clear selection if they can't bet on this option
                             }
                           }}
                         >
-                          <strong>{option0Name}</strong>
-                          <span className="odds-display">{wagerOptions.odds?.[0] || 1}:1</span>
+                          <div className="player-info">
+                            <strong>{leftOption.name}</strong>
+                            {leftRank && (
+                              <span className="rank-display">Rank {leftRank}</span>
+                            )}
+                          </div>
+                          <span className="odds-display">{leftOption.odds}:1</span>
                         </div>
                         <div 
-                          className={`wager-option ${playerChoices[playerId]?.choice === 1 ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnOption1 ? 'clickable' : ''} ${!canBetOnOption1 ? 'disabled' : ''}`}
+                          className={`wager-option ${playerChoices[playerId]?.choice === rightOption.originalIndex ? 'selected' : ''} ${!playerChoices[playerId] && canBetOnRight ? 'clickable' : ''} ${!canBetOnRight ? 'disabled' : ''}`}
                           onClick={() => {
-                            if (!playerChoices[playerId] && canBetOnOption1) {
-                              setSelectedOption(1);
-                            } else if (!canBetOnOption1) {
+                            if (!playerChoices[playerId] && canBetOnRight) {
+                              setSelectedOption(rightOption.originalIndex);
+                            } else if (!canBetOnRight) {
                               setSelectedOption(null); // Clear selection if they can't bet on this option
                             }
                           }}
                         >
-                          <strong>{option1Name}</strong>
-                          <span className="odds-display">{wagerOptions.odds?.[1] || 1}:1</span>
+                          <div className="player-info">
+                            <strong>{rightOption.name}</strong>
+                            {rightRank && (
+                              <span className="rank-display">Rank {rightRank}</span>
+                            )}
+                          </div>
+                          <span className="odds-display">{rightOption.odds}:1</span>
                         </div>
 
                       </>
@@ -410,7 +447,7 @@ function WagerProposalForm({ onSubmit }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (option1 && option2 && option1 !== option2 && odds1 && odds2) {
-      onSubmit(option1, option2, odds1, odds2)
+      onSubmit(option1, option2, odds1, odds2, selectedCategory)
       setOption1('')
       setOption2('')
       setOdds1(1)

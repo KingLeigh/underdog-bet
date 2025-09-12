@@ -513,24 +513,27 @@ function processGameAction(game, action, payload, playerID) {
         // Extract odds from payload, defaulting to 1 if not provided
         const odds1 = payload.odds1 || 1;
         const odds2 = payload.odds2 || 1;
+        const category = payload.category || '';
         
         if (wagerState) {
           // Clear any previous wager state completely
           wagerState.isActive = true;
           wagerState.options = [payload.option1, payload.option2];
           wagerState.odds = [odds1, odds2];
+          wagerState.category = category;
           wagerState.playerChoices = {};
           wagerState.resolved = false;
           wagerState.correctOption = null;
           
-          console.log(`Host ${game.playerNames[playerID]} proposed wager: "${payload.option1}" (${odds1}x) vs "${payload.option2}" (${odds2}x)`);
+          console.log(`Host ${game.playerNames[playerID]} proposed wager: "${payload.option1}" (${odds1}x) vs "${payload.option2}" (${odds2}x)${category ? ` in ${category}` : ''}`);
           console.log(`Updated wager state:`, wagerState);
           
           // Emit wager proposed event to all players
           io.to(game.id).emit('wagerProposed', {
             options: [payload.option1, payload.option2],
             odds: [odds1, odds2],
-            wagerId: Date.now().toString()
+            wagerId: Date.now().toString(),
+            category: category
           });
         } else {
           console.error(`No wager state found for game ${game.id}. Creating new one.`);
@@ -539,6 +542,7 @@ function processGameAction(game, action, payload, playerID) {
             isActive: true,
             options: [payload.option1, payload.option2],
             odds: [odds1, odds2],
+            category: category,
             playerChoices: {},
             resolved: false,
             correctOption: null
@@ -551,7 +555,8 @@ function processGameAction(game, action, payload, playerID) {
           io.to(game.id).emit('wagerProposed', {
             options: [payload.option1, payload.option2],
             odds: [odds1, odds2],
-            wagerId: Date.now().toString()
+            wagerId: Date.now().toString(),
+            category: category
           });
         }
       } else {
