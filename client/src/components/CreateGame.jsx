@@ -61,7 +61,7 @@ function CreateGame() {
 
         <form onSubmit={handleCreateGame} className="create-game-form">
           <div className="form-section">
-            <h2>Basic Settings</h2>
+            <h2>Player</h2>
             
             <div className="form-group">
               <label htmlFor="playerName">Your Name:</label>
@@ -75,6 +75,10 @@ function CreateGame() {
                 required
               />
             </div>
+          </div>
+
+          <div className="form-section">
+            <h2>Betting Options</h2>
             
             <div className="form-group">
               <label htmlFor="startingPoints">Starting Points:</label>
