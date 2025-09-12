@@ -30,7 +30,9 @@ function GameBoard() {
     socket,
     categories,
     playerRankings,
-    rankingsComplete
+    rankingsComplete,
+    bountyAmount,
+    bountyVisible
   } = useGame()
 
   useEffect(() => {
@@ -152,6 +154,19 @@ function GameBoard() {
                   })()}
                 </div>
                 
+                {/* Bounty Display - Only show to competing players */}
+                {bountyVisible && bountyAmount && (
+                  <div className="bounty-display">
+                    <div className="bounty-info">
+                      <span className="bounty-label">💰 Bounty:</span>
+                      <span className="bounty-amount">{bountyAmount} points</span>
+                    </div>
+                    <small className="bounty-description">
+                      Winner receives this additional prize
+                    </small>
+                  </div>
+                )}
+                
                 {!playerChoices[playerId] && selectedOption !== null && (() => {
                   const currentPlayerName = playerNames[playerId];
                   const selectedOptionName = wagerOptions.options?.[selectedOption] || wagerOptions[selectedOption];
@@ -235,11 +250,27 @@ function GameBoard() {
               <div className="wager-results">
                 <h4>Contest Results</h4>
                 <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1)</p>
+                
+                {/* Bounty Information */}
+                {wagerResults.bountyAmount && wagerResults.bountyAmount > 0 && (
+                  <div className="bounty-result">
+                    <div className="bounty-winner">
+                      <span className="bounty-icon">💰</span>
+                      <span className="bounty-text">
+                        <strong>{playerNames[wagerResults.winnerPlayerId]}</strong> received a bounty of <strong>{wagerResults.bountyAmount}</strong> points!
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => (
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
                       <div className="result-header">
                         {result.playerName}: {result.correct ? '✅ Correct' : '❌ Incorrect'}
+                        {result.isWinner && result.bountyAwarded && (
+                          <span className="bounty-badge">💰 +{result.bountyAwarded}</span>
+                        )}
                       </div>
                       <div className="result-detail">
                         <div className={`points-change ${result.pointsChange.startsWith('-') ? 'negative' : 'positive'}`}>

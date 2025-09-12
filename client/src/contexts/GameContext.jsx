@@ -23,7 +23,10 @@ const initialState = {
   categories: [],
   playerRankings: {},
   rankingsComplete: false,
-  showRankingForm: false
+  showRankingForm: false,
+  // Bounty system state
+  bountyAmount: null,
+  bountyVisible: false
 }
 
 function gameReducer(state, action) {
@@ -84,6 +87,12 @@ function gameReducer(state, action) {
     
     case 'SET_SHOW_RANKING_FORM':
       return { ...state, showRankingForm: action.payload }
+    
+    case 'SET_BOUNTY_AMOUNT':
+      return { ...state, bountyAmount: action.payload }
+    
+    case 'SET_BOUNTY_VISIBLE':
+      return { ...state, bountyVisible: action.payload }
     
     case 'RESET_GAME':
       return { ...initialState, playerId: state.playerId }
@@ -281,23 +290,66 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
       dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
       dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
+      
+      // Reset bounty visibility - will be updated when bets are placed
+      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
+      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: null })
+      
       console.log('✅ Wager state updated after proposal')
     })
 
     socket.on('choiceMade', ({ playerId, playerName, hasChosen, choice, points }) => {
       console.log('🎯 choiceMade event received:', { playerId, playerName, hasChosen, choice, points })
-      dispatch({ type: 'SET_PLAYER_CHOICES', payload: { 
+      const updatedChoices = { 
         ...state.playerChoices, 
         [playerId]: { hasChosen, choice, points, playerName } 
-      }})
+      };
+      dispatch({ type: 'SET_PLAYER_CHOICES', payload: updatedChoices })
+      
+      // Update bounty visibility for competing players
+      if (state.gameState && state.gameState.bounty && state.gameState.bounty !== 'None') {
+        const currentPlayerName = state.playerNames[state.playerId];
+        const isPlayerInContest = currentPlayerName === state.wagerOptions.options?.[0] || currentPlayerName === state.wagerOptions.options?.[1];
+        
+        if (isPlayerInContest) {
+          // Calculate bounty amount based on current bets
+          const allBets = Object.values(updatedChoices).map(choice => choice.points).filter(points => points > 0);
+          let bountyAmount = null;
+          
+          if (allBets.length > 0) {
+            switch (state.gameState.bounty) {
+              case 'Fixed (50)':
+                bountyAmount = 50;
+                break;
+              case 'Min':
+                bountyAmount = Math.min(...allBets);
+                break;
+              case 'Max':
+                bountyAmount = Math.max(...allBets);
+                break;
+              case 'Average':
+                bountyAmount = Math.floor(allBets.reduce((sum, bet) => sum + bet, 0) / allBets.length);
+                break;
+            }
+          }
+          
+          if (bountyAmount !== null) {
+            dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: true })
+            dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: bountyAmount })
+          }
+        }
+      }
+      
       console.log(`✅ Player ${playerName} choice recorded (choice and points hidden until resolution)`)
     })
 
-    socket.on('wagerResolved', ({ correctChoice, results, wagerState }) => {
-      console.log('🎯 wagerResolved event received:', { correctChoice, results, wagerState })
+    socket.on('wagerResolved', ({ correctChoice, results, wagerState, bountyAmount, winnerPlayerId }) => {
+      console.log('🎯 wagerResolved event received:', { correctChoice, results, wagerState, bountyAmount, winnerPlayerId })
       dispatch({ type: 'SET_WAGER_RESOLVED', payload: true })
-      dispatch({ type: 'SET_WAGER_RESULTS', payload: { correctChoice, results, wagerState } })
+      dispatch({ type: 'SET_WAGER_RESULTS', payload: { correctChoice, results, wagerState, bountyAmount, winnerPlayerId } })
       dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
+      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: bountyAmount })
+      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
       console.log('✅ Wager state updated after resolution')
     })
 

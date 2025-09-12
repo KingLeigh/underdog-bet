@@ -224,6 +224,8 @@ io.on('connection', (socket) => {
     const startingPoints = gameConfig.startingPoints || 100;
     // Use configured max bet size or null if not provided
     const maxBetSize = gameConfig.maxBetSize || null;
+    // Use configured bounty or default to 'None'
+    const bounty = gameConfig.bounty || 'None';
     
     const gameState = {
       id: gameId,
@@ -233,6 +235,7 @@ io.on('connection', (socket) => {
       createdAt: new Date().toISOString(),
       startingPoints: startingPoints,
       maxBetSize: maxBetSize,
+      bounty: bounty,
       playerPoints: {
         [playerID]: startingPoints
       },
@@ -635,6 +638,10 @@ function processGameAction(game, action, payload, playerID) {
           wagerState.resolved = true;
           wagerState.correctOption = payload.correctChoice;
           
+          // Calculate bounty amount
+          const bountyAmount = calculateBountyAmount(game, wagerState);
+          console.log(`💰 Bounty amount calculated: ${bountyAmount} (config: ${game.bounty})`);
+          
           // Process wager results with point gains/losses
           console.log(`🎯 Processing wager results. Player points before resolution:`, game.playerPoints);
           
@@ -644,6 +651,8 @@ function processGameAction(game, action, payload, playerID) {
           }
           
           let results = [];
+          let winnerPlayerId = null;
+          
           for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const { choice, points } = choiceData;
             console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
@@ -666,6 +675,15 @@ function processGameAction(game, action, payload, playerID) {
               const pointsAwarded = Math.floor(points * odds);
               console.log(`✅ Player ${game.playerNames[playerId]} was correct, adding ${pointsAwarded} points (${points} × ${odds})`);
               addPoints(game, playerId, pointsAwarded);
+              
+              // Check if this player is the actual winner (one of the two competing players)
+              const playerName = game.playerNames[playerId];
+              const isPlayerInContest = playerName === wagerState.options[0] || playerName === wagerState.options[1];
+              if (isPlayerInContest) {
+                winnerPlayerId = playerId;
+                console.log(`🏆 Winner identified: ${playerName} (${playerId})`);
+              }
+              
               results.push({
                 playerId,
                 playerName: game.playerNames[playerId] || 'Unknown Player',
@@ -674,7 +692,8 @@ function processGameAction(game, action, payload, playerID) {
                 odds: odds,
                 correct: true,
                 pointsAwarded: pointsAwarded,
-                pointsChange: `+${pointsAwarded}`
+                pointsChange: `+${pointsAwarded}`,
+                isWinner: isPlayerInContest
               });
             } else {
               // Player was incorrect - they lose the points they wagered (unaffected by odds)
@@ -688,8 +707,23 @@ function processGameAction(game, action, payload, playerID) {
                 odds: wagerState.odds[choice],
                 correct: false,
                 pointsAwarded: 0,
-                pointsChange: `-${points}`
+                pointsChange: `-${points}`,
+                isWinner: false
               });
+            }
+          }
+          
+          // Award bounty to the winner if applicable
+          if (bountyAmount && bountyAmount > 0 && winnerPlayerId) {
+            console.log(`💰 Awarding bounty of ${bountyAmount} points to winner ${game.playerNames[winnerPlayerId]}`);
+            addPoints(game, winnerPlayerId, bountyAmount);
+            
+            // Update the winner's result to include bounty
+            const winnerResult = results.find(r => r.playerId === winnerPlayerId);
+            if (winnerResult) {
+              winnerResult.bountyAwarded = bountyAmount;
+              winnerResult.totalPointsAwarded = winnerResult.pointsAwarded + bountyAmount;
+              winnerResult.pointsChange = `+${winnerResult.totalPointsAwarded}`;
             }
           }
           
@@ -702,7 +736,9 @@ function processGameAction(game, action, payload, playerID) {
           io.to(game.id).emit('wagerResolved', {
             correctChoice: payload.correctChoice,
             results,
-            wagerState: wagerState
+            wagerState: wagerState,
+            bountyAmount: bountyAmount,
+            winnerPlayerId: winnerPlayerId
           });
           
           // Reset wager state for next round
@@ -809,6 +845,37 @@ function addPoints(game, playerId, points) {
     return true;
   }
   return false;
+}
+
+// Bounty calculation functions
+function calculateBountyAmount(game, wagerState) {
+  const bountyConfig = game.bounty || 'None';
+  
+  if (bountyConfig === 'None') {
+    return null;
+  }
+  
+  if (bountyConfig === 'Fixed (50)') {
+    return 50;
+  }
+  
+  // For Min/Max/Average, we need to look at all bets placed on the wager
+  const allBets = Object.values(wagerState.playerChoices).map(choice => choice.points);
+  
+  if (allBets.length === 0) {
+    return 0;
+  }
+  
+  switch (bountyConfig) {
+    case 'Min':
+      return Math.min(...allBets);
+    case 'Max':
+      return Math.max(...allBets);
+    case 'Average':
+      return Math.floor(allBets.reduce((sum, bet) => sum + bet, 0) / allBets.length);
+    default:
+      return null;
+  }
 }
 
 

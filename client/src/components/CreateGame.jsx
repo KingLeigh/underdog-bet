@@ -8,6 +8,7 @@ function CreateGame() {
   const [categories, setCategories] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
   const [maxBetSize, setMaxBetSize] = useState('')
+  const [bounty, setBounty] = useState('None')
   
   const navigate = useNavigate()
   const { createGame, currentGame, gameState, error, clearError } = useGame()
@@ -26,7 +27,8 @@ function CreateGame() {
       playerName: createPlayerName,
       categories: categoriesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
-      maxBetSize: maxBetValue
+      maxBetSize: maxBetValue,
+      bounty: bounty
     })
   }
 
@@ -111,6 +113,26 @@ function CreateGame() {
               />
               <small className="form-help">
                 Maximum bet size per wager. If empty, players can bet any amount they have available.
+              </small>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="bounty">Bounty:</label>
+              <select
+                id="bounty"
+                name="bounty"
+                value={bounty}
+                onChange={(e) => setBounty(e.target.value)}
+                className="bounty-select"
+              >
+                <option value="None">None</option>
+                <option value="Fixed (50)">Fixed (50)</option>
+                <option value="Average">Average</option>
+                <option value="Min">Min</option>
+                <option value="Max">Max</option>
+              </select>
+              <small className="form-help">
+                Configure bounty settings for the game.
               </small>
             </div>
           </div>
