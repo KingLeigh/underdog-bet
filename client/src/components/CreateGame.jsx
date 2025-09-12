@@ -9,6 +9,7 @@ function CreateGame() {
   const [startingPoints, setStartingPoints] = useState(100)
   const [maxBetSize, setMaxBetSize] = useState('')
   const [bounty, setBounty] = useState('None')
+  const [bountyAmount, setBountyAmount] = useState('')
   
   const navigate = useNavigate()
   const { createGame, currentGame, gameState, error, clearError } = useGame()
@@ -23,12 +24,16 @@ function CreateGame() {
     // Parse max bet size - convert to number if provided, otherwise null
     const maxBetValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
     
+    // Parse bounty amount - convert to number if Fixed bounty is selected
+    const bountyAmountValue = bounty === 'Fixed' && bountyAmount.trim() ? parseInt(bountyAmount) : null
+    
     createGame({ 
       playerName: createPlayerName,
       categories: categoriesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
       maxBetSize: maxBetValue,
-      bounty: bounty
+      bounty: bounty,
+      bountyAmount: bountyAmountValue
     })
   }
 
@@ -126,7 +131,7 @@ function CreateGame() {
                 className="bounty-select"
               >
                 <option value="None">None</option>
-                <option value="Fixed (50)">Fixed (50)</option>
+                <option value="Fixed">Fixed</option>
                 <option value="Average">Average</option>
                 <option value="Min">Min</option>
                 <option value="Max">Max</option>
@@ -135,6 +140,27 @@ function CreateGame() {
                 Configure bounty settings for the game.
               </small>
             </div>
+            
+            {bounty === 'Fixed' && (
+              <div className="form-group">
+                <label htmlFor="bountyAmount">Bounty Amount:</label>
+                <input
+                  type="number"
+                  id="bountyAmount"
+                  name="bountyAmount"
+                  value={bountyAmount}
+                  onChange={(e) => setBountyAmount(e.target.value)}
+                  min="1"
+                  max="10000"
+                  className="bounty-amount-input"
+                  placeholder="Enter bounty amount"
+                  required
+                />
+                <small className="form-help">
+                  The fixed amount of points to be awarded as bounty to the winner.
+                </small>
+              </div>
+            )}
           </div>
 
           <div className="form-section">

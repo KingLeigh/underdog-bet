@@ -226,6 +226,8 @@ io.on('connection', (socket) => {
     const maxBetSize = gameConfig.maxBetSize || null;
     // Use configured bounty or default to 'None'
     const bounty = gameConfig.bounty || 'None';
+    // Use configured bounty amount or null if not provided
+    const bountyAmount = gameConfig.bountyAmount || null;
     
     const gameState = {
       id: gameId,
@@ -236,6 +238,7 @@ io.on('connection', (socket) => {
       startingPoints: startingPoints,
       maxBetSize: maxBetSize,
       bounty: bounty,
+      bountyAmount: bountyAmount,
       playerPoints: {
         [playerID]: startingPoints
       },
@@ -855,8 +858,8 @@ function calculateBountyAmount(game, wagerState) {
     return null;
   }
   
-  if (bountyConfig === 'Fixed (50)') {
-    return 50;
+  if (bountyConfig === 'Fixed') {
+    return game.bountyAmount || 0;
   }
   
   // For Min/Max/Average, we need to look at all bets placed on the wager

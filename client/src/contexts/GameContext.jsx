@@ -318,8 +318,8 @@ export function GameProvider({ children, socket }) {
           
           if (allBets.length > 0) {
             switch (state.gameState.bounty) {
-              case 'Fixed (50)':
-                bountyAmount = 50;
+              case 'Fixed':
+                bountyAmount = state.gameState.bountyAmount || 0;
                 break;
               case 'Min':
                 bountyAmount = Math.min(...allBets);
