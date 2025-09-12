@@ -578,6 +578,7 @@ function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
 
   // Calculate the effective maximum wager
   const calculateMaxWager = () => {
+    // Players can bet up to 50 points OR their current points, whichever is larger
     let maxWager = Math.max(50, currentPoints);
     
     // Apply game-level maximum bet size limit if configured
