@@ -491,6 +491,29 @@ function WagerProposalForm({ onSubmit }) {
     }
   };
 
+  // Get player rank for odds labels
+  const getPlayerRankForLabel = (playerName) => {
+    if (!selectedCategory || !playerRankings || !playerName) return null;
+    
+    // Find the player ID for this name
+    const playerId = Object.keys(playerNames).find(pid => playerNames[pid] === playerName);
+    if (!playerId || !playerRankings[playerId]) return null;
+    
+    return playerRankings[playerId][selectedCategory] || null;
+  };
+
+  // Format odds label with rank information
+  const formatOddsLabel = (playerName, defaultText) => {
+    if (!playerName) return defaultText;
+    
+    const rank = getPlayerRankForLabel(playerName);
+    if (selectedCategory && rank) {
+      return `Odds for ${playerName} (Rank ${rank}):`;
+    } else {
+      return `Odds for ${playerName}:`;
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="wager-proposal-form">
       {/* Category dropdown - only show if categories exist and rankings are complete */}
@@ -503,7 +526,7 @@ function WagerProposalForm({ onSubmit }) {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="form-input category-select"
           >
-            <option value="">All Categories</option>
+            <option value="">No Category</option>
             {categories.map((category, index) => (
               <option key={index} value={category}>
                 {category}
@@ -554,7 +577,7 @@ function WagerProposalForm({ onSubmit }) {
       )}
       <div className="odds-section">
         <div className="form-group">
-          <label htmlFor="odds1">Odds for {option1 || 'First Player'}:</label>
+          <label htmlFor="odds1">{formatOddsLabel(option1, 'Odds for First Player:')}</label>
           <input
             type="number"
             id="odds1"
@@ -576,7 +599,7 @@ function WagerProposalForm({ onSubmit }) {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="odds2">Odds for {option2 || 'Second Player'}:</label>
+          <label htmlFor="odds2">{formatOddsLabel(option2, 'Odds for Second Player:')}</label>
           <input
             type="number"
             id="odds2"
