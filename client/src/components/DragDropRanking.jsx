@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import Sortable from 'sortablejs'
 import './DragDropRanking.css'
 
 function DragDropRanking({ categories, onSubmit, onCancel }) {
   const [rankedCategories, setRankedCategories] = useState([])
+  const sortableRef = useRef(null)
+  const sortableInstance = useRef(null)
 
   // Initialize categories with random order
   useEffect(() => {
@@ -17,6 +20,49 @@ function DragDropRanking({ categories, onSubmit, onCancel }) {
       })))
     }
   }, [categories])
+
+  // Initialize SortableJS when component mounts and categories are loaded
+  useEffect(() => {
+    if (sortableRef.current && rankedCategories.length > 0) {
+      // Destroy existing sortable instance if it exists
+      if (sortableInstance.current) {
+        sortableInstance.current.destroy()
+      }
+
+      // Create new sortable instance
+      sortableInstance.current = Sortable.create(sortableRef.current, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        onEnd: (evt) => {
+          const { oldIndex, newIndex } = evt
+          if (oldIndex !== newIndex) {
+            // Update the ranked categories array
+            setRankedCategories(prevCategories => {
+              const newCategories = [...prevCategories]
+              const [movedItem] = newCategories.splice(oldIndex, 1)
+              newCategories.splice(newIndex, 0, movedItem)
+              
+              // Update rank numbers
+              return newCategories.map((item, index) => ({
+                ...item,
+                rank: index + 1
+              }))
+            })
+          }
+        }
+      })
+    }
+
+    // Cleanup function
+    return () => {
+      if (sortableInstance.current) {
+        sortableInstance.current.destroy()
+        sortableInstance.current = null
+      }
+    }
+  }, [rankedCategories.length])
 
   // Handle form submission
   const handleSubmit = (e) => {
@@ -34,10 +80,11 @@ function DragDropRanking({ categories, onSubmit, onCancel }) {
   // Shuffle categories randomly
   const shuffleCategories = () => {
     const shuffled = [...rankedCategories].sort(() => Math.random() - 0.5)
-    shuffled.forEach((item, index) => {
-      item.rank = index + 1
-    })
-    setRankedCategories(shuffled)
+    const updatedShuffled = shuffled.map((item, index) => ({
+      ...item,
+      rank: index + 1
+    }))
+    setRankedCategories(updatedShuffled)
   }
 
   if (!categories || categories.length === 0) {
@@ -59,11 +106,12 @@ function DragDropRanking({ categories, onSubmit, onCancel }) {
       </div>
       
       <form onSubmit={handleSubmit} className="ranking-form">
-        <div className="categories-list">
+        <div className="categories-list" ref={sortableRef}>
           {rankedCategories.map((item, index) => (
             <div
               key={item.id}
               className="category-item"
+              data-id={item.id}
             >
               <div className="rank-number">#{item.rank}</div>
               <div className="category-content">
