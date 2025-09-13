@@ -337,14 +337,11 @@ function GameBoard() {
         </div>
 
         <div className="players-panel">
-          <h3>Leaderboard</h3>
           <div className="score-table">
             <table>
               <thead>
                 <tr>
-                  <th>Rank</th>
-                  <th>Player</th>
-                  <th>Points</th>
+                  <th colSpan="3">Leaderboard</th>
                 </tr>
               </thead>
               <tbody>
@@ -353,8 +350,7 @@ function GameBoard() {
                     id: pid,
                     name: playerNames[pid] || 'Unknown Player',
                     points: playerPoints[pid] !== undefined ? playerPoints[pid] : 0,
-                    isCurrentPlayer: pid === playerId,
-                    isHost: pid === gameState.host
+                    isCurrentPlayer: pid === playerId
                   }))
                   .sort((a, b) => b.points - a.points)
                   .map((player, index) => (
@@ -371,7 +367,6 @@ function GameBoard() {
                             {player.name}
                             {player.isCurrentPlayer && ' (You)'}
                           </span>
-                          {player.isHost && <span className="host-badge">Host</span>}
                         </div>
                       </td>
                       <td className="points-cell">

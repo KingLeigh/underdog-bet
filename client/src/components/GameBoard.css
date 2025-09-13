@@ -123,20 +123,16 @@
 
 .score-table th {
   padding: 1rem;
-  text-align: left;
+  text-align: center;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.score-table th:first-child {
-  text-align: center;
-  width: 80px;
-}
-
-.score-table th:last-child {
-  text-align: right;
-  width: 100px;
+.score-table th[colspan] {
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding: 1.5rem 1rem;
 }
 
 .score-row {
@@ -144,18 +140,12 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.score-row:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
 .score-row.current-player {
   background: rgba(74, 222, 128, 0.2);
   border-color: rgba(74, 222, 128, 0.5);
 }
 
-.score-row.current-player:hover {
-  background: rgba(74, 222, 128, 0.3);
-}
 
 .score-row td {
   padding: 1rem;
@@ -179,7 +169,6 @@
 .player-info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .player-name {
@@ -188,15 +177,6 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.host-badge {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  margin-left: 0.5rem;
-}
 
 .points-cell {
   text-align: right;
