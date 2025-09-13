@@ -10,12 +10,13 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "socket.io-client": "^4.7.4",
     "react-router-dom": "^6.20.1",
-    "vite": "^5.0.0",
-    "@vitejs/plugin-react": "^4.1.1"
+    "socket.io-client": "^4.7.4",
+    "sortablejs": "^1.15.6",
+    "vite": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
@@ -25,7 +26,11 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.4"
   },
-  "keywords": ["react", "game-client", "socket.io"],
+  "keywords": [
+    "react",
+    "game-client",
+    "socket.io"
+  ],
   "author": "",
   "license": "MIT"
 }

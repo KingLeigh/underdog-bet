@@ -17,10 +17,18 @@
   "engines": {
     "node": "18.x"
   },
-  "keywords": ["board-game", "multiplayer", "real-time", "socket.io"],
+  "keywords": [
+    "board-game",
+    "multiplayer",
+    "real-time",
+    "socket.io"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "sortablejs": "^1.15.6"
   }
 }
