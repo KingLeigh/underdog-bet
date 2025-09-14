@@ -286,7 +286,7 @@ function GameBoard() {
             {wagerResolved && wagerResults && (
               <div className="wager-results">
                 <h4>Contest Results</h4>
-                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} ({wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1)</p>
+                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1</p>
                 
                 {/* Bounty Information */}
                 {wagerResults.bountyAmount && wagerResults.bountyAmount > 0 && (
@@ -396,7 +396,7 @@ function GameBoard() {
                       .sort((a, b) => a.rank - b.rank)
                       .map(({ category, rank }) => (
                         <div key={category} className="ranking-item">
-                          <span className="category-name">{category}:</span>
+                          <span className="category-name">{category}</span>
                           <span className="rank-value">Rank {rank === 999 ? 'N/A' : rank}</span>
                         </div>
                       ))}

@@ -143,7 +143,7 @@ function GameLobby() {
                       .sort((a, b) => a.rank - b.rank)
                       .map(({ category, rank }) => (
                         <div key={category} className="ranking-item">
-                          <span className="category-name">{category}:</span>
+                          <span className="category-name">{category}</span>
                           <span className="rank-value">Rank {rank}</span>
                         </div>
                       ))}

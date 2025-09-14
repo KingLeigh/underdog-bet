@@ -77,15 +77,6 @@ function DragDropRanking({ categories, onSubmit, onCancel }) {
     onSubmit(rankings)
   }
 
-  // Shuffle categories randomly
-  const shuffleCategories = () => {
-    const shuffled = [...rankedCategories].sort(() => Math.random() - 0.5)
-    const updatedShuffled = shuffled.map((item, index) => ({
-      ...item,
-      rank: index + 1
-    }))
-    setRankedCategories(updatedShuffled)
-  }
 
   if (!categories || categories.length === 0) {
     return null
@@ -95,14 +86,7 @@ function DragDropRanking({ categories, onSubmit, onCancel }) {
     <div className="drag-drop-ranking">
       <div className="ranking-header">
         <h3>Rank Your Categories</h3>
-        <p>Use the shuffle button to randomize the order. Rank 1 is your strongest, {categories.length} is your weakest.</p>
-        <button 
-          type="button" 
-          className="btn btn-secondary shuffle-btn"
-          onClick={shuffleCategories}
-        >
-          🔀 Shuffle Order
-        </button>
+        <p>Drag and drop to reorder. Rank 1 is your strongest, {categories.length} is your weakest.</p>
       </div>
       
       <form onSubmit={handleSubmit} className="ranking-form">

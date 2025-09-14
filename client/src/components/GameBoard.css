@@ -508,18 +508,12 @@
 .player-choice-item strong {
   color: #f59e0b;
   font-weight: 700;
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
 }
 
 .player-choice-item {
   color: rgba(255, 255, 255, 0.9);
-}
-
-.player-choice-item strong:first-child {
-  margin-right: 0.25rem;
-}
-
-.player-choice-item strong:last-child {
-  margin-left: 0.25rem;
 }
 
 

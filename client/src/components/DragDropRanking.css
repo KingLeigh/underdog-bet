@@ -27,20 +27,6 @@
   margin-bottom: 1rem;
 }
 
-.shuffle-btn {
-  background: rgba(245, 158, 11, 0.2);
-  border: 1px solid rgba(245, 158, 11, 0.5);
-  color: #f59e0b;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.shuffle-btn:hover {
-  background: rgba(245, 158, 11, 0.3);
-  transform: translateY(-1px);
-}
 
 .ranking-form {
   display: flex;
