@@ -661,6 +661,19 @@ function processGameAction(game, action, payload, playerID) {
           let results = [];
           let winnerPlayerId = null;
           
+          // First, identify the contest winner based on the correct choice
+          const winningOption = wagerState.options[payload.correctChoice];
+          console.log(`🏆 Contest winner is: ${winningOption}`);
+          
+          // Find the player ID for the winning option
+          for (const [playerId, playerName] of Object.entries(game.playerNames)) {
+            if (playerName === winningOption) {
+              winnerPlayerId = playerId;
+              console.log(`🏆 Winner identified: ${playerName} (${playerId})`);
+              break;
+            }
+          }
+          
           for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const { choice, points } = choiceData;
             console.log(`Processing player ${game.playerNames[playerId]}: choice=${choice}, wagered=${points}, correct=${payload.correctChoice}`);
@@ -684,13 +697,9 @@ function processGameAction(game, action, payload, playerID) {
               console.log(`✅ Player ${game.playerNames[playerId]} was correct, adding ${pointsAwarded} points (${points} × ${odds})`);
               addPoints(game, playerId, pointsAwarded);
               
-              // Check if this player is the actual winner (one of the two competing players)
+              // Check if this player is one of the two competing players
               const playerName = game.playerNames[playerId];
               const isPlayerInContest = playerName === wagerState.options[0] || playerName === wagerState.options[1];
-              if (isPlayerInContest) {
-                winnerPlayerId = playerId;
-                console.log(`🏆 Winner identified: ${playerName} (${playerId})`);
-              }
               
               results.push({
                 playerId,
@@ -725,14 +734,7 @@ function processGameAction(game, action, payload, playerID) {
           if (bountyAmount && bountyAmount > 0 && winnerPlayerId) {
             console.log(`💰 Awarding bounty of ${bountyAmount} points to winner ${game.playerNames[winnerPlayerId]}`);
             addPoints(game, winnerPlayerId, bountyAmount);
-            
-            // Update the winner's result to include bounty
-            const winnerResult = results.find(r => r.playerId === winnerPlayerId);
-            if (winnerResult) {
-              winnerResult.bountyAwarded = bountyAmount;
-              winnerResult.totalPointsAwarded = winnerResult.pointsAwarded + bountyAmount;
-              winnerResult.pointsChange = `+${winnerResult.totalPointsAwarded}`;
-            }
+            console.log(`💰 Winner ${game.playerNames[winnerPlayerId]} received bounty of ${bountyAmount} points`);
           }
           
           console.log(`🎯 Player points after resolution:`, game.playerPoints);

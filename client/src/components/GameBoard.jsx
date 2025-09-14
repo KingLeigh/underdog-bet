@@ -305,9 +305,6 @@ function GameBoard() {
                     <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
                       <div className="result-header">
                         {result.playerName}: {result.correct ? '✅ Correct' : '❌ Incorrect'}
-                        {result.isWinner && result.bountyAwarded && (
-                          <span className="bounty-badge">💰 +{result.bountyAwarded}</span>
-                        )}
                       </div>
                       <div className="result-detail">
                         <div className={`points-change ${result.pointsChange.startsWith('-') ? 'negative' : 'positive'}`}>
