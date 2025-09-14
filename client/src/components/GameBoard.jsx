@@ -104,7 +104,7 @@ function GameBoard() {
                     <WagerProposalForm onSubmit={(option1, option2, odds1, odds2, category) => proposeWager(option1, option2, odds1, odds2, category)} />
                   </div>
                 ) : (
-                  <p>Waiting for host to propose a player contest...</p>
+                  <p>Waiting for first contest...</p>
                 )}
               </div>
             )}
@@ -321,9 +321,6 @@ function GameBoard() {
                     >
                       Propose New Contest
                     </button>
-                  )}
-                  {!isHost && (
-                    <p className="waiting-message">Waiting for host to propose a new contest...</p>
                   )}
               </div>
             )}
