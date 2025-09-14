@@ -848,9 +848,9 @@
 .bounty-result {
   background: rgba(255, 215, 0, 0.15);
   border: 2px solid rgba(255, 215, 0, 0.4);
-  border-radius: 12px;
-  padding: 1rem;
-  margin: 1rem 0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
   text-align: center;
 }
 
@@ -883,4 +883,23 @@
   font-size: 0.875rem;
   color: #ffd700;
   font-weight: 600;
+}
+
+/* Point value styling */
+.bounty-points {
+  font-weight: 700;
+  color: #ffd700;
+  font-size: 1.1rem;
+}
+
+.positive-points {
+  font-weight: 700;
+  color: #4ade80;
+  font-size: 1.1rem;
+}
+
+.negative-points {
+  font-weight: 700;
+  color: #ef4444;
+  font-size: 1.1rem;
 }

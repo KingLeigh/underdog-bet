@@ -285,34 +285,31 @@ function GameBoard() {
 
             {wagerResolved && wagerResults && (
               <div className="wager-results">
-                <h4>Contest Results</h4>
-                <p><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1</p>
+                <h4><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1</h4>
                 
                 {/* Bounty Information */}
                 {wagerResults.bountyAmount && wagerResults.bountyAmount > 0 && (
                   <div className="bounty-result">
                     <div className="bounty-winner">
-                      <span className="bounty-icon">💰</span>
                       <span className="bounty-text">
-                        <strong>{playerNames[wagerResults.winnerPlayerId]}</strong> received a bounty of <strong>{wagerResults.bountyAmount}</strong> points!
+                        {playerNames[wagerResults.winnerPlayerId]} <span className="bounty-points">+{wagerResults.bountyAmount}</span>
                       </span>
                     </div>
                   </div>
                 )}
                 
                 <div className="results-list">
-                  {wagerResults.results.map((result, index) => (
-                    <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
-                      <div className="result-header">
-                        {result.playerName}: {result.correct ? '✅ Correct' : '❌ Incorrect'}
+                  {wagerResults.results.map((result, index) => {
+                    const isPositive = result.pointsChange.startsWith('+');
+                    const pointClass = isPositive ? 'positive-points' : 'negative-points';
+                    return (
+                      <div key={index} className={`result-item ${result.correct ? 'correct' : 'incorrect'}`}>
+                        <span className="result-text">
+                          {result.playerName} <span className={pointClass}>{result.pointsChange}</span>
+                        </span>
                       </div>
-                      <div className="result-detail">
-                        <div className={`points-change ${result.pointsChange.startsWith('-') ? 'negative' : 'positive'}`}>
-                          {result.pointsChange} points
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {isHost && (
                                       <button 
