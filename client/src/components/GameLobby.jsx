@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import DragDropRanking from './DragDropRanking'
+import RulesPanel from './RulesPanel'
 import './GameLobby.css'
 
 function GameLobby() {
@@ -153,6 +154,13 @@ function GameLobby() {
             </div>
           </div>
         )}
+
+        {/* Rules Panel */}
+        <RulesPanel 
+          gameState={gameState}
+          playerWagerCount={null}
+          categories={categories}
+        />
 
         {isHost && players.length >= 2 && (
           <div className="host-controls">
