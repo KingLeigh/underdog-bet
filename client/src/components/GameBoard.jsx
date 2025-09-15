@@ -76,6 +76,35 @@ function GameBoard() {
     }
   }, [socket])
 
+  // Generate matchmaker URL for the current game
+  const generateMatchmakerUrl = () => {
+    if (!categories || categories.length === 0 || !players || players.length === 0 || !playerRankings) {
+      return null
+    }
+
+    try {
+      // Convert playerRankings to the format expected by generateMatchmakerFullUrl
+      const ranks = players.map(playerId => {
+        return categories.map(category => {
+          const rank = playerRankings[playerId]?.[category]
+          return rank || 999 // Default rank if not set
+        })
+      })
+
+      // Create player names array
+      const playerNamesArray = players.map(playerId => playerNames[playerId] || 'Unknown Player')
+
+      // For now, set numChallenges to 1 for each category (can be made configurable later)
+      const numChallenges = categories.map(() => 1)
+
+      const baseUrl = 'https://kingleigh.github.io/matchmaker/underdog_matcher.html'
+      return window.generateMatchmakerFullUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
+    } catch (error) {
+      console.error('Error generating matchmaker URL:', error)
+      return null
+    }
+  }
+
   if (!gameState || gameState.status !== 'playing') {
     return (
       <div className="game-board">
@@ -415,6 +444,17 @@ function GameBoard() {
         
         <div className="game-info-footer">
           <div className="game-info">
+            {/* Matchmaker chip - only visible to host */}
+            {isHost && categories && categories.length > 0 && (
+              <a 
+                href={generateMatchmakerUrl()} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="matchmaker-chip"
+              >
+                Matchmaker
+              </a>
+            )}
             <span>Game ID: {gameId}</span>
             <div className="connection-status">
               {isConnected ? (
