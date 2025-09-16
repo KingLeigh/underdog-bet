@@ -15,6 +15,8 @@ function Matchmaker() {
   const [cancelSimFlag, setCancelSimFlag] = useState(false)
   const [isUrlLoaded, setIsUrlLoaded] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
+  const [seed, setSeed] = useState(null)
+  const [shouldAutoRun, setShouldAutoRun] = useState(false)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -32,6 +34,10 @@ function Matchmaker() {
       r ^= r + Math.imul(r ^ r >>> 7, 61 | r)
       return ((r ^ r >>> 14) >>> 0) / 4294967296
     }
+  }
+
+  const generateSeed = () => {
+    return Math.floor(Math.random() * 2147483647) // Max 32-bit integer
   }
 
   const shuffle = (arr, rand = Math.random) => {
@@ -82,8 +88,13 @@ function Matchmaker() {
       return
     }
 
+    // Generate a new seed if we don't have one
+    if (!seed) {
+      setSeed(generateSeed())
+    }
+
     const availableNames = [...sampleNames]
-    shuffle(availableNames, rng())
+    shuffle(availableNames, rng(seed))
     
     const newPlayerGrid = []
     for (let i = 0; i < numPlayers; i++) {
@@ -123,11 +134,16 @@ function Matchmaker() {
       return
     }
     
+    // Generate a new seed if we don't have one
+    if (!seed) {
+      setSeed(generateSeed())
+    }
+    
     const M = categories.length
     const updatedGrid = playerGrid.map(player => {
       const ranks = {}
       const rankValues = Array.from({length: M}, (_, i) => i + 1)
-      shuffle(rankValues, rng())
+      shuffle(rankValues, rng(seed))
       
       categories.forEach((cat, index) => {
         ranks[cat.name] = rankValues[index]
@@ -301,7 +317,9 @@ function Matchmaker() {
     const ordered = []
     const remaining = [...assignments]
     
-    const startIdx = Math.floor(Math.random() * remaining.length)
+    // Use seeded random number generator for consistent ordering
+    const rand = rng(seed)
+    const startIdx = Math.floor(rand() * remaining.length)
     ordered.push(remaining.splice(startIdx, 1)[0])
     
     while (remaining.length > 0) {
@@ -324,7 +342,7 @@ function Matchmaker() {
           score += 20
         }
         
-        score += Math.random() * 2
+        score += rand() * 2
         
         if (score > bestScore) {
           bestScore = score
@@ -436,7 +454,7 @@ function Matchmaker() {
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: null
+      randomSeed: seed
     })
     setSolveStatus('')
     if (!res.ok) { 
@@ -472,6 +490,12 @@ function Matchmaker() {
         return
       }
       
+      // Ensure we have a seed for sharing
+      const currentSeed = seed || generateSeed()
+      if (!seed) {
+        setSeed(currentSeed)
+      }
+      
       const categoriesStr = categories.map(c => c.name).join(',')
       const challengeCounts = categories.map(c => c.count).join(',')
       const playerNames = parsed.players.map(p => p.name).join(',')
@@ -483,7 +507,9 @@ function Matchmaker() {
       const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
       const encodedData = btoa(dataString)
       const baseUrl = window.location.origin + window.location.pathname
-      const shareUrl = `${baseUrl}?data=${encodedData}`
+      const shareUrl = `${baseUrl}?data=${encodedData}&seed=${currentSeed}`
+      
+      console.log('Generated share URL with seed:', currentSeed, 'URL:', shareUrl)
       
       navigator.clipboard.writeText(shareUrl).then(() => {
         setShareStatus('URL copied to clipboard!')
@@ -511,6 +537,15 @@ function Matchmaker() {
   const parseUrlData = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const dataParam = urlParams.get('data')
+    const seedParam = urlParams.get('seed')
+    
+    // Set seed from URL parameter if present
+    if (seedParam) {
+      const parsedSeed = parseInt(seedParam)
+      if (!isNaN(parsedSeed)) {
+        setSeed(parsedSeed)
+      }
+    }
     
     if (!dataParam) {
       // No URL data, use demo defaults
@@ -588,8 +623,13 @@ function Matchmaker() {
       const suggested = Math.max(1, Math.ceil(categoriesList.length/2))
       setTargetGap(suggested)
       
-        console.log('Successfully loaded data from URL parameter')
-        setIsUrlLoaded(true)
+      console.log('Successfully loaded data from URL parameter')
+      setIsUrlLoaded(true)
+      
+      // Set flag to auto-run Make Matches if seed is provided
+      if (seedParam) {
+        setShouldAutoRun(true)
+      }
       
     } catch (error) {
       console.error('Error parsing URL data:', error.message)
@@ -606,6 +646,14 @@ function Matchmaker() {
   useEffect(() => {
     parseUrlData()
   }, []) // Empty dependency array means this runs once on mount
+
+  // Auto-run matchmaking when URL data is loaded with seed
+  useEffect(() => {
+    if (shouldAutoRun && playerGrid.length > 0 && categories.length > 0) {
+      setShouldAutoRun(false) // Reset flag to prevent multiple runs
+      solveFromGrid()
+    }
+  }, [shouldAutoRun, playerGrid, categories])
 
   const totalChallenges = categories.reduce((sum, cat) => {
     const count = typeof cat.count === 'string' ? parseInt(cat.count) || 0 : cat.count
@@ -638,12 +686,11 @@ function Matchmaker() {
                   </button>
                 </div>
               )}
-              <div className="share-toggle">
-                <button className="btn btn-secondary" onClick={generateShareUrl}>
-                  📤 Share
-                </button>
-                {shareStatus && <div className="status-message">{shareStatus}</div>}
-              </div>
+              {seed && (
+                <div className="seed-display">
+                  <small>Seed: {seed}</small>
+                </div>
+              )}
             </div>
             
             <div className="setup-controls">
@@ -865,6 +912,12 @@ function Matchmaker() {
             <div className="matchups-panel">
               <h3>Matchups</h3>
               <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
+              <div className="matchups-actions" style={{ marginTop: '20px' }}>
+                <button className="btn btn-primary" onClick={generateShareUrl}>
+                  💾 Save
+                </button>
+                {shareStatus && <div className="status-message">{shareStatus}</div>}
+              </div>
             </div>
           </div>
         )}
