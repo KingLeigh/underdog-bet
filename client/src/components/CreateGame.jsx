@@ -28,6 +28,27 @@ function CreateGame() {
     }
   }, [categories])
 
+  // Validation function to check for unique category names
+  const validateUniqueCategories = () => {
+    if (!categories.trim()) {
+      return { isValid: true, duplicates: [] }
+    }
+    
+    const categoryList = categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
+    const duplicates = []
+    const seen = new Set()
+    
+    categoryList.forEach(category => {
+      if (seen.has(category.toLowerCase())) {
+        duplicates.push(category)
+      } else {
+        seen.add(category.toLowerCase())
+      }
+    })
+    
+    return { isValid: duplicates.length === 0, duplicates }
+  }
+
   // Validation function for challenges per category
   const validateChallengesInput = () => {
     if (!categories.trim()) {
@@ -62,6 +83,12 @@ function CreateGame() {
 
   const handleCreateGame = (e) => {
     e.preventDefault()
+    
+    // Validate unique categories before proceeding
+    const categoryValidation = validateUniqueCategories()
+    if (!categoryValidation.isValid) {
+      return
+    }
     
     // Validate challenges input before proceeding
     if (!validateChallengesInput()) {
@@ -252,6 +279,11 @@ function CreateGame() {
               <small className="form-help">
                 Comma-separated list of categories for player ranking. Players will rank themselves 1-N in each category before the game starts.
               </small>
+              {!validateUniqueCategories().isValid && (
+                <div className="error-message">
+                  <strong>Duplicate categories found:</strong> {validateUniqueCategories().duplicates.join(', ')}. Please ensure all category names are unique.
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -275,7 +307,7 @@ function CreateGame() {
             <button 
               type="submit" 
               className="btn btn-primary btn-large"
-              disabled={!validateChallengesInput()}
+              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid}
             >
               Create Game
             </button>
