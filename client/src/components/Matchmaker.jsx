@@ -1,0 +1,837 @@
+import React, { useState, useEffect } from 'react'
+import './Matchmaker.css'
+
+function Matchmaker() {
+  const [numPlayers, setNumPlayers] = useState(8)
+  const [categories, setCategories] = useState([])
+  const [numTrials, setNumTrials] = useState(25)
+  const [targetGap, setTargetGap] = useState(2)
+  const [playerGrid, setPlayerGrid] = useState([])
+  const [simStatus, setSimStatus] = useState('')
+  const [simResult, setSimResult] = useState('')
+  const [solveStatus, setSolveStatus] = useState('')
+  const [solveOutput, setSolveOutput] = useState('')
+  const [shareStatus, setShareStatus] = useState('')
+  const [cancelSimFlag, setCancelSimFlag] = useState(false)
+
+  // Sample category names
+  const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
+
+  // Sample player names
+  const sampleNames = ['Leigh', 'Andy', 'Kirsten', 'Brett', 'Steff', 'Talpos', 'Ves', 'Gage', 'Miles', 'Elliot', 'Libby', 'Caitlin']
+
+  // Utility functions
+  const rng = (seed) => {
+    if (seed == null || seed === "") return Math.random
+    let t = Number(seed) >>> 0
+    return function() {
+      t += 0x6D2B79F5
+      let r = Math.imul(t ^ t >>> 15, 1 | t)
+      r ^= r + Math.imul(r ^ r >>> 7, 61 | r)
+      return ((r ^ r >>> 14) >>> 0) / 4294967296
+    }
+  }
+
+  const shuffle = (arr, rand = Math.random) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
+  }
+
+  const addCategory = (name = '', count = 1) => {
+    if (!name) {
+      const existingCategories = categories.map(c => c.name)
+      const availableCategories = sampleCategories.filter(cat => !existingCategories.includes(cat))
+      if (availableCategories.length > 0) {
+        name = availableCategories[Math.floor(Math.random() * availableCategories.length)]
+      } else {
+        let fallbackNum = 1
+        while (existingCategories.includes(`Category ${fallbackNum}`)) {
+          fallbackNum++
+        }
+        name = `Category ${fallbackNum}`
+      }
+    }
+    
+    setCategories([...categories, { name, count }])
+  }
+
+  const removeCategory = (index) => {
+    setCategories(categories.filter((_, i) => i !== index))
+  }
+
+  const updateCategory = (index, field, value) => {
+    const updated = [...categories]
+    updated[index] = { ...updated[index], [field]: value }
+    setCategories(updated)
+  }
+
+  const buildPlayerGrid = () => {
+    if (categories.length < 1) {
+      alert('Add at least one category.')
+      return
+    }
+
+    const challenges = buildChallenges(categories)
+    if (challenges.length < numPlayers) {
+      alert(`Not enough challenges! You have ${challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      return
+    }
+
+    const availableNames = [...sampleNames]
+    shuffle(availableNames, rng())
+    
+    const newPlayerGrid = []
+    for (let i = 0; i < numPlayers; i++) {
+      const playerName = i < availableNames.length ? availableNames[i] : `Player ${i+1}`
+      const ranks = {}
+      categories.forEach(() => {
+        ranks[`rank_${Math.random()}`] = ''
+      })
+      newPlayerGrid.push({ name: playerName, ranks })
+    }
+    
+    setPlayerGrid(newPlayerGrid)
+    
+    // Update target gap if not user-touched
+    const suggested = Math.max(1, Math.ceil(categories.length/2))
+    setTargetGap(suggested)
+  }
+
+  const buildChallenges = (cats) => {
+    const arr = []
+    for (const c of cats) {
+      for (let i = 0; i < c.count; i++) {
+        arr.push({ id: `${c.name}-${i+1}`, category: c.name })
+      }
+    }
+    return arr
+  }
+
+  const randomizeRanks = () => {
+    if (categories.length < 1) {
+      alert('Add at least one category first.')
+      return
+    }
+    
+    if (playerGrid.length === 0) {
+      alert('Build the player grid first.')
+      return
+    }
+    
+    const M = categories.length
+    const updatedGrid = playerGrid.map(player => {
+      const ranks = {}
+      const rankValues = Array.from({length: M}, (_, i) => i + 1)
+      shuffle(rankValues, rng())
+      
+      categories.forEach((cat, index) => {
+        ranks[cat.name] = rankValues[index]
+      })
+      
+      return { ...player, ranks }
+    })
+    
+    setPlayerGrid(updatedGrid)
+  }
+
+  // Core matchmaking algorithm functions
+  const isBitSet = (mask, i) => ((mask >>> i) & 1) === 1
+  const setBit = (mask, i) => mask | (1 << i)
+  const popcount32 = (x) => {
+    x = x - ((x >>> 1) & 0x55555555)
+    x = (x & 0x33333333) + ((x >>> 2) & 0x33333333)
+    return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
+  }
+
+  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
+    const N = players.length
+    const M = categories.length
+    const C = challenges.length
+    const need = selectN ?? N
+
+    if (C < need) return { ok: false, reason: `Need at least ${need} challenges; got ${C}.` }
+
+    // Validate ranks
+    for (const p of players) {
+      if (!p.ranks) return { ok: false, reason: `Missing ranks for player ${p.name}` }
+      for (const c of categories) if (typeof p.ranks[c] !== 'number') return { ok: false, reason: `Missing numeric rank for ${p.name} in ${c}` }
+    }
+
+    const _target = Number.isFinite(targetGap) ? targetGap : Math.max(1, Math.ceil(M/2))
+    const rand = rng(randomSeed)
+    
+    const _cost = typeof costFn === 'function' ? costFn : (d) => { 
+      const x = d - _target
+      const baseCost = x*x
+      const perturbation = (rand() - 0.5) * 0.1 * baseCost
+      return baseCost + perturbation
+    }
+    
+    const t0 = performance.now()
+
+    const catIndex = new Map(categories.map((c,i)=>[c,i]))
+
+    const chans = challenges.map((ch, idx) => {
+      const pairs = []
+      for (let i=0;i<N;i++) for (let j=0;j<N;j++) if (i!==j) {
+        const rHi = players[i].ranks[ch.category]
+        const rLo = players[j].ranks[ch.category]
+        if (rHi < rLo) { 
+          const gap = Math.abs(rHi-rLo)
+          pairs.push({hiIdx:i, loIdx:j, gap, cost:_cost(gap)})
+        }
+      }
+      pairs.sort((a,b)=> {
+        const costDiff = a.cost - b.cost
+        if (Math.abs(costDiff) < 0.001) {
+          return (rand() - 0.5) * 0.1
+        }
+        return costDiff || a.hiIdx - b.hiIdx || a.loIdx - b.loIdx
+      })
+      return { id: ch.id, category: ch.category, catBit: (1 << (catIndex.get(ch.category) ?? 0)), pairs, idx }
+    })
+
+    const zeroes = chans.filter(ch=>ch.pairs.length===0).length
+    if (C - zeroes < need) return { ok: false, reason: 'Too many challenges have no valid pairs.' }
+
+    const order = [...chans].map((ch,i)=>({i,len:ch.pairs.length})).sort((a,b)=>{
+      const lenDiff = a.len - b.len
+      if (lenDiff === 0) {
+        return (rand() - 0.5) * 0.1
+      }
+      return lenDiff
+    }).map(o=>o.i)
+
+    const memo = new Map()
+    const FULL = (1<<N) - 1
+    const key = (k, hi, lo, sel, pairMaskStr, coverMask) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}`
+
+    function pairBit(i, j) {
+      if (i > j) [i, j] = [j, i]
+      const idx = i * N + j
+      return 1n << BigInt(idx)
+    }
+
+    function dfs(k, usedHi, usedLo, selected, pairMask, coverMask) {
+      if (performance.now() - t0 > timeLimitMs) return { best: Infinity, timedOut: true }
+      const remaining = C - k
+      const needMore = need - selected
+      if (needMore === 0) {
+        if (!(usedHi === FULL && usedLo === FULL)) return { best: Infinity }
+        const coveredCount = popcount32(coverMask)
+        const missing = M - coveredCount
+        if (requireCoverAll && missing > 0) return { best: Infinity }
+        const penalty = coverPenaltyPerMissing * missing
+        return { best: penalty, picks: [] }
+      }
+      if (remaining < needMore) return { best: Infinity }
+
+      const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask)
+      if (memo.has(memoKey)) return memo.get(memoKey)
+
+      let best = { best: Infinity }
+      const ch = chans[order[k]]
+
+      for (const pr of ch.pairs) {
+        if (((usedHi >>> pr.hiIdx) & 1) === 1) continue
+        if (((usedLo >>> pr.loIdx) & 1) === 1) continue
+        const bit = pairBit(pr.hiIdx, pr.loIdx)
+        if ((pairMask & bit) !== 0n) continue
+        const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit)
+        const total = sub.best === Infinity ? Infinity : pr.cost + sub.best
+        if (total < best.best) {
+          best = { best: total, picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}] }
+        }
+      }
+
+      if (remaining - 1 >= needMore) {
+        const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask)
+        if (subSkip.best < best.best) {
+          best = { best: subSkip.best, picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}] }
+        }
+      }
+
+      memo.set(memoKey, best)
+      return best
+    }
+
+    const ans = dfs(0, 0, 0, 0, 0n, 0)
+    if (!Number.isFinite(ans.best)) return { ok: false, reason: ans.timedOut ? 'Search time limit reached' : 'No feasible assignment found' }
+
+    const useMap = new Map()
+    for (const step of ans.picks || []) if (step.use) useMap.set(step.chIndex, step.pr)
+
+    const assignments = []
+    for (let i=0;i<C;i++) {
+      if (!useMap.has(i)) continue
+      const ch = challenges[i]
+      const pr = useMap.get(i)
+      const highPlayer = players[pr.hiIdx]
+      const lowPlayer = players[pr.loIdx]
+      const highRank = highPlayer.ranks[ch.category]
+      const lowRank = lowPlayer.ranks[ch.category]
+      assignments.push({
+        challengeId: ch.id,
+        category: ch.category,
+        high: highPlayer.name,
+        low: lowPlayer.name,
+        highRank: highRank,
+        lowRank: lowRank,
+        gap: pr.gap,
+        cost: _cost(pr.gap)
+      })
+    }
+
+    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C }
+  }
+
+  const checkFeasible = (players, categories, challenges, { timeLimitMs = 2000, selectN, requireCoverAll = false } = {}) => {
+    const res = solveMatchmaking(players, categories, challenges, { targetGap: 1, timeLimitMs, costFn: () => 0, selectN, coverPenaltyPerMissing: 0, requireCoverAll })
+    return res.ok
+  }
+
+  const optimizeMatchOrdering = (assignments) => {
+    if (assignments.length <= 1) return assignments
+    
+    const ordered = []
+    const remaining = [...assignments]
+    
+    const startIdx = Math.floor(Math.random() * remaining.length)
+    ordered.push(remaining.splice(startIdx, 1)[0])
+    
+    while (remaining.length > 0) {
+      let bestMatch = null
+      let bestScore = -Infinity
+      let bestIdx = -1
+      
+      for (let i = 0; i < remaining.length; i++) {
+        const match = remaining[i]
+        const lastMatch = ordered[ordered.length - 1]
+        
+        let score = 0
+        
+        if (match.category !== lastMatch.category) {
+          score += 10
+        }
+        
+        if (match.high !== lastMatch.high && match.high !== lastMatch.low &&
+            match.low !== lastMatch.high && match.low !== lastMatch.low) {
+          score += 20
+        }
+        
+        score += Math.random() * 2
+        
+        if (score > bestScore) {
+          bestScore = score
+          bestMatch = match
+          bestIdx = i
+        }
+      }
+      
+      ordered.push(remaining.splice(bestIdx, 1)[0])
+    }
+    
+    return ordered
+  }
+
+  // Simulation and solving functions
+  const runSimulation = async () => {
+    const challenges = buildChallenges(categories)
+    const total = challenges.length
+    if (total < numPlayers) { 
+      alert(`Not enough challenges! You have ${total} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      return 
+    }
+    const M = categories.length
+    if (M < 1) { alert('Add at least one category.'); return }
+
+    const trials = Math.max(10, numTrials || 1000)
+    const rand = rng()
+    setCancelSimFlag(false)
+    setSimStatus('Running…')
+    setSimResult('')
+
+    let infeasible = 0
+    for (let t=0; t<trials; t++) {
+      if (cancelSimFlag) break
+      const players = Array.from({length:numPlayers}, (_,i)=>({
+        name: `P${i+1}`,
+        ranks: (()=>{
+          const perm = shuffle([...Array(M).keys()], rand)
+          const obj = {}
+          for (let k=0;k<M;k++) obj[categories[perm[k]].name] = k+1
+          return obj
+        })()
+      }))
+      if (!checkFeasible(players, categories.map(c=>c.name), challenges, { selectN: numPlayers, requireCoverAll: false })) infeasible++
+      if ((t+1) % Math.ceil(trials/10) === 0) {
+        setSimStatus(`Progress: ${t+1}/${trials}`)
+        await new Promise(r=>setTimeout(r))
+      }
+    }
+    setCancelSimFlag(false)
+    const ran = cancelSimFlag ? ' (cancelled early)' : ''
+    const pct = (infeasible / trials) * 100
+    setSimResult(`Infeasible: ${infeasible} / ${trials}${ran} → ${pct.toFixed(2)}%`)
+    setSimStatus('Done')
+  }
+
+  const readPlayersFromGrid = () => {
+    const M = categories.length
+    if (!playerGrid.length) return { ok: false, reason: 'Build the player grid first.' }
+    const players = []
+    for (const player of playerGrid) {
+      const name = player.name.trim() || `Player ${players.length+1}`
+      const ranks = {}
+      for (let i=0;i<M;i++) {
+        const v = player.ranks[categories[i].name]
+        if (!Number.isInteger(v) || v < 1 || v > M) return { ok: false, reason: `${name}: ranks must be integers from 1..${M}.` }
+        ranks[categories[i].name] = v
+      }
+      players.push({ name, ranks })
+    }
+    for (const p of players) {
+      const vals = categories.map(c=>p.ranks[c.name]).slice().sort((a,b)=>a-b)
+      for (let k=1;k<=M;k++) if (vals[k-1] !== k) return { ok: false, reason: `${p.name}: ranks must be a permutation of 1..${M}.` }
+    }
+    return { ok: true, players, categories: categories.map(c=>c.name), challenges: buildChallenges(categories) }
+  }
+
+  const checkFeasibleFromGrid = () => {
+    const parsed = readPlayersFromGrid()
+    setSolveOutput('')
+    if (!parsed.ok) { 
+      setSolveOutput(`Error: ${parsed.reason}`)
+      return 
+    }
+    
+    if (parsed.challenges.length < numPlayers) {
+      setSolveOutput(`Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      return
+    }
+    
+    const feasible = checkFeasible(parsed.players, parsed.categories, parsed.challenges, { timeLimitMs: 2000, selectN: numPlayers, requireCoverAll: false })
+    setSolveOutput(feasible ? 'Feasible ✓' : 'No feasible assignment found.')
+  }
+
+  const solveFromGrid = () => {
+    const parsed = readPlayersFromGrid()
+    setSolveOutput('')
+    if (!parsed.ok) { 
+      setSolveOutput(`Error: ${parsed.reason}`)
+      return 
+    }
+    
+    if (parsed.challenges.length < numPlayers) {
+      setSolveOutput(`Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      return
+    }
+    
+    setSolveStatus('Checking feasibility…')
+    const feasible = checkFeasible(parsed.players, parsed.categories, parsed.challenges, { 
+      timeLimitMs: 2000, 
+      selectN: numPlayers, 
+      requireCoverAll: false 
+    })
+    
+    if (!feasible) {
+      setSolveStatus('')
+      setSolveOutput('No feasible assignment found.')
+      return
+    }
+    
+    const targetGapValue = targetGap || Math.ceil(parsed.categories.length/2)
+    setSolveStatus('Solving…')
+    const res = solveMatchmaking(parsed.players, parsed.categories, parsed.challenges, { 
+      targetGap: targetGapValue, 
+      timeLimitMs: Infinity,
+      selectN: numPlayers, 
+      coverPenaltyPerMissing: 10,
+      requireCoverAll: false,
+      randomSeed: null
+    })
+    setSolveStatus('')
+    if (!res.ok) { 
+      setSolveOutput(`Error: ${res.reason}`)
+      return 
+    }
+
+    const optimizedAssignments = optimizeMatchOrdering(res.assignments)
+    
+    const tableRows = optimizedAssignments.map(a => 
+      `<tr><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
+    ).join('')
+    
+    setSolveOutput(`
+      <table>
+        <thead><tr><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    `)
+  }
+
+  const generateShareUrl = () => {
+    try {
+      const parsed = readPlayersFromGrid()
+      
+      if (!categories.length) {
+        alert('Please add at least one category before sharing.')
+        return
+      }
+      
+      if (!parsed.ok) {
+        alert(`Cannot share: ${parsed.reason}`)
+        return
+      }
+      
+      const categoriesStr = categories.map(c => c.name).join(',')
+      const challengeCounts = categories.map(c => c.count).join(',')
+      const playerNames = parsed.players.map(p => p.name).join(',')
+      
+      const rankSections = parsed.players.map(player => {
+        return categories.map(cat => player.ranks[cat.name]).join(',')
+      })
+      
+      const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
+      const encodedData = btoa(dataString)
+      const baseUrl = window.location.origin + window.location.pathname
+      const shareUrl = `${baseUrl}?data=${encodedData}`
+      
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareStatus('URL copied to clipboard!')
+        setTimeout(() => setShareStatus(''), 3000)
+      }).catch(() => {
+        prompt('Share this URL:', shareUrl)
+        setShareStatus('URL generated!')
+        setTimeout(() => setShareStatus(''), 3000)
+      })
+      
+    } catch (error) {
+      console.error('Error generating share URL:', error)
+      setShareStatus('Error generating URL')
+      setTimeout(() => setShareStatus(''), 3000)
+    }
+  }
+
+  // URL parameter parsing for pre-populated data
+  const parseUrlData = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const dataParam = urlParams.get('data')
+    
+    if (!dataParam) {
+      // No URL data, use demo defaults
+      addCategory('Trivia', 4)
+      addCategory('Cardio', 4)
+      return
+    }
+    
+    try {
+      // Decode base64 data
+      const decodedData = atob(dataParam)
+      
+      // Parse the format: categories|challengeCounts|players|player1ranks|player2ranks|...
+      const sections = decodedData.split('|')
+      
+      if (sections.length < 4) {
+        throw new Error('Invalid data format: need at least categories, challenge counts, players, and one player\'s ranks')
+      }
+      
+      const categoriesList = sections[0].split(',').filter(cat => cat.trim())
+      const challengeCounts = sections[1].split(',').map(c => parseInt(c.trim()))
+      const players = sections[2].split(',').filter(player => player.trim())
+      
+      if (categoriesList.length === 0) {
+        throw new Error('No categories found')
+      }
+      
+      if (players.length === 0) {
+        throw new Error('No players found')
+      }
+      
+      if (challengeCounts.length !== categoriesList.length) {
+        throw new Error(`Expected ${categoriesList.length} challenge counts, got ${challengeCounts.length}`)
+      }
+      
+      if (sections.length - 3 !== players.length) {
+        throw new Error(`Expected ${players.length} rank sections, got ${sections.length - 3}`)
+      }
+      
+      // Clear existing categories and set new ones
+      const newCategories = categoriesList.map((cat, index) => ({
+        name: cat.trim(),
+        count: challengeCounts[index]
+      }))
+      setCategories(newCategories)
+      
+      // Set number of players
+      setNumPlayers(players.length)
+      
+      // Build player grid with loaded data
+      const newPlayerGrid = []
+      for (let i = 0; i < players.length; i++) {
+        const rankSection = sections[i + 3]
+        const ranks = rankSection.split(',').map(r => parseInt(r.trim()))
+        
+        if (ranks.length !== categoriesList.length) {
+          throw new Error(`Player ${i + 1} has ${ranks.length} ranks but there are ${categoriesList.length} categories`)
+        }
+        
+        const playerRanks = {}
+        categoriesList.forEach((cat, j) => {
+          playerRanks[cat] = ranks[j]
+        })
+        
+        newPlayerGrid.push({
+          name: players[i].trim(),
+          ranks: playerRanks
+        })
+      }
+      
+      setPlayerGrid(newPlayerGrid)
+      
+      // Update target gap
+      const suggested = Math.max(1, Math.ceil(categoriesList.length/2))
+      setTargetGap(suggested)
+      
+      console.log('Successfully loaded data from URL parameter')
+      
+    } catch (error) {
+      console.error('Error parsing URL data:', error.message)
+      alert(`Error loading data from URL: ${error.message}\n\nUsing default configuration instead.`)
+      
+      // Fall back to demo defaults
+      addCategory('Trivia', 4)
+      addCategory('Cardio', 4)
+    }
+  }
+
+  // Initialize with URL data on component mount
+  useEffect(() => {
+    parseUrlData()
+  }, []) // Empty dependency array means this runs once on mount
+
+  const totalChallenges = categories.reduce((sum, cat) => sum + cat.count, 0)
+  const challengeStatus = totalChallenges < numPlayers ? '❗ fewer than N (add more)' : 
+                         (totalChallenges === numPlayers ? '✓ equals N' : 
+                         `✓ will choose best N of ${totalChallenges}`)
+
+  return (
+    <div className="matchmaker">
+      <div className="matchmaker-content">
+        <div className="matchmaker-header">
+          <h1>Underdog Matchmaking Simulator & Solver</h1>
+        </div>
+
+        {/* Global Setup Section */}
+        <div className="card">
+          <div className="section-title">
+            <h2>1) Structure</h2>
+            <span className="pill">Challenges: {totalChallenges}</span>
+          </div>
+          <div className="row">
+            <div className="form-group">
+              <label>Number of Players (N)</label>
+              <input 
+                type="number" 
+                min="2" 
+                value={numPlayers}
+                onChange={(e) => setNumPlayers(parseInt(e.target.value) || 2)}
+              />
+            </div>
+          </div>
+
+          <h3>Categories</h3>
+          <p className="tiny">Add categories and how many challenges each should appear in. Total challenges may be <em>≥ N</em>. The solver will pick the best subset of exactly N challenges when there are more.</p>
+          
+          <table className="categories-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Num Challenges</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((category, index) => (
+                <tr key={index}>
+                  <td>
+                    <input 
+                      type="text" 
+                      value={category.name}
+                      placeholder="Category name"
+                      onChange={(e) => updateCategory(index, 'name', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={category.count}
+                      onChange={(e) => updateCategory(index, 'count', parseInt(e.target.value) || 1)}
+                    />
+                  </td>
+                  <td>
+                    <button 
+                      className="btn-danger"
+                      onClick={() => removeCategory(index)}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          <div className="row">
+            <button className="btn-secondary" onClick={() => addCategory()}>
+              + Add Category
+            </button>
+            <span className="pill">
+              {categories.length ? `${categories.length} categories • ${totalChallenges} challenges • ${challengeStatus}` : 'No categories'}
+            </span>
+          </div>
+        </div>
+
+        {/* Simulator Section */}
+        <div className="card">
+          <div className="section-title">
+            <h2>2) Simulation (Random Rankings)</h2>
+            <span className="chip">Feasibility Estimator</span>
+          </div>
+          <div className="row">
+            <div className="form-group">
+              <label>Trials</label>
+              <input 
+                type="number" 
+                min="10" 
+                value={numTrials}
+                onChange={(e) => setNumTrials(parseInt(e.target.value) || 25)}
+              />
+            </div>
+          </div>
+          <div className="row">
+            <button onClick={runSimulation}>
+              Run Simulation
+            </button>
+            <button 
+              className="btn-secondary"
+              disabled={!cancelSimFlag}
+              onClick={() => setCancelSimFlag(true)}
+            >
+              Cancel
+            </button>
+            <span className="muted">{simStatus}</span>
+          </div>
+          <div className="sim-result" dangerouslySetInnerHTML={{ __html: simResult }}></div>
+        </div>
+
+        {/* Real Matchmaking Section */}
+        <div className="card">
+          <div className="section-title">
+            <h2>3) Real Matchmaking (Player-Provided Ranks)</h2>
+            <span className="chip">Shared Solver Core</span>
+          </div>
+          <p className="tiny">Enter player names and their ranks (1..M) for each category. Each player's ranks must be a permutation of 1..M (unique, no repeats). Each time you press "Make Matches", you'll get a different high-quality solution due to randomization.</p>
+          
+          <div className="row">
+            <button onClick={buildPlayerGrid}>
+              Build / Refresh Player Grid
+            </button>
+            <button className="btn-secondary" onClick={randomizeRanks}>
+              Randomize Ranks
+            </button>
+            <span className="muted tiny">This will reflect the current categories & N.</span>
+          </div>
+
+          {playerGrid.length > 0 && (
+            <div className="player-grid">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Player Name</th>
+                    {categories.map(cat => (
+                      <th key={cat.name}>{cat.name}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {playerGrid.map((player, index) => (
+                    <tr key={index}>
+                      <td className="muted">{index + 1}</td>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={player.name}
+                          onChange={(e) => {
+                            const updated = [...playerGrid]
+                            updated[index].name = e.target.value
+                            setPlayerGrid(updated)
+                          }}
+                        />
+                      </td>
+                      {categories.map(cat => (
+                        <td key={cat.name}>
+                          <input 
+                            type="number" 
+                            min="1" 
+                            max={categories.length}
+                            value={player.ranks[cat.name] || ''}
+                            placeholder={`1..${categories.length}`}
+                            onChange={(e) => {
+                              const updated = [...playerGrid]
+                              updated[index].ranks[cat.name] = parseInt(e.target.value) || ''
+                              setPlayerGrid(updated)
+                            }}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="row">
+            <div className="form-group">
+              <label>Spacing Target (ideal rank gap)</label>
+              <input 
+                type="number" 
+                min="1" 
+                value={targetGap}
+                onChange={(e) => setTargetGap(parseInt(e.target.value) || 2)}
+              />
+              <div className="tiny muted">Default ≈ ceil(M/2). Used only for <em>optimization</em>.</div>
+            </div>
+          </div>
+
+          <div className="row">
+            <button onClick={checkFeasibleFromGrid}>
+              Check Feasible
+            </button>
+            <button onClick={solveFromGrid}>
+              Make Matches (randomized)
+            </button>
+            <span className="muted">{solveStatus}</span>
+          </div>
+
+          <div className="solve-output" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
+          
+          <div className="row">
+            <button className="btn-secondary" onClick={generateShareUrl}>
+              📤 Share Configuration
+            </button>
+            <span className="muted tiny">{shareStatus}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Matchmaker
