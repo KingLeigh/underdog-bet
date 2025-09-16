@@ -160,7 +160,7 @@ function GameBoard() {
         <div className="game-area">
           {/* Wager System Interface */}
           <div className="wager-section">
-            <h3>Active Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h3>
+            <h3>Current Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h3>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
