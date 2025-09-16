@@ -315,3 +315,40 @@ td input:focus {
     text-align: center;
   }
 }
+
+.top-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.lock-toggle {
+  text-align: center;
+}
+
+.share-toggle {
+  text-align: center;
+}
+
+.lock-toggle .btn,
+.share-toggle .btn {
+  font-size: 0.9rem !important;
+  padding: 0.5rem 1rem !important;
+  min-width: auto !important;
+  width: auto !important;
+}
+
+.share-toggle .status-message {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.categories-table .btn {
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.5rem !important;
+  min-width: auto !important;
+  width: auto !important;
+}

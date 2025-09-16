@@ -13,6 +13,8 @@ function Matchmaker() {
   const [solveOutput, setSolveOutput] = useState('')
   const [shareStatus, setShareStatus] = useState('')
   const [cancelSimFlag, setCancelSimFlag] = useState(false)
+  const [isUrlLoaded, setIsUrlLoaded] = useState(false)
+  const [isUnlocked, setIsUnlocked] = useState(false)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -400,23 +402,6 @@ function Matchmaker() {
     return { ok: true, players, categories: categories.map(c=>c.name), challenges: buildChallenges(categories) }
   }
 
-  const checkFeasibleFromGrid = () => {
-    const parsed = readPlayersFromGrid()
-    setSolveOutput('')
-    if (!parsed.ok) { 
-      setSolveOutput(`<div class="validation-message">Error: ${parsed.reason}</div>`)
-      return 
-    }
-    
-    if (parsed.challenges.length < numPlayers) {
-      setSolveOutput(`<div class="validation-message">Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.</div>`)
-      return
-    }
-    
-    const feasible = checkFeasible(parsed.players, parsed.categories, parsed.challenges, { timeLimitMs: 2000, selectN: numPlayers, requireCoverAll: false })
-    setSolveOutput(feasible ? 'Feasible ✓' : 'No feasible assignment found.')
-  }
-
   const solveFromGrid = () => {
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
@@ -516,6 +501,12 @@ function Matchmaker() {
     }
   }
 
+  const toggleLock = () => {
+    setIsUnlocked(!isUnlocked)
+  }
+
+  const isFormLocked = isUrlLoaded && !isUnlocked
+
   // URL parameter parsing for pre-populated data
   const parseUrlData = () => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -525,6 +516,7 @@ function Matchmaker() {
       // No URL data, use demo defaults
       addCategory('Trivia', 4)
       addCategory('Cardio', 4)
+      setIsUrlLoaded(false)
       return
     }
     
@@ -596,7 +588,8 @@ function Matchmaker() {
       const suggested = Math.max(1, Math.ceil(categoriesList.length/2))
       setTargetGap(suggested)
       
-      console.log('Successfully loaded data from URL parameter')
+        console.log('Successfully loaded data from URL parameter')
+        setIsUrlLoaded(true)
       
     } catch (error) {
       console.error('Error parsing URL data:', error.message)
@@ -605,6 +598,7 @@ function Matchmaker() {
       // Fall back to demo defaults
       addCategory('Trivia', 4)
       addCategory('Cardio', 4)
+      setIsUrlLoaded(false)
     }
   }
 
@@ -633,15 +627,35 @@ function Matchmaker() {
           <div className="setup-panel">
             <h3>Game Setup</h3>
             
+            <div className="top-controls">
+              {isUrlLoaded && (
+                <div className="lock-toggle">
+                  <button 
+                    className={`btn ${isUnlocked ? 'btn-secondary' : 'btn-primary'}`}
+                    onClick={toggleLock}
+                  >
+                    {isUnlocked ? '🔒 Lock' : '🔓 Unlock'}
+                  </button>
+                </div>
+              )}
+              <div className="share-toggle">
+                <button className="btn btn-secondary" onClick={generateShareUrl}>
+                  📤 Share
+                </button>
+                {shareStatus && <div className="status-message">{shareStatus}</div>}
+              </div>
+            </div>
+            
             <div className="setup-controls">
               <div className="form-group">
                 <label>Number of Players</label>
-                <input 
-                  type="number" 
-                  min="2" 
-                  value={numPlayers}
-                  onChange={(e) => setNumPlayers(parseInt(e.target.value) || 2)}
-                />
+            <input 
+              type="number" 
+              min="2" 
+              value={numPlayers}
+              disabled={isFormLocked}
+              onChange={(e) => setNumPlayers(parseInt(e.target.value) || 2)}
+            />
               </div>
             </div>
 
@@ -653,7 +667,7 @@ function Matchmaker() {
                   <tr>
                     <th>Category</th>
                     <th>Num Challenges ({totalChallenges})</th>
-                    <th>Actions</th>
+                    {!isFormLocked && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -664,6 +678,7 @@ function Matchmaker() {
                           type="text" 
                           value={category.name}
                           placeholder="Category name"
+                          disabled={isFormLocked}
                           onChange={(e) => updateCategory(index, 'name', e.target.value)}
                         />
                       </td>
@@ -671,6 +686,7 @@ function Matchmaker() {
                       <input 
                         type="number" 
                         value={category.count}
+                        disabled={isFormLocked}
                         onChange={(e) => {
                           const value = e.target.value
                           if (value === '') {
@@ -685,12 +701,14 @@ function Matchmaker() {
                       />
                       </td>
                       <td>
-                      <button 
-                        className="btn btn-secondary"
-                        onClick={() => removeCategory(index)}
-                      >
-                        Remove
-                      </button>
+                      {!isFormLocked && (
+                        <button 
+                          className="btn btn-secondary"
+                          onClick={() => removeCategory(index)}
+                        >
+                          Remove
+                        </button>
+                      )}
                       </td>
                     </tr>
                   ))}
@@ -698,9 +716,11 @@ function Matchmaker() {
               </table>
               
               <div className="section-actions">
+              {!isFormLocked && (
                 <button className="btn btn-secondary" onClick={() => addCategory()}>
                   + Add Category
                 </button>
+              )}
               </div>
               
               {totalChallenges < numPlayers && (
@@ -755,12 +775,16 @@ function Matchmaker() {
           <h3>Player Rankings</h3>
           
           <div className="player-controls">
-            <button className="btn btn-primary" onClick={buildPlayerGrid}>
-              Build / Refresh Player Grid
-            </button>
-            <button className="btn btn-secondary" onClick={randomizeRanks}>
-              Randomize Ranks
-            </button>
+            {!isFormLocked && (
+              <button className="btn btn-primary" onClick={buildPlayerGrid}>
+                Build / Refresh Player Grid
+              </button>
+            )}
+            {!isFormLocked && (
+              <button className="btn btn-secondary" onClick={randomizeRanks}>
+                Randomize Ranks
+              </button>
+            )}
           </div>
 
           {playerGrid.length > 0 && (
@@ -783,6 +807,7 @@ function Matchmaker() {
                         <input 
                           type="text" 
                           value={player.name}
+                          disabled={isFormLocked}
                           onChange={(e) => {
                             const updated = [...playerGrid]
                             updated[index].name = e.target.value
@@ -798,6 +823,7 @@ function Matchmaker() {
                             max={categories.length}
                             value={player.ranks[cat.name] || ''}
                             placeholder={`1..${categories.length}`}
+                            disabled={isFormLocked}
                             onChange={(e) => {
                               const updated = [...playerGrid]
                               updated[index].ranks[cat.name] = parseInt(e.target.value) || ''
@@ -826,20 +852,10 @@ function Matchmaker() {
           </div>
 
           <div className="matchmaking-actions">
-            <button className="btn btn-primary" onClick={checkFeasibleFromGrid}>
-              Check Feasible
-            </button>
             <button className="btn btn-primary" onClick={solveFromGrid}>
               Make Matches
             </button>
             {solveStatus && <div className="status-message">{solveStatus}</div>}
-          </div>
-
-          <div className="share-section">
-            <button className="btn btn-secondary" onClick={generateShareUrl}>
-              📤 Share Configuration
-            </button>
-            {shareStatus && <div className="status-message">{shareStatus}</div>}
           </div>
         </div>
 
