@@ -404,12 +404,12 @@ function Matchmaker() {
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
     if (!parsed.ok) { 
-      setSolveOutput(`Error: ${parsed.reason}`)
+      setSolveOutput(`<div class="validation-message">Error: ${parsed.reason}</div>`)
       return 
     }
     
     if (parsed.challenges.length < numPlayers) {
-      setSolveOutput(`Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      setSolveOutput(`<div class="validation-message">Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.</div>`)
       return
     }
     
@@ -421,12 +421,12 @@ function Matchmaker() {
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
     if (!parsed.ok) { 
-      setSolveOutput(`Error: ${parsed.reason}`)
+      setSolveOutput(`<div class="validation-message">Error: ${parsed.reason}</div>`)
       return 
     }
     
     if (parsed.challenges.length < numPlayers) {
-      setSolveOutput(`Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
+      setSolveOutput(`<div class="validation-message">Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.</div>`)
       return
     }
     
@@ -455,19 +455,19 @@ function Matchmaker() {
     })
     setSolveStatus('')
     if (!res.ok) { 
-      setSolveOutput(`Error: ${res.reason}`)
+      setSolveOutput(`<div class="validation-message">Error: ${res.reason}</div>`)
       return 
     }
 
     const optimizedAssignments = optimizeMatchOrdering(res.assignments)
     
-    const tableRows = optimizedAssignments.map(a => 
-      `<tr><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
+    const tableRows = optimizedAssignments.map((a, index) => 
+      `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
     ).join('')
     
     setSolveOutput(`
       <table>
-        <thead><tr><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
+        <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     `)
@@ -613,7 +613,10 @@ function Matchmaker() {
     parseUrlData()
   }, []) // Empty dependency array means this runs once on mount
 
-  const totalChallenges = categories.reduce((sum, cat) => sum + cat.count, 0)
+  const totalChallenges = categories.reduce((sum, cat) => {
+    const count = typeof cat.count === 'string' ? parseInt(cat.count) || 0 : cat.count
+    return sum + count
+  }, 0)
   const challengeStatus = totalChallenges < numPlayers ? '❗ fewer than N (add more)' : 
                          (totalChallenges === numPlayers ? '✓ equals N' : 
                          `✓ will choose best N of ${totalChallenges}`)
@@ -622,129 +625,142 @@ function Matchmaker() {
     <div className="matchmaker">
       <div className="matchmaker-content">
         <div className="matchmaker-header">
-          <h1>Underdog Matchmaking Simulator & Solver</h1>
+          <h1>Underdogs Matchmaker</h1>
         </div>
 
-        {/* Global Setup Section */}
-        <div className="card">
-          <div className="section-title">
-            <h2>1) Structure</h2>
-            <span className="pill">Challenges: {totalChallenges}</span>
-          </div>
-          <div className="row">
-            <div className="form-group">
-              <label>Number of Players (N)</label>
-              <input 
-                type="number" 
-                min="2" 
-                value={numPlayers}
-                onChange={(e) => setNumPlayers(parseInt(e.target.value) || 2)}
-              />
+        {/* Game Setup Section */}
+        <div className="game-setup-section">
+          <div className="setup-panel">
+            <h3>Game Setup</h3>
+            
+            <div className="setup-controls">
+              <div className="form-group">
+                <label>Number of Players</label>
+                <input 
+                  type="number" 
+                  min="2" 
+                  value={numPlayers}
+                  onChange={(e) => setNumPlayers(parseInt(e.target.value) || 2)}
+                />
+              </div>
+            </div>
+
+            <div className="categories-section">
+              <h4>Categories</h4>
+              
+              <table className="categories-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Num Challenges ({totalChallenges})</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((category, index) => (
+                    <tr key={index}>
+                      <td>
+                        <input 
+                          type="text" 
+                          value={category.name}
+                          placeholder="Category name"
+                          onChange={(e) => updateCategory(index, 'name', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                      <input 
+                        type="number" 
+                        value={category.count}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === '') {
+                            updateCategory(index, 'count', '')
+                          } else {
+                            const numValue = parseInt(value)
+                            if (!isNaN(numValue) && numValue > 0) {
+                              updateCategory(index, 'count', numValue)
+                            }
+                          }
+                        }}
+                      />
+                      </td>
+                      <td>
+                      <button 
+                        className="btn btn-secondary"
+                        onClick={() => removeCategory(index)}
+                      >
+                        Remove
+                      </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              <div className="section-actions">
+                <button className="btn btn-secondary" onClick={() => addCategory()}>
+                  + Add Category
+                </button>
+              </div>
+              
+              {totalChallenges < numPlayers && (
+                <div className="validation-message">
+                  You need at least as many Challenges as players
+                </div>
+              )}
             </div>
           </div>
-
-          <h3>Categories</h3>
-          <p className="tiny">Add categories and how many challenges each should appear in. Total challenges may be <em>≥ N</em>. The solver will pick the best subset of exactly N challenges when there are more.</p>
-          
-          <table className="categories-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Num Challenges</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((category, index) => (
-                <tr key={index}>
-                  <td>
-                    <input 
-                      type="text" 
-                      value={category.name}
-                      placeholder="Category name"
-                      onChange={(e) => updateCategory(index, 'name', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      value={category.count}
-                      onChange={(e) => updateCategory(index, 'count', parseInt(e.target.value) || 1)}
-                    />
-                  </td>
-                  <td>
-                    <button 
-                      className="btn-danger"
-                      onClick={() => removeCategory(index)}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          <div className="row">
-            <button className="btn-secondary" onClick={() => addCategory()}>
-              + Add Category
-            </button>
-            <span className="pill">
-              {categories.length ? `${categories.length} categories • ${totalChallenges} challenges • ${challengeStatus}` : 'No categories'}
-            </span>
-          </div>
         </div>
 
-        {/* Simulator Section */}
-        <div className="card">
-          <div className="section-title">
-            <h2>2) Simulation (Random Rankings)</h2>
-            <span className="chip">Feasibility Estimator</span>
-          </div>
-          <div className="row">
-            <div className="form-group">
-              <label>Trials</label>
-              <input 
-                type="number" 
-                min="10" 
-                value={numTrials}
-                onChange={(e) => setNumTrials(parseInt(e.target.value) || 25)}
-              />
+        {/* Simulation Section */}
+        <div className="simulation-section">
+          <div className="simulation-panel">
+            <h3>Simulation</h3>
+            
+            <div className="simulation-controls">
+              <div className="form-group">
+                <label>Trials</label>
+                <input 
+                  type="number" 
+                  min="10" 
+                  value={numTrials}
+                  onChange={(e) => setNumTrials(parseInt(e.target.value) || 25)}
+                />
+              </div>
+              
+              <div className="simulation-actions">
+                <button className="btn btn-primary" onClick={runSimulation}>
+                  Run Simulation
+                </button>
+                <button 
+                  className="btn btn-secondary"
+                  disabled={!cancelSimFlag}
+                  onClick={() => setCancelSimFlag(true)}
+                >
+                  Cancel
+                </button>
+              </div>
+              
+              {simStatus && <div className="status-message">{simStatus}</div>}
             </div>
+            
+            {simResult && (
+              <div className="simulation-result" dangerouslySetInnerHTML={{ __html: simResult }}></div>
+            )}
           </div>
-          <div className="row">
-            <button onClick={runSimulation}>
-              Run Simulation
-            </button>
-            <button 
-              className="btn-secondary"
-              disabled={!cancelSimFlag}
-              onClick={() => setCancelSimFlag(true)}
-            >
-              Cancel
-            </button>
-            <span className="muted">{simStatus}</span>
-          </div>
-          <div className="sim-result" dangerouslySetInnerHTML={{ __html: simResult }}></div>
         </div>
 
-        {/* Real Matchmaking Section */}
-        <div className="card">
-          <div className="section-title">
-            <h2>3) Real Matchmaking (Player-Provided Ranks)</h2>
-            <span className="chip">Shared Solver Core</span>
-          </div>
-          <p className="tiny">Enter player names and their ranks (1..M) for each category. Each player's ranks must be a permutation of 1..M (unique, no repeats). Each time you press "Make Matches", you'll get a different high-quality solution due to randomization.</p>
+        {/* Player Rankings Section */}
+        <div className="player-rankings-section">
+          <h3>Player Rankings</h3>
           
-          <div className="row">
-            <button onClick={buildPlayerGrid}>
+          <div className="player-controls">
+            <button className="btn btn-primary" onClick={buildPlayerGrid}>
               Build / Refresh Player Grid
             </button>
-            <button className="btn-secondary" onClick={randomizeRanks}>
+            <button className="btn btn-secondary" onClick={randomizeRanks}>
               Randomize Ranks
             </button>
-            <span className="muted tiny">This will reflect the current categories & N.</span>
           </div>
 
           {playerGrid.length > 0 && (
@@ -762,7 +778,7 @@ function Matchmaker() {
                 <tbody>
                   {playerGrid.map((player, index) => (
                     <tr key={index}>
-                      <td className="muted">{index + 1}</td>
+                      <td className="player-number">{index + 1}</td>
                       <td>
                         <input 
                           type="text" 
@@ -797,38 +813,45 @@ function Matchmaker() {
             </div>
           )}
 
-          <div className="row">
+          <div className="optimization-controls">
             <div className="form-group">
               <label>Spacing Target (ideal rank gap)</label>
-              <input 
+              <input
                 type="number" 
                 min="1" 
                 value={targetGap}
                 onChange={(e) => setTargetGap(parseInt(e.target.value) || 2)}
               />
-              <div className="tiny muted">Default ≈ ceil(M/2). Used only for <em>optimization</em>.</div>
             </div>
           </div>
 
-          <div className="row">
-            <button onClick={checkFeasibleFromGrid}>
+          <div className="matchmaking-actions">
+            <button className="btn btn-primary" onClick={checkFeasibleFromGrid}>
               Check Feasible
             </button>
-            <button onClick={solveFromGrid}>
-              Make Matches (randomized)
+            <button className="btn btn-primary" onClick={solveFromGrid}>
+              Make Matches
             </button>
-            <span className="muted">{solveStatus}</span>
+            {solveStatus && <div className="status-message">{solveStatus}</div>}
           </div>
 
-          <div className="solve-output" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
-          
-          <div className="row">
-            <button className="btn-secondary" onClick={generateShareUrl}>
+          <div className="share-section">
+            <button className="btn btn-secondary" onClick={generateShareUrl}>
               📤 Share Configuration
             </button>
-            <span className="muted tiny">{shareStatus}</span>
+            {shareStatus && <div className="status-message">{shareStatus}</div>}
           </div>
         </div>
+
+        {/* Match Ups Section */}
+        {solveOutput && (
+          <div className="matchups-section">
+            <div className="matchups-panel">
+              <h3>Matchups</h3>
+              <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
