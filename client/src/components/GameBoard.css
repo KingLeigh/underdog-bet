@@ -216,6 +216,10 @@
   color: #ef4444;
 }
 
+.points-value.highest-score {
+  color: #fbbf24;
+}
+
 .error-message {
   background: rgba(239, 68, 68, 0.2);
   border: 1px solid rgba(239, 68, 68, 0.5);

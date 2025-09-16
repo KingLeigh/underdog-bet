@@ -440,7 +440,7 @@ function GameBoard() {
                         </div>
                       </td>
                       <td className="points-cell">
-                        <span className={`points-value ${player.points < 0 ? 'negative' : ''}`}>{player.points}</span>
+                        <span className={`points-value ${player.points < 0 ? 'negative' : ''} ${index === 0 ? 'highest-score' : ''}`}>{player.points}</span>
                       </td>
                     </tr>
                   ))}
