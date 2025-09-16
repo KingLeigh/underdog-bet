@@ -456,6 +456,13 @@ function GameBoard() {
           </div>
         </div>
 
+        {/* Game Information Panel */}
+        <RulesPanel 
+          gameState={gameState}
+          playerWagerCount={playerWagerCount}
+          categories={categories}
+        />
+
         {/* Player Rankings Section */}
         {categories && categories.length > 0 && rankingsComplete && (
           <div className="player-rankings-section">
@@ -473,8 +480,10 @@ function GameBoard() {
                       .sort((a, b) => a.rank - b.rank)
                       .map(({ category, rank }) => (
                         <div key={category} className="ranking-item">
-                          <span className="category-name">{category}</span>
-                          <span className="rank-value">Rank {rank === 999 ? 'N/A' : rank}</span>
+                          <span className="ranking-text">
+                            <span className="rank-value">#{rank === 999 ? 'N/A' : rank}</span>
+                            <span className="category-name"> {category}</span>
+                          </span>
                         </div>
                       ))}
                   </div>
@@ -489,13 +498,6 @@ function GameBoard() {
             {error}
           </div>
         )}
-
-        {/* Game Information Panel */}
-        <RulesPanel 
-          gameState={gameState}
-          playerWagerCount={playerWagerCount}
-          categories={categories}
-        />
         
         <div className="game-info-footer">
           <div className="game-info">
