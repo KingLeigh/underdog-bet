@@ -17,6 +17,7 @@ function Matchmaker() {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [seed, setSeed] = useState(null)
   const [shouldAutoRun, setShouldAutoRun] = useState(false)
+  const [isSeedMode, setIsSeedMode] = useState(false)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -134,16 +135,17 @@ function Matchmaker() {
       return
     }
     
-    // Generate a new seed if we don't have one
-    if (!seed) {
-      setSeed(generateSeed())
-    }
+    // Always generate a new seed when randomizing ranks
+    const newSeed = generateSeed()
+    setSeed(newSeed)
     
     const M = categories.length
-    const updatedGrid = playerGrid.map(player => {
+    const updatedGrid = playerGrid.map((player, playerIndex) => {
       const ranks = {}
       const rankValues = Array.from({length: M}, (_, i) => i + 1)
-      shuffle(rankValues, rng(seed))
+      // Create a unique seed for each player by combining the new seed with player index
+      const playerSeed = newSeed + playerIndex * 1000
+      shuffle(rankValues, rng(playerSeed))
       
       categories.forEach((cat, index) => {
         ranks[cat.name] = rankValues[index]
@@ -311,14 +313,14 @@ function Matchmaker() {
     return res.ok
   }
 
-  const optimizeMatchOrdering = (assignments) => {
+  const optimizeMatchOrdering = (assignments, seedValue = seed) => {
     if (assignments.length <= 1) return assignments
     
     const ordered = []
     const remaining = [...assignments]
     
     // Use seeded random number generator for consistent ordering
-    const rand = rng(seed)
+    const rand = rng(seedValue)
     const startIdx = Math.floor(rand() * remaining.length)
     ordered.push(remaining.splice(startIdx, 1)[0])
     
@@ -421,6 +423,10 @@ function Matchmaker() {
   }
 
   const solveFromGrid = () => {
+    // Generate a new seed for matchmaking to ensure different results each time
+    const newSeed = generateSeed()
+    setSeed(newSeed)
+    
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
     if (!parsed.ok) { 
@@ -454,7 +460,7 @@ function Matchmaker() {
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: seed
+      randomSeed: newSeed
     })
     setSolveStatus('')
     if (!res.ok) { 
@@ -462,7 +468,7 @@ function Matchmaker() {
       return 
     }
 
-    const optimizedAssignments = optimizeMatchOrdering(res.assignments)
+    const optimizedAssignments = optimizeMatchOrdering(res.assignments, newSeed)
     
     const tableRows = optimizedAssignments.map((a, index) => 
       `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
@@ -514,10 +520,14 @@ function Matchmaker() {
       navigator.clipboard.writeText(shareUrl).then(() => {
         setShareStatus('URL copied to clipboard!')
         setTimeout(() => setShareStatus(''), 3000)
+        // Redirect to the saved URL after copying
+        window.location.href = shareUrl
       }).catch(() => {
         prompt('Share this URL:', shareUrl)
         setShareStatus('URL generated!')
         setTimeout(() => setShareStatus(''), 3000)
+        // Still redirect even if clipboard copy failed
+        window.location.href = shareUrl
       })
       
     } catch (error) {
@@ -544,6 +554,7 @@ function Matchmaker() {
       const parsedSeed = parseInt(seedParam)
       if (!isNaN(parsedSeed)) {
         setSeed(parsedSeed)
+        setIsSeedMode(true) // Enable seed mode to hide other panels
       }
     }
     
@@ -671,6 +682,7 @@ function Matchmaker() {
         </div>
 
         {/* Game Setup Section */}
+        {!isSeedMode && (
         <div className="game-setup-section">
           <div className="setup-panel">
             <h3>Game Setup</h3>
@@ -778,8 +790,10 @@ function Matchmaker() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Simulation Section */}
+        {!isSeedMode && (
         <div className="simulation-section">
           <div className="simulation-panel">
             <h3>Simulation</h3>
@@ -816,8 +830,10 @@ function Matchmaker() {
             )}
           </div>
         </div>
+        )}
 
         {/* Player Rankings Section */}
+        {!isSeedMode && (
         <div className="player-rankings-section">
           <h3>Player Rankings</h3>
           
@@ -905,6 +921,7 @@ function Matchmaker() {
             {solveStatus && <div className="status-message">{solveStatus}</div>}
           </div>
         </div>
+        )}
 
         {/* Match Ups Section */}
         {solveOutput && (
@@ -912,12 +929,14 @@ function Matchmaker() {
             <div className="matchups-panel">
               <h3>Matchups</h3>
               <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
-              <div className="matchups-actions" style={{ marginTop: '20px' }}>
-                <button className="btn btn-primary" onClick={generateShareUrl}>
-                  💾 Save
-                </button>
-                {shareStatus && <div className="status-message">{shareStatus}</div>}
-              </div>
+              {!isSeedMode && (
+                <div className="matchups-actions" style={{ marginTop: '20px' }}>
+                  <button className="btn btn-primary" onClick={generateShareUrl}>
+                    💾 Save
+                  </button>
+                  {shareStatus && <div className="status-message">{shareStatus}</div>}
+                </div>
+              )}
             </div>
           </div>
         )}
