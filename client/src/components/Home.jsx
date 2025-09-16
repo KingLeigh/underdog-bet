@@ -68,6 +68,13 @@ function Home() {
                 Host New Game
               </button>
               
+              <button 
+                className="btn btn-secondary"
+                onClick={() => navigate('/matchmaker')}
+              >
+                Matchmaker
+              </button>
+              
               <div className="divider">or</div>
             </>
           )}

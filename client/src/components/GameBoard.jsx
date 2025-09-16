@@ -143,7 +143,7 @@ function GameBoard() {
         ranks
       })
 
-      const baseUrl = 'https://kingleigh.github.io/matchmaker/underdog_matcher.html'
+      const baseUrl = `${window.location.origin}/matchmaker`
       return window.generateMatchmakerFullUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
     } catch (error) {
       console.error('Error generating matchmaker URL:', error)
