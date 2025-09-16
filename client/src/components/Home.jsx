@@ -50,20 +50,27 @@ function Home() {
     }
   }, [searchParams])
 
+  // Check if we have a game parameter in the URL
+  const hasGameParam = searchParams.get('game')
+
   return (
     <div className="home">
       <div className="home-content">
         <h2>Underdogs</h2>
         
         <div className="action-buttons">
-          <button 
-            className="btn btn-primary"
-            onClick={() => navigate('/create-game')}
-          >
-            Host New Game
-          </button>
-          
-          <div className="divider">or</div>
+          {!hasGameParam && (
+            <>
+              <button 
+                className="btn btn-primary"
+                onClick={() => navigate('/create-game')}
+              >
+                Host New Game
+              </button>
+              
+              <div className="divider">or</div>
+            </>
+          )}
           
           <form onSubmit={handleJoinGame} className="join-form">
             <input
@@ -74,17 +81,19 @@ function Home() {
               className="player-name-input"
               required
             />
-            <input
-              type="text"
-              placeholder="Enter Game ID"
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              className="game-id-input"
-              maxLength="6"
-              required
-            />
-            <button type="submit" className="btn btn-secondary">
-              Join Existing Game
+            {!hasGameParam && (
+              <input
+                type="text"
+                placeholder="Enter Game ID"
+                value={gameId}
+                onChange={(e) => setGameId(e.target.value)}
+                className="game-id-input"
+                maxLength="6"
+                required
+              />
+            )}
+            <button type="submit" className={`btn ${hasGameParam ? 'btn-primary' : 'btn-secondary'}`}>
+              Join Game
             </button>
           </form>
         </div>
