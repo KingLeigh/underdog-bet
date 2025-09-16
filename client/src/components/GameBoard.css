@@ -499,6 +499,20 @@
   min-width: auto;
 }
 
+/* Danger button styling for cancel confirmation */
+.btn-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+}
+
 .contest-actions {
   margin-top: 1rem;
   text-align: center;

@@ -10,6 +10,8 @@ function GameBoard() {
   const [selectedOption, setSelectedOption] = useState(null)
   const [userChoice, setUserChoice] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [hasResolutionSelected, setHasResolutionSelected] = useState(false)
+  const [cancelConfirmationActive, setCancelConfirmationActive] = useState(false)
   const { 
     gameState, 
     players, 
@@ -55,8 +57,40 @@ function GameBoard() {
     if (!wagerActive) {
       setSelectedOption(null)
       setUserChoice(null)
+      setHasResolutionSelected(false)
+      setCancelConfirmationActive(false)
     }
   }, [wagerActive])
+
+  // Handle cancel button clicks
+  const handleCancelClick = () => {
+    if (cancelConfirmationActive) {
+      // Second click - actually cancel the wager
+      cancelWager()
+      setCancelConfirmationActive(false)
+    } else {
+      // First click - show confirmation
+      setCancelConfirmationActive(true)
+    }
+  }
+
+  // Reset cancel confirmation when resolution selection changes
+  useEffect(() => {
+    if (hasResolutionSelected) {
+      setCancelConfirmationActive(false)
+    }
+  }, [hasResolutionSelected])
+
+  // Auto-reset cancel confirmation after 5 seconds
+  useEffect(() => {
+    if (cancelConfirmationActive) {
+      const timeout = setTimeout(() => {
+        setCancelConfirmationActive(false)
+      }, 5000) // 5 seconds
+
+      return () => clearTimeout(timeout)
+    }
+  }, [cancelConfirmationActive])
 
   // Monitor connection status
   useEffect(() => {
@@ -309,13 +343,18 @@ function GameBoard() {
                 {isHost && Object.keys(playerChoices).length > 0 && (
                   <div className="host-resolve-controls">
                     <h4>Resolve Contest</h4>
-                    <WagerResolutionForm onSubmit={resolveWager} wagerOptions={wagerOptions} />
+                    <WagerResolutionForm 
+                      onSubmit={resolveWager} 
+                      wagerOptions={wagerOptions}
+                      onSelectionChange={setHasResolutionSelected}
+                    />
                     <div className="contest-actions">
                       <button 
-                        onClick={cancelWager}
-                        className="btn btn-secondary btn-small"
+                        onClick={handleCancelClick}
+                        className={`btn btn-small ${cancelConfirmationActive ? 'btn-danger' : 'btn-secondary'}`}
+                        disabled={hasResolutionSelected}
                       >
-                        Cancel Contest
+                        {cancelConfirmationActive ? 'Confirm Cancel?' : 'Cancel Contest'}
                       </button>
                     </div>
                   </div>
@@ -733,13 +772,29 @@ function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
 }
 
 // Wager Resolution Form Component
-function WagerResolutionForm({ onSubmit, wagerOptions }) {
+function WagerResolutionForm({ onSubmit, wagerOptions, onSelectionChange }) {
   const [correctChoice, setCorrectChoice] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (correctChoice !== '') {
       onSubmit(parseInt(correctChoice))
+    }
+  }
+
+  const handleOptionClick = (option) => {
+    let newChoice
+    if (correctChoice === option) {
+      // If clicking the currently selected option, unselect it
+      newChoice = ''
+    } else {
+      // Otherwise, select the clicked option
+      newChoice = option
+    }
+    setCorrectChoice(newChoice)
+    // Notify parent component of selection change
+    if (onSelectionChange) {
+      onSelectionChange(newChoice !== '')
     }
   }
 
@@ -750,14 +805,14 @@ function WagerResolutionForm({ onSubmit, wagerOptions }) {
         <div className="resolution-options">
           <div 
             className={`resolution-option ${correctChoice === '0' ? 'selected' : 'clickable'}`}
-            onClick={() => setCorrectChoice('0')}
+            onClick={() => handleOptionClick('0')}
           >
             <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
             <span className="odds-display">{wagerOptions.odds?.[0] || 1}:1</span>
           </div>
           <div 
             className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
-            onClick={() => setCorrectChoice('1')}
+            onClick={() => handleOptionClick('1')}
           >
             <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
             <span className="odds-display">{wagerOptions.odds?.[1] || 1}:1</span>
