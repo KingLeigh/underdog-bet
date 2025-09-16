@@ -6,6 +6,7 @@ import './CreateGame.css'
 function CreateGame() {
   const [createPlayerName, setCreatePlayerName] = useState('')
   const [categories, setCategories] = useState('')
+  const [challengesPerCategory, setChallengesPerCategory] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
   const [maxBetSize, setMaxBetSize] = useState('')
   const [bounty, setBounty] = useState('None')
@@ -14,8 +15,59 @@ function CreateGame() {
   const navigate = useNavigate()
   const { createGame, currentGame, gameState, error, clearError } = useGame()
 
+  // Update challenges per category when categories change
+  useEffect(() => {
+    if (categories.trim()) {
+      const categoryCount = categories.split(',').filter(cat => cat.trim()).length
+      if (categoryCount > 0) {
+        const defaultChallenges = Array(categoryCount).fill('1').join(',')
+        setChallengesPerCategory(defaultChallenges)
+      }
+    } else {
+      setChallengesPerCategory('')
+    }
+  }, [categories])
+
+  // Validation function for challenges per category
+  const validateChallengesInput = () => {
+    if (!categories.trim()) {
+      // If no categories, challenges should be empty
+      return challengesPerCategory.trim() === ''
+    }
+    
+    const categoryCount = categories.split(',').filter(cat => cat.trim()).length
+    if (categoryCount === 0) {
+      return challengesPerCategory.trim() === ''
+    }
+    
+    // Check if challenges input is empty when categories exist
+    if (!challengesPerCategory.trim()) {
+      return false
+    }
+    
+    // Split challenges and validate each is a number
+    const challengesList = challengesPerCategory.split(',').map(challenge => challenge.trim())
+    
+    // Check length matches category count
+    if (challengesList.length !== categoryCount) {
+      return false
+    }
+    
+    // Check each challenge is a valid number
+    return challengesList.every(challenge => {
+      const num = parseInt(challenge)
+      return !isNaN(num) && num > 0 && challenge === num.toString()
+    })
+  }
+
   const handleCreateGame = (e) => {
     e.preventDefault()
+    
+    // Validate challenges input before proceeding
+    if (!validateChallengesInput()) {
+      return
+    }
+    
     // Parse categories from comma-separated string
     const categoriesList = categories.trim() 
       ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
@@ -27,9 +79,25 @@ function CreateGame() {
     // Parse bounty amount - convert to number if Fixed bounty is selected
     const bountyAmountValue = bounty === 'Fixed' && bountyAmount.trim() ? parseInt(bountyAmount) : null
     
+    // Parse challenges per category - convert to array of numbers
+    const challengesList = challengesPerCategory.trim() 
+      ? challengesPerCategory.split(',').map(challenge => parseInt(challenge.trim())).filter(num => !isNaN(num))
+      : []
+    
+    console.log('🎮 Sending createGame with:', { 
+      playerName: createPlayerName,
+      categories: categoriesList,
+      challengesPerCategory: challengesList,
+      startingPoints: startingPoints === '' ? 100 : startingPoints,
+      maxBetSize: maxBetValue,
+      bounty: bounty,
+      bountyAmount: bountyAmountValue
+    })
+    
     createGame({ 
       playerName: createPlayerName,
       categories: categoriesList,
+      challengesPerCategory: challengesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
       maxBetSize: maxBetValue,
       bounty: bounty,
@@ -182,13 +250,33 @@ function CreateGame() {
                 className="categories-input"
               />
               <small className="form-help">
-                Comma-separated list of categories for player ranking. Players will rank themselves 1-4 in each category before the game starts.
+                Comma-separated list of categories for player ranking. Players will rank themselves 1-N in each category before the game starts.
+              </small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="challengesPerCategory">Num Challenges per Category:</label>
+              <input
+                type="text"
+                id="challengesPerCategory"
+                name="challengesPerCategory"
+                value={challengesPerCategory}
+                onChange={(e) => setChallengesPerCategory(e.target.value)}
+                placeholder="1,1,1,1"
+                className="challenges-input"
+              />
+              <small className="form-help">
+                Comma-separated list of challenge counts for each category. Each number represents how many challenges will be created for that category.
               </small>
             </div>
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="btn btn-primary btn-large">
+            <button 
+              type="submit" 
+              className="btn btn-primary btn-large"
+              disabled={!validateChallengesInput()}
+            >
               Create Game
             </button>
             <button 

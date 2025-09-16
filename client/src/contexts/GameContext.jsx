@@ -22,6 +22,7 @@ const initialState = {
   wagerCategory: '',
   // Category ranking state
   categories: [],
+  challengesPerCategory: [],
   playerRankings: {},
   rankingsComplete: false,
   showRankingForm: false,
@@ -79,6 +80,9 @@ function gameReducer(state, action) {
     
     case 'SET_CATEGORIES':
       return { ...state, categories: action.payload }
+    
+    case 'SET_CHALLENGES_PER_CATEGORY':
+      return { ...state, challengesPerCategory: action.payload }
     
     case 'SET_PLAYER_RANKINGS':
       return { ...state, playerRankings: action.payload }
@@ -167,6 +171,9 @@ export function GameProvider({ children, socket }) {
       if (gameState.categories) {
         dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
       }
+      if (gameState.challengesPerCategory) {
+        dispatch({ type: 'SET_CHALLENGES_PER_CATEGORY', payload: gameState.challengesPerCategory })
+      }
       if (gameState.playerRankings) {
         dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
       }
@@ -204,6 +211,9 @@ export function GameProvider({ children, socket }) {
       if (gameState.categories) {
         dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
       }
+      if (gameState.challengesPerCategory) {
+        dispatch({ type: 'SET_CHALLENGES_PER_CATEGORY', payload: gameState.challengesPerCategory })
+      }
       if (gameState.playerRankings) {
         dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
       }
@@ -228,7 +238,8 @@ export function GameProvider({ children, socket }) {
         players: gameState.players, 
         playerNames: gameState.playerNames,
         currentPlayers: state.players,
-        currentPlayerId: state.playerId
+        currentPlayerId: state.playerId,
+        challengesPerCategory: gameState.challengesPerCategory
       })
       console.log('Received playerPoints in update:', gameState.playerPoints);
       
@@ -245,6 +256,9 @@ export function GameProvider({ children, socket }) {
       // Update category ranking state
       if (gameState.categories) {
         dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
+      }
+      if (gameState.challengesPerCategory) {
+        dispatch({ type: 'SET_CHALLENGES_PER_CATEGORY', payload: gameState.challengesPerCategory })
       }
       if (gameState.playerRankings) {
         dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })

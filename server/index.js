@@ -187,6 +187,7 @@ io.on('connection', (socket) => {
         });
         
         // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
+        console.log('📤 Sending gameStateUpdate with challengesPerCategory:', game.challengesPerCategory)
         socket.to(gameId).emit('gameStateUpdate', game);
         
         console.log(`Sent gameStateUpdate to other players. Current game state:`, {
@@ -213,6 +214,7 @@ io.on('connection', (socket) => {
 
   // Create a new game session
   socket.on('createGame', (gameConfig) => {
+    console.log('🎮 createGame received:', gameConfig)
     const gameId = generateGameId();
     const playerID = getOrCreatePlayerID(socket, gameConfig.playerName);
     
@@ -246,6 +248,7 @@ io.on('connection', (socket) => {
         [playerID]: gameConfig.playerName || `Player${nextPlayerID - 1}`
       },
       categories: gameConfig.categories || [],
+      challengesPerCategory: gameConfig.challengesPerCategory || [],
       playerRankings: {},
       rankingsComplete: false
     };

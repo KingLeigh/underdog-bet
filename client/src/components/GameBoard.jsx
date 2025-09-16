@@ -34,6 +34,7 @@ function GameBoard() {
     rejoinGame,
     socket,
     categories,
+    challengesPerCategory,
     playerRankings,
     rankingsComplete,
     bountyAmount,
@@ -129,8 +130,18 @@ function GameBoard() {
       // Create player names array
       const playerNamesArray = players.map(playerId => playerNames[playerId] || 'Unknown Player')
 
-      // For now, set numChallenges to 1 for each category (can be made configurable later)
-      const numChallenges = categories.map(() => 1)
+      // Use the actual challenges per category from game state
+      const numChallenges = challengesPerCategory && challengesPerCategory.length > 0 
+        ? challengesPerCategory 
+        : categories.map(() => 1) // Fallback to 1 challenge per category
+
+      console.log('🎯 generateMatchmakerUrl data:', {
+        categories,
+        challengesPerCategory,
+        numChallenges,
+        playerNamesArray,
+        ranks
+      })
 
       const baseUrl = 'https://kingleigh.github.io/matchmaker/underdog_matcher.html'
       return window.generateMatchmakerFullUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
