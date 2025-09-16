@@ -364,18 +364,14 @@ function GameBoard() {
 
             {wagerResolved && wagerResults && (
               <div className="wager-results">
-                <h4><strong>Winner:</strong> {wagerOptions.options?.[wagerResults.correctChoice] || wagerOptions[wagerResults.correctChoice]} @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1</h4>
-                
-                {/* Bounty Information */}
-                {wagerResults.bountyAmount && wagerResults.bountyAmount > 0 && (
-                  <div className="bounty-result">
-                    <div className="bounty-winner">
-                      <span className="bounty-text">
-                        {playerNames[wagerResults.winnerPlayerId]} <span className="bounty-points">+{wagerResults.bountyAmount}</span>
-                      </span>
-                    </div>
+                {/* Winner Information - Always shown */}
+                <div className="bounty-result">
+                  <div className="bounty-winner">
+                    <span className="bounty-text">
+                      <span className="winner-label">Winner:</span> {playerNames[wagerResults.winnerPlayerId]} @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1{wagerResults.bountyAmount && wagerResults.bountyAmount > 0 && <span className="bounty-points"> +{wagerResults.bountyAmount}</span>}
+                    </span>
                   </div>
-                )}
+                </div>
                 
                 <div className="results-list">
                   {wagerResults.results.map((result, index) => {

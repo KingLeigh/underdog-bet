@@ -946,6 +946,11 @@
   font-size: 1.1rem;
 }
 
+.winner-label {
+  color: #ffd700;
+  font-weight: 700;
+}
+
 .positive-points {
   font-weight: 700;
   color: #4ade80;
