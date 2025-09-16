@@ -26,6 +26,7 @@ function GameBoard() {
     proposeWager,
     makeChoice,
     resolveWager,
+    cancelWager,
     resetWagerState,
     error,
     rejoinGame,
@@ -309,6 +310,14 @@ function GameBoard() {
                   <div className="host-resolve-controls">
                     <h4>Resolve Contest</h4>
                     <WagerResolutionForm onSubmit={resolveWager} wagerOptions={wagerOptions} />
+                    <div className="contest-actions">
+                      <button 
+                        onClick={cancelWager}
+                        className="btn btn-secondary btn-small"
+                      >
+                        Cancel Contest
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

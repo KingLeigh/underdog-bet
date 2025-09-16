@@ -358,6 +358,19 @@ export function GameProvider({ children, socket }) {
       console.log('✅ Wager state updated after resolution')
     })
 
+    socket.on('wagerCancelled', () => {
+      console.log('🎯 wagerCancelled event received')
+      dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
+      dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
+      dispatch({ type: 'SET_WAGER_OPTIONS', payload: [] })
+      dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
+      dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
+      dispatch({ type: 'SET_WAGER_CATEGORY', payload: '' })
+      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: null })
+      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
+      console.log('✅ Wager state reset after cancellation')
+    })
+
     // Handle category ranking events
     socket.on('rankingSubmitted', ({ playerId, playerName, totalPlayers, rankedPlayers }) => {
       console.log('📊 rankingSubmitted event received:', { playerId, playerName, totalPlayers, rankedPlayers })
@@ -405,6 +418,7 @@ export function GameProvider({ children, socket }) {
       socket.off('wagerProposed')
       socket.off('choiceMade')
       socket.off('wagerResolved')
+      socket.off('wagerCancelled')
       // Clean up category ranking events
       socket.off('rankingSubmitted')
       socket.off('rankingsComplete')
@@ -485,6 +499,11 @@ export function GameProvider({ children, socket }) {
     dispatch({ type: 'SET_WAGER_CATEGORY', payload: '' })
   }
 
+  const cancelWager = () => {
+    console.log('🎯 cancelWager called for game:', state.currentGame)
+    sendGameAction('cancelWager', {})
+  }
+
   const submitRankings = (rankings) => {
     sendGameAction('submitRankings', { rankings })
   }
@@ -505,6 +524,7 @@ export function GameProvider({ children, socket }) {
     makeChoice,
     resolveWager,
     resetWagerState,
+    cancelWager,
     submitRankings,
     clearError
   }

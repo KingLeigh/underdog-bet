@@ -492,6 +492,18 @@
   min-width: 120px;
 }
 
+/* Small button styling */
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-width: auto;
+}
+
+.contest-actions {
+  margin-top: 1rem;
+  text-align: center;
+}
+
 .player-choice h4 {
   margin-bottom: 1rem;
   color: rgba(255, 255, 255, 0.8);

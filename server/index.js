@@ -636,6 +636,25 @@ function processGameAction(game, action, payload, playerID) {
       }
       return game;
       
+    case 'cancelWager':
+      // Host cancels the wager - no points awarded or lost
+      if (game.host === playerID) {
+        const wagerState = wagerStates.get(game.id);
+        console.log(`Cancelling wager for game ${game.id}. Current wager state:`, wagerState);
+        
+        if (wagerState && wagerState.isActive && !wagerState.resolved) {
+          // Clear the wager state completely
+          wagerStates.delete(game.id);
+          console.log(`✅ Wager cancelled for game ${game.id} - all bets nullified`);
+          
+          // Emit cancellation event to all players
+          io.to(game.id).emit('wagerCancelled');
+          
+          return game;
+        }
+      }
+      return game;
+      
     case 'resolveWager':
       // Host resolves the wager and awards points
       if (game.host === playerID && payload.correctChoice !== undefined) {
