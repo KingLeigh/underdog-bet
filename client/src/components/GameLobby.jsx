@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
-import DragDropRanking from './DragDropRanking'
+import CategoryRanking from './CategoryRanking'
 import RulesPanel from './RulesPanel'
 import './GameLobby.css'
 
@@ -127,7 +127,7 @@ function GameLobby() {
                 {Object.keys(playerRankings).length} of {players.length} players have submitted rankings
               </p>
               {categories && categories.length > 0 && !playerRankings[playerId] && (
-                <DragDropRanking 
+                <CategoryRanking 
                   categories={categories}
                   onSubmit={handleRankingsSubmit}
                 />

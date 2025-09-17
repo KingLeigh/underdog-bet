@@ -27,8 +27,5 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
-  },
-  "dependencies": {
-    "sortablejs": "^1.15.6"
   }
 }
