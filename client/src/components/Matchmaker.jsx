@@ -191,7 +191,7 @@ function Matchmaker() {
     return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
   }
 
-  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
+  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, countSolutions = false } = {}) => {
     const N = players.length
     const M = categories.length
     const C = challenges.length
@@ -270,14 +270,14 @@ function Matchmaker() {
         const missing = M - coveredCount
         if (requireCoverAll && missing > 0) return { best: Infinity }
         const penalty = coverPenaltyPerMissing * missing
-        return { best: penalty, picks: [] }
+        return { best: penalty, picks: [], solutionCount: 1 }
       }
       if (remaining < needMore) return { best: Infinity }
 
       const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask)
       if (memo.has(memoKey)) return memo.get(memoKey)
 
-      let best = { best: Infinity }
+      let best = { best: Infinity, solutionCount: 0 }
       const ch = chans[order[k]]
 
       for (const pr of ch.pairs) {
@@ -288,14 +288,26 @@ function Matchmaker() {
         const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit)
         const total = sub.best === Infinity ? Infinity : pr.cost + sub.best
         if (total < best.best) {
-          best = { best: total, picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}] }
+          best = { 
+            best: total, 
+            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
+            solutionCount: countSolutions ? (sub.solutionCount || 0) : 0
+          }
+        } else if (countSolutions && total === best.best && Number.isFinite(total)) {
+          best.solutionCount += (sub.solutionCount || 0)
         }
       }
 
       if (remaining - 1 >= needMore) {
         const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask)
         if (subSkip.best < best.best) {
-          best = { best: subSkip.best, picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}] }
+          best = { 
+            best: subSkip.best, 
+            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
+            solutionCount: countSolutions ? (subSkip.solutionCount || 0) : 0
+          }
+        } else if (countSolutions && subSkip.best === best.best && Number.isFinite(subSkip.best)) {
+          best.solutionCount += (subSkip.solutionCount || 0)
         }
       }
 
@@ -330,7 +342,7 @@ function Matchmaker() {
       })
     }
 
-    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C }
+    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C, solutionCount: ans.solutionCount || 0 }
   }
 
   const checkFeasible = (players, categories, challenges, { timeLimitMs = 2000, selectN, requireCoverAll = false } = {}) => {
@@ -491,7 +503,8 @@ function Matchmaker() {
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: newSeed
+      randomSeed: newSeed,
+      countSolutions: true
     })
     setSolveStatus('')
     if (!res.ok) { 
@@ -508,7 +521,15 @@ function Matchmaker() {
       `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
     ).join('')
     
+    // Add solution count info if there are few solutions
+    let solutionCountInfo = ''
+    if (res.solutionCount && res.solutionCount <= 100) {
+      const countText = res.solutionCount === 1 ? '1 unique solution' : `${res.solutionCount} unique solutions`
+      solutionCountInfo = `<div class="solution-count-info">Found ${countText} with optimal cost</div>`
+    }
+    
     setSolveOutput(`
+      ${solutionCountInfo}
       <table>
         <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
         <tbody>${tableRows}</tbody>
