@@ -16,8 +16,8 @@ function Matchmaker() {
   const [isUrlLoaded, setIsUrlLoaded] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [seed, setSeed] = useState(null)
-  const [shouldAutoRun, setShouldAutoRun] = useState(false)
   const [isSeedMode, setIsSeedMode] = useState(false)
+  const [currentAssignments, setCurrentAssignments] = useState(null)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -470,6 +470,9 @@ function Matchmaker() {
 
     const optimizedAssignments = optimizeMatchOrdering(res.assignments, newSeed)
     
+    // Store assignments for efficient saving
+    setCurrentAssignments(optimizedAssignments)
+    
     const tableRows = optimizedAssignments.map((a, index) => 
       `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
     ).join('')
@@ -484,6 +487,12 @@ function Matchmaker() {
 
   const generateShareUrl = () => {
     try {
+      // If we have matchups already generated, use the more efficient ?save approach
+      if (solveOutput) {
+        return generateMatchupsUrl()
+      }
+      
+      // Otherwise, fall back to the original ?data approach
       const parsed = readPlayersFromGrid()
       
       if (!categories.length) {
@@ -494,12 +503,6 @@ function Matchmaker() {
       if (!parsed.ok) {
         alert(`Cannot share: ${parsed.reason}`)
         return
-      }
-      
-      // Ensure we have a seed for sharing
-      const currentSeed = seed || generateSeed()
-      if (!seed) {
-        setSeed(currentSeed)
       }
       
       const categoriesStr = categories.map(c => c.name).join(',')
@@ -513,9 +516,9 @@ function Matchmaker() {
       const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
       const encodedData = btoa(dataString)
       const baseUrl = window.location.origin + window.location.pathname
-      const shareUrl = `${baseUrl}?data=${encodedData}&seed=${currentSeed}`
+      const shareUrl = `${baseUrl}?data=${encodedData}`
       
-      console.log('Generated share URL with seed:', currentSeed, 'URL:', shareUrl)
+      console.log('Generated share URL:', shareUrl)
       
       navigator.clipboard.writeText(shareUrl).then(() => {
         setShareStatus('URL copied to clipboard!')
@@ -537,6 +540,51 @@ function Matchmaker() {
     }
   }
 
+  const generateMatchupsUrl = () => {
+    try {
+      if (!currentAssignments || currentAssignments.length === 0) {
+        alert('No matchups to save. Please generate matches first.')
+        return
+      }
+      
+      // Create minimal matchup data (only what's displayed)
+      const matchups = currentAssignments.map((assignment, index) => ({
+        number: index + 1,
+        category: assignment.category,
+        high: assignment.high,
+        low: assignment.low,
+        matchup: `${assignment.highRank} vs ${assignment.lowRank}`
+      }))
+      
+      // Encode matchups data
+      const matchupsString = JSON.stringify(matchups)
+      const encodedMatchups = btoa(matchupsString)
+      
+      const baseUrl = window.location.origin + window.location.pathname
+      const shareUrl = `${baseUrl}?save=${encodedMatchups}`
+      
+      console.log('Generated matchups URL:', shareUrl)
+      
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareStatus('Matchups URL copied to clipboard!')
+        setTimeout(() => setShareStatus(''), 3000)
+        // Redirect to the saved URL after copying
+        window.location.href = shareUrl
+      }).catch(() => {
+        prompt('Share this URL:', shareUrl)
+        setShareStatus('Matchups URL generated!')
+        setTimeout(() => setShareStatus(''), 3000)
+        // Still redirect even if clipboard copy failed
+        window.location.href = shareUrl
+      })
+      
+    } catch (error) {
+      console.error('Error generating matchups URL:', error)
+      setShareStatus('Error generating matchups URL')
+      setTimeout(() => setShareStatus(''), 3000)
+    }
+  }
+
   const toggleLock = () => {
     setIsUnlocked(!isUnlocked)
   }
@@ -547,16 +595,40 @@ function Matchmaker() {
   const parseUrlData = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const dataParam = urlParams.get('data')
-    const seedParam = urlParams.get('seed')
+    const saveParam = urlParams.get('save')
     
-    // Set seed from URL parameter if present
-    if (seedParam) {
-      const parsedSeed = parseInt(seedParam)
-      if (!isNaN(parsedSeed)) {
-        setSeed(parsedSeed)
+    // Handle ?save parameter (pre-generated matchups)
+    if (saveParam) {
+      try {
+        const decodedMatchups = atob(saveParam)
+        const matchups = JSON.parse(decodedMatchups)
+        
+        // Generate HTML table from matchups data
+        const tableRows = matchups.map((matchup, index) => 
+          `<tr><td>${matchup.number}</td><td>${matchup.category}</td><td><strong>${matchup.high}</strong></td><td>${matchup.low}</td><td>${matchup.matchup}</td></tr>`
+        ).join('')
+        
+        const matchupsHtml = `
+          <table>
+            <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        `
+        
+        setSolveOutput(matchupsHtml)
         setIsSeedMode(true) // Enable seed mode to hide other panels
+        setIsUrlLoaded(true)
+        
+        console.log('Successfully loaded matchups from ?save parameter')
+        return
+        
+      } catch (error) {
+        console.error('Error parsing ?save parameter:', error.message)
+        alert(`Error loading saved matchups: ${error.message}\n\nUsing default configuration instead.`)
       }
     }
+    
+    // Note: ?seed parameter is no longer needed since ?save encodes actual matchups
     
     if (!dataParam) {
       // No URL data, use demo defaults
@@ -637,11 +709,6 @@ function Matchmaker() {
       console.log('Successfully loaded data from URL parameter')
       setIsUrlLoaded(true)
       
-      // Set flag to auto-run Make Matches if seed is provided
-      if (seedParam) {
-        setShouldAutoRun(true)
-      }
-      
     } catch (error) {
       console.error('Error parsing URL data:', error.message)
       alert(`Error loading data from URL: ${error.message}\n\nUsing default configuration instead.`)
@@ -658,13 +725,6 @@ function Matchmaker() {
     parseUrlData()
   }, []) // Empty dependency array means this runs once on mount
 
-  // Auto-run matchmaking when URL data is loaded with seed
-  useEffect(() => {
-    if (shouldAutoRun && playerGrid.length > 0 && categories.length > 0) {
-      setShouldAutoRun(false) // Reset flag to prevent multiple runs
-      solveFromGrid()
-    }
-  }, [shouldAutoRun, playerGrid, categories])
 
   const totalChallenges = categories.reduce((sum, cat) => {
     const count = typeof cat.count === 'string' ? parseInt(cat.count) || 0 : cat.count
