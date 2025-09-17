@@ -265,6 +265,10 @@
   font-size: 0.9rem;
 }
 
+.ranking-text {
+  text-align: center;
+}
+
 .rank-value {
   color: #f59e0b;
   font-weight: 600;
