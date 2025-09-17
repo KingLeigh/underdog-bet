@@ -72,28 +72,10 @@
   text-align: center;
 }
 
-/* Matchmaker chip styling */
-.matchmaker-chip {
-  background: rgba(59, 130, 246, 0.3);
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  color: #93c5fd;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s ease;
-  min-width: 120px;
+/* Matchmaker button container styling */
+.matchmaker-button-container {
+  margin-top: 1.5rem;
   text-align: center;
-  display: inline-block;
-}
-
-.matchmaker-chip:hover {
-  background: rgba(59, 130, 246, 0.4);
-  border-color: rgba(59, 130, 246, 0.7);
-  color: #dbeafe;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .connection-status {

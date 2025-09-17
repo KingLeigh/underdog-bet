@@ -490,6 +490,20 @@ function GameBoard() {
                 </div>
               ))}
             </div>
+            
+            {/* Matchmaker Button - only visible to host */}
+            {isHost && (
+              <div className="matchmaker-button-container">
+                <a 
+                  href={generateMatchmakerUrl()} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                >
+                  Matchmaker
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -501,17 +515,6 @@ function GameBoard() {
         
         <div className="game-info-footer">
           <div className="game-info">
-            {/* Matchmaker chip - only visible to host */}
-            {isHost && categories && categories.length > 0 && (
-              <a 
-                href={generateMatchmakerUrl()} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="matchmaker-chip"
-              >
-                Matchmaker
-              </a>
-            )}
             <span>Game ID: {gameId}</span>
             <div className="connection-status">
               {isConnected ? (
