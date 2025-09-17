@@ -179,6 +179,8 @@
   margin: 1.5rem 0;
   display: flex;
   justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
 }
 
 /* Table styling */
@@ -351,4 +353,33 @@ td input:focus {
   padding: 0.25rem 0.5rem !important;
   min-width: auto !important;
   width: auto !important;
+}
+
+/* Gap Mode Dropdown Styling */
+.gap-mode-select {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gap-mode-select:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.gap-mode-select:focus {
+  outline: none;
+  border-color: #4ade80;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+.gap-mode-select option {
+  background: #1a1a1a;
+  color: rgba(255, 255, 255, 0.9);
 }

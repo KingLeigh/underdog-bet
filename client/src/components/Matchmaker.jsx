@@ -18,6 +18,7 @@ function Matchmaker() {
   const [seed, setSeed] = useState(null)
   const [isSeedMode, setIsSeedMode] = useState(false)
   const [currentAssignments, setCurrentAssignments] = useState(null)
+  const [gapMode, setGapMode] = useState('loose') // 'loose' or 'strict'
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -39,6 +40,30 @@ function Matchmaker() {
 
   const generateSeed = () => {
     return Math.floor(Math.random() * 2147483647) // Max 32-bit integer
+  }
+
+  const createCostFunction = (targetGap, mode, rand) => {
+    return (d) => {
+      const x = d - targetGap
+      
+      if (mode === 'chaos') {
+        // In chaos mode, all gaps have the same cost (0)
+        // Any matchup where high > low is equally valid
+        return 0
+      } else if (mode === 'loose') {
+        // In loose mode, gaps N-1, N, N+1 all have the same cost (0)
+        if (Math.abs(x) <= 1) return 0
+        // Outside tolerance zone, use quadratic penalty
+        const baseCost = x * x
+        const perturbation = (rand() - 0.5) * 0.1 * baseCost
+        return baseCost + perturbation
+      } else {
+        // In strict mode, only exact target gap has cost 0
+        const baseCost = x * x
+        const perturbation = (rand() - 0.5) * 0.1 * baseCost
+        return baseCost + perturbation
+      }
+    }
   }
 
   const shuffle = (arr, rand = Math.random) => {
@@ -454,9 +479,15 @@ function Matchmaker() {
     
     const targetGapValue = targetGap || Math.ceil(parsed.categories.length/2)
     setSolveStatus('Solving…')
+    
+    // Create cost function based on gap mode
+    const rand = rng(newSeed)
+    const costFn = createCostFunction(targetGapValue, gapMode, rand)
+    
     const res = solveMatchmaking(parsed.players, parsed.categories, parsed.challenges, { 
       targetGap: targetGapValue, 
       timeLimitMs: Infinity,
+      costFn: costFn,
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
@@ -964,13 +995,25 @@ function Matchmaker() {
 
           <div className="optimization-controls">
             <div className="form-group">
-              <label>Spacing Target (ideal rank gap)</label>
+              <label>Spacing Target</label>
               <input
                 type="number" 
                 min="1" 
                 value={targetGap}
                 onChange={(e) => setTargetGap(parseInt(e.target.value) || 2)}
               />
+            </div>
+            <div className="form-group">
+              <label>Gap Mode</label>
+              <select
+                value={gapMode}
+                onChange={(e) => setGapMode(e.target.value)}
+                className="gap-mode-select"
+              >
+                <option value="strict">Strict</option>
+                <option value="loose">Loose</option>
+                <option value="chaos">Chaos</option>
+              </select>
             </div>
           </div>
 
