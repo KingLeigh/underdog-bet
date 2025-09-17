@@ -15,7 +15,6 @@ function Matchmaker() {
   const [cancelSimFlag, setCancelSimFlag] = useState(false)
   const [isUrlLoaded, setIsUrlLoaded] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
-  const [seed, setSeed] = useState(null)
   const [isViewOnlyMode, setIsViewOnlyMode] = useState(false)
   const [currentAssignments, setCurrentAssignments] = useState(null)
   const [gapMode, setGapMode] = useState('loose') // 'loose' or 'strict'
@@ -114,13 +113,8 @@ function Matchmaker() {
       return
     }
 
-    // Generate a new seed if we don't have one
-    if (!seed) {
-      setSeed(generateSeed())
-    }
-
     const availableNames = [...sampleNames]
-    shuffle(availableNames, rng(seed))
+    shuffle(availableNames, Math.random)
     
     const newPlayerGrid = []
     for (let i = 0; i < numPlayers; i++) {
@@ -162,7 +156,6 @@ function Matchmaker() {
     
     // Always generate a new seed when randomizing ranks
     const newSeed = generateSeed()
-    setSeed(newSeed)
     
     const M = categories.length
     const updatedGrid = playerGrid.map((player, playerIndex) => {
@@ -350,14 +343,14 @@ function Matchmaker() {
     return res.ok
   }
 
-  const optimizeMatchOrdering = (assignments, seedValue = seed) => {
+  const optimizeMatchOrdering = (assignments, seedValue = null) => {
     if (assignments.length <= 1) return assignments
     
     const ordered = []
     const remaining = [...assignments]
     
     // Use seeded random number generator for consistent ordering
-    const rand = rng(seedValue)
+    const rand = seedValue ? rng(seedValue) : Math.random
     const startIdx = Math.floor(rand() * remaining.length)
     ordered.push(remaining.splice(startIdx, 1)[0])
     
@@ -462,7 +455,6 @@ function Matchmaker() {
   const solveFromGrid = () => {
     // Generate a new seed for matchmaking to ensure different results each time
     const newSeed = generateSeed()
-    setSeed(newSeed)
     
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
@@ -808,11 +800,6 @@ function Matchmaker() {
                   >
                     {isUnlocked ? '🔒 Lock' : '🔓 Unlock'}
                   </button>
-                </div>
-              )}
-              {seed && (
-                <div className="seed-display">
-                  <small>Seed: {seed}</small>
                 </div>
               )}
             </div>
