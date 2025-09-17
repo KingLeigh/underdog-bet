@@ -385,3 +385,100 @@
     padding: 0.75rem;
   }
 }
+
+/* Loading section styles */
+.loading-section {
+  text-align: center;
+  padding: 3rem 2rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.loading-section h2 {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top: 3px solid #4ade80;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-message {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.troubleshooting {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.troubleshooting h3 {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.troubleshooting ul {
+  text-align: left;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1.5rem;
+  padding-left: 1.5rem;
+}
+
+.troubleshooting li {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.loading-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.loading-actions .btn {
+  min-width: 140px;
+}
+
+/* Mobile styles for loading section */
+@media (max-width: 768px) {
+  .loading-section {
+    padding: 2rem 1rem;
+  }
+  
+  .loading-section h2 {
+    font-size: 1.5rem;
+  }
+  
+  .troubleshooting {
+    padding: 1rem;
+  }
+  
+  .loading-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .loading-actions .btn {
+    width: 100%;
+    max-width: 200px;
+  }
+}

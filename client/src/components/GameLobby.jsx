@@ -69,7 +69,38 @@ function GameLobby() {
     return (
       <div className="lobby">
         <div className="lobby-content">
-          <h2>Loading...</h2>
+          <div className="loading-section">
+            <h2>Connecting to Game...</h2>
+            <div className="loading-spinner"></div>
+            <p className="loading-message">
+              Attempting to connect to the game server.
+            </p>
+            
+            <div className="troubleshooting">
+              <h3>Having trouble connecting?</h3>
+              <ul>
+                <li>Check your internet connection</li>
+                <li>Verify the game ID is correct</li>
+                <li>The game may have ended or been reset</li>
+                <li>Try refreshing the page</li>
+              </ul>
+              
+              <div className="loading-actions">
+                <button 
+                  onClick={() => window.location.href = '/'}
+                  className="btn btn-secondary"
+                >
+                  ← Back to Home
+                </button>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="btn btn-primary"
+                >
+                  🔄 Refresh Page
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
