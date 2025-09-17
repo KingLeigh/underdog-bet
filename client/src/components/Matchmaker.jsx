@@ -16,7 +16,7 @@ function Matchmaker() {
   const [isUrlLoaded, setIsUrlLoaded] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [seed, setSeed] = useState(null)
-  const [isSeedMode, setIsSeedMode] = useState(false)
+  const [isViewOnlyMode, setIsViewOnlyMode] = useState(false)
   const [currentAssignments, setCurrentAssignments] = useState(null)
   const [gapMode, setGapMode] = useState('loose') // 'loose' or 'strict'
 
@@ -647,7 +647,7 @@ function Matchmaker() {
         `
         
         setSolveOutput(matchupsHtml)
-        setIsSeedMode(true) // Enable seed mode to hide other panels
+        setIsViewOnlyMode(true) // Enable view-only mode to hide other panels
         setIsUrlLoaded(true)
         
         console.log('Successfully loaded matchups from ?save parameter')
@@ -773,7 +773,7 @@ function Matchmaker() {
         </div>
 
         {/* Game Setup Section */}
-        {!isSeedMode && (
+        {!isViewOnlyMode && (
         <div className="game-setup-section">
           <div className="setup-panel">
             <h3>Game Setup</h3>
@@ -884,7 +884,7 @@ function Matchmaker() {
         )}
 
         {/* Simulation Section */}
-        {!isSeedMode && (
+        {!isViewOnlyMode && !isUrlLoaded && (
         <div className="simulation-section">
           <div className="simulation-panel">
             <h3>Simulation</h3>
@@ -924,7 +924,7 @@ function Matchmaker() {
         )}
 
         {/* Player Rankings Section */}
-        {!isSeedMode && (
+        {!isViewOnlyMode && (
         <div className="player-rankings-section">
           <h3>Player Rankings</h3>
           
@@ -1032,7 +1032,7 @@ function Matchmaker() {
             <div className="matchups-panel">
               <h3>Matchups</h3>
               <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
-              {!isSeedMode && (
+              {!isViewOnlyMode && (
                 <div className="matchups-actions" style={{ marginTop: '20px' }}>
                   <button className="btn btn-primary" onClick={generateShareUrl}>
                     💾 Save
