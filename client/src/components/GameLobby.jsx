@@ -118,11 +118,6 @@ function GameLobby() {
                 📋 Copy
               </button>
             </div>
-            <div className="game-status">
-              Status: <span className={`status-${gameState.status}`}>
-                {gameState.status === 'waiting' ? 'Waiting for players' : 'Playing'}
-              </span>
-            </div>
           </div>
         </div>
 
