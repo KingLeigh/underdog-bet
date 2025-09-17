@@ -3,7 +3,10 @@ import './Matchmaker.css'
 
 function Matchmaker() {
   const [numPlayers, setNumPlayers] = useState(8)
-  const [categories, setCategories] = useState([])
+  const [categories, setCategories] = useState([
+    { name: 'Trivia', count: 4 },
+    { name: 'Cardio', count: 4 }
+  ])
   const [numTrials, setNumTrials] = useState(25)
   const [targetGap, setTargetGap] = useState(2)
   const [playerGrid, setPlayerGrid] = useState([])
@@ -675,9 +678,7 @@ function Matchmaker() {
     // Note: ?seed parameter is no longer needed since ?save encodes actual matchups
     
     if (!dataParam) {
-      // No URL data, use demo defaults
-      addCategory('Trivia', 4)
-      addCategory('Cardio', 4)
+      // No URL data, categories already initialized with defaults
       setIsUrlLoaded(false)
       return
     }
@@ -757,9 +758,7 @@ function Matchmaker() {
       console.error('Error parsing URL data:', error.message)
       alert(`Error loading data from URL: ${error.message}\n\nUsing default configuration instead.`)
       
-      // Fall back to demo defaults
-      addCategory('Trivia', 4)
-      addCategory('Cardio', 4)
+      // Fall back to default categories (already initialized)
       setIsUrlLoaded(false)
     }
   }
