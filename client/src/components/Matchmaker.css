@@ -379,17 +379,6 @@ td input:focus {
   box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
 }
 
-.solution-count-info {
-  background: rgba(74, 222, 128, 0.1);
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  color: #4ade80;
-  font-size: 0.9rem;
-  text-align: center;
-  font-weight: 500;
-}
 
 .gap-mode-select option {
   background: #1a1a1a;

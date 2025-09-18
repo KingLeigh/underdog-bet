@@ -187,7 +187,7 @@ function Matchmaker() {
     return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
   }
 
-  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, countSolutions = false } = {}) => {
+  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
     console.log('🚀 Starting solveMatchmaking algorithm...')
     console.log(`📊 Problem size: ${players.length} players, ${categories.length} categories, ${challenges.length} challenges`)
     
@@ -322,10 +322,10 @@ function Matchmaker() {
         if (penalty === 0) {
           console.log(`✨ Perfect solution found! Terminating search early.`)
           foundPerfectSolution = true
-          return { best: penalty, picks: [], solutionCount: 1, perfectSolution: true }
+          return { best: penalty, picks: [], perfectSolution: true }
         }
         
-        return { best: penalty, picks: [], solutionCount: 1 }
+        return { best: penalty, picks: [] }
       }
       
       if (remaining < needMore) return { best: Infinity }
@@ -336,7 +336,7 @@ function Matchmaker() {
         return memo.get(memoKey)
       }
 
-      let best = { best: Infinity, solutionCount: 0 }
+      let best = { best: Infinity }
       const ch = chans[order[k]]
 
       for (const pr of ch.pairs) {
@@ -354,7 +354,6 @@ function Matchmaker() {
           return { 
             best: total, 
             picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
-            solutionCount: countSolutions ? (sub.solutionCount || 0) : 0,
             perfectSolution: true
           }
         }
@@ -362,11 +361,8 @@ function Matchmaker() {
         if (total < best.best) {
           best = { 
             best: total, 
-            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
-            solutionCount: countSolutions ? (sub.solutionCount || 0) : 0
+            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}]
           }
-        } else if (countSolutions && total === best.best && Number.isFinite(total)) {
-          best.solutionCount += (sub.solutionCount || 0)
         }
       }
 
@@ -380,7 +376,6 @@ function Matchmaker() {
           return { 
             best: subSkip.best, 
             picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
-            solutionCount: countSolutions ? (subSkip.solutionCount || 0) : 0,
             perfectSolution: true
           }
         }
@@ -388,11 +383,8 @@ function Matchmaker() {
         if (subSkip.best < best.best) {
           best = { 
             best: subSkip.best, 
-            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
-            solutionCount: countSolutions ? (subSkip.solutionCount || 0) : 0
+            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}]
           }
-        } else if (countSolutions && subSkip.best === best.best && Number.isFinite(subSkip.best)) {
-          best.solutionCount += (subSkip.solutionCount || 0)
         }
       }
 
@@ -447,7 +439,7 @@ function Matchmaker() {
     console.log(`🎯 Algorithm completed in ${totalTime.toFixed(2)}ms total`)
     console.log(`📋 Selected ${assignments.length} assignments with total cost: ${assignments.reduce((s,a)=>s+a.cost,0)}`)
 
-    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C, solutionCount: ans.solutionCount || 0 }
+    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C }
   }
 
   const checkFeasible = (players, categories, challenges, { timeLimitMs = 2000, selectN, requireCoverAll = false } = {}) => {
@@ -621,8 +613,7 @@ function Matchmaker() {
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: newSeed,
-      countSolutions: true
+      randomSeed: newSeed
     })
     const solveTime = performance.now() - solveStartTime
     console.log(`⏱️ Main solveMatchmaking took ${solveTime.toFixed(2)}ms`)
@@ -646,15 +637,7 @@ function Matchmaker() {
       `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
     ).join('')
     
-    // Add solution count info if there are few solutions
-    let solutionCountInfo = ''
-    if (res.solutionCount && res.solutionCount <= 100) {
-      const countText = res.solutionCount === 1 ? '1 unique solution' : `${res.solutionCount} unique solutions`
-      solutionCountInfo = `<div class="solution-count-info">Found ${countText} with optimal cost</div>`
-    }
-    
     setSolveOutput(`
-      ${solutionCountInfo}
       <table>
         <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
         <tbody>${tableRows}</tbody>
