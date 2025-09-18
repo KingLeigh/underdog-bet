@@ -341,13 +341,10 @@ function Matchmaker() {
       // Log progress every 1000 calls
       if (dfsCallCount - lastProgressLog >= 1000) {
         const elapsed = performance.now() - t0
-        console.log(`🔄 DFS call #${dfsCallCount}, elapsed: ${elapsed.toFixed(0)}ms, memo hits: ${memoHits}, memo size: ${memo.size}`)
         lastProgressLog = dfsCallCount
       }
       
       if (performance.now() - t0 > timeLimitMs) {
-        console.log(`⏰ Time limit reached after ${dfsCallCount} DFS calls`)
-        console.log(`🏆 Best solution found so far: cost = ${bestSolutionSoFar.best === Infinity ? 'none' : bestSolutionSoFar.best.toFixed(2)}`)
         return { best: bestSolutionSoFar.best, picks: bestSolutionSoFar.picks, timedOut: true }
       }
       
@@ -361,7 +358,6 @@ function Matchmaker() {
         if (requireCoverAll && missing > 0) return { best: Infinity }
         const coverPenalty = coverPenaltyPerMissing * missing
         const totalPenalty = totalGapCost + coverPenalty
-        console.log(`🎉 Found complete solution! Gap cost: ${totalGapCost}, cover penalty: ${coverPenalty}, total: ${totalPenalty}`)
         
         // Track the best solution found so far
         if (totalPenalty < bestSolutionSoFar.best) {
@@ -422,7 +418,6 @@ function Matchmaker() {
         
         // Early termination: if we found a perfect solution, return immediately
         if (sub.perfectSolution && total === 0) {
-          console.log(`✨ Perfect solution found in recursive call! Terminating search early.`)
           foundPerfectSolution = true
           return { 
             best: total, 
