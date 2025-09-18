@@ -187,7 +187,7 @@ function Matchmaker() {
     return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
   }
 
-  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, sameCategoryPenalty = 0 } = {}) => {
+  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
     console.log('🚀 Starting solveMatchmaking algorithm...')
     console.log(`📊 Problem size: ${players.length} players, ${categories.length} categories, ${challenges.length} challenges`)
     
@@ -307,16 +307,21 @@ function Matchmaker() {
       return entries.sort().join('|')
     }
 
-    // Helper function to calculate same-category penalty
-    function calculateSameCategoryPenalty(mask) {
-      let penalty = 0
-      for (const [player, categories] of mask) {
-        // Since each player has exactly 2 matchups, penalty is 0 or 1
-        if (categories.length === 2 && categories[0] === categories[1]) {
-          penalty += sameCategoryPenalty
-        }
+    // Helper function to check if a pair would create same-category conflict
+    function wouldCreateSameCategoryConflict(pr, currentPlayerCategoryMask, categoryIndex) {
+      // Check if high player already assigned to this category
+      if (currentPlayerCategoryMask.has(pr.hiIdx) && 
+          currentPlayerCategoryMask.get(pr.hiIdx).includes(categoryIndex)) {
+        return true
       }
-      return penalty
+      
+      // Check if low player already assigned to this category  
+      if (currentPlayerCategoryMask.has(pr.loIdx) &&
+          currentPlayerCategoryMask.get(pr.loIdx).includes(categoryIndex)) {
+        return true
+      }
+      
+      return false
     }
 
     let dfsCallCount = 0
@@ -355,9 +360,8 @@ function Matchmaker() {
         const missing = M - coveredCount
         if (requireCoverAll && missing > 0) return { best: Infinity }
         const coverPenalty = coverPenaltyPerMissing * missing
-        const sameCategoryPenaltyCost = calculateSameCategoryPenalty(playerCategoryMask)
-        const totalPenalty = totalGapCost + coverPenalty + sameCategoryPenaltyCost
-        console.log(`🎉 Found complete solution! Gap cost: ${totalGapCost}, cover penalty: ${coverPenalty}, same-category penalty: ${sameCategoryPenaltyCost}, total: ${totalPenalty}`)
+        const totalPenalty = totalGapCost + coverPenalty
+        console.log(`🎉 Found complete solution! Gap cost: ${totalGapCost}, cover penalty: ${coverPenalty}, total: ${totalPenalty}`)
         
         // Track the best solution found so far
         if (totalPenalty < bestSolutionSoFar.best) {
@@ -392,9 +396,14 @@ function Matchmaker() {
         const bit = pairBit(pr.hiIdx, pr.loIdx)
         if ((pairMask & bit) !== 0n) continue
         
+        // Hard constraint: no player can play the same category more than once
+        const categoryIndex = catIndex.get(ch.category)
+        if (wouldCreateSameCategoryConflict(pr, playerCategoryMask, categoryIndex)) {
+          continue  // Skip this pair entirely
+        }
+        
         // Update player-category mask for this assignment
         const newPlayerCategoryMask = clonePlayerCategoryMask(playerCategoryMask)
-        const categoryIndex = catIndex.get(ch.category)
         
         // Add category to high player's assignments
         if (!newPlayerCategoryMask.has(pr.hiIdx)) {
@@ -701,8 +710,7 @@ function Matchmaker() {
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: newSeed,
-      sameCategoryPenalty: 1000  // Heavy penalty for same-category assignments
+      randomSeed: newSeed
     })
     const solveTime = performance.now() - solveStartTime
     console.log(`⏱️ Main solveMatchmaking took ${solveTime.toFixed(2)}ms`)
