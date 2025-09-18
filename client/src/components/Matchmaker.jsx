@@ -188,6 +188,9 @@ function Matchmaker() {
   }
 
   const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, countSolutions = false } = {}) => {
+    console.log('🚀 Starting solveMatchmaking algorithm...')
+    console.log(`📊 Problem size: ${players.length} players, ${categories.length} categories, ${challenges.length} challenges`)
+    
     const N = players.length
     const M = categories.length
     const C = challenges.length
@@ -195,6 +198,7 @@ function Matchmaker() {
 
     if (C < need) return { ok: false, reason: `Need at least ${need} challenges; got ${C}.` }
 
+    console.log('✅ Validating player ranks...')
     // Validate ranks
     for (const p of players) {
       if (!p.ranks) return { ok: false, reason: `Missing ranks for player ${p.name}` }
@@ -212,9 +216,13 @@ function Matchmaker() {
     }
     
     const t0 = performance.now()
+    console.log(`🎯 Target gap: ${_target}, Need ${need} matchups`)
 
     const catIndex = new Map(categories.map((c,i)=>[c,i]))
 
+    console.log('🔍 Generating all valid pairs for each challenge...')
+    const pairGenStart = performance.now()
+    
     const chans = challenges.map((ch, idx) => {
       const pairs = []
       for (let i=0;i<N;i++) for (let j=0;j<N;j++) if (i!==j) {
@@ -234,10 +242,23 @@ function Matchmaker() {
       })
       return { id: ch.id, category: ch.category, catBit: (1 << (catIndex.get(ch.category) ?? 0)), pairs, idx }
     })
+    
+    const pairGenTime = performance.now() - pairGenStart
+    console.log(`⏱️ Pair generation took ${pairGenTime.toFixed(2)}ms`)
+    
+    // Log pair statistics
+    const totalPairs = chans.reduce((sum, ch) => sum + ch.pairs.length, 0)
+    const avgPairsPerChallenge = totalPairs / chans.length
+    console.log(`📈 Generated ${totalPairs} total pairs (avg ${avgPairsPerChallenge.toFixed(1)} per challenge)`)
+    
+    chans.forEach((ch, i) => {
+      console.log(`  Challenge ${i+1} (${ch.category}): ${ch.pairs.length} pairs`)
+    })
 
     const zeroes = chans.filter(ch=>ch.pairs.length===0).length
     if (C - zeroes < need) return { ok: false, reason: 'Too many challenges have no valid pairs.' }
 
+    console.log('📋 Ordering challenges by number of pairs (fewest first)...')
     const order = [...chans].map((ch,i)=>({i,len:ch.pairs.length})).sort((a,b)=>{
       const lenDiff = a.len - b.len
       if (lenDiff === 0) {
@@ -245,10 +266,15 @@ function Matchmaker() {
       }
       return lenDiff
     }).map(o=>o.i)
+    
+    console.log('Challenge order:', order.map(i => `${i+1}(${chans[i].pairs.length} pairs)`).join(' → '))
 
     const memo = new Map()
     const FULL = (1<<N) - 1
     const key = (k, hi, lo, sel, pairMaskStr, coverMask) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}`
+    
+    console.log('🧠 Starting dynamic programming search...')
+    console.log(`💾 Memoization enabled, FULL mask: ${FULL.toString(2)} (${N} bits)`)
 
     function pairBit(i, j) {
       if (i > j) [i, j] = [j, i]
@@ -256,22 +282,59 @@ function Matchmaker() {
       return 1n << BigInt(idx)
     }
 
+    let dfsCallCount = 0
+    let memoHits = 0
+    let lastProgressLog = 0
+    let foundPerfectSolution = false
+    
     function dfs(k, usedHi, usedLo, selected, pairMask, coverMask) {
-      if (performance.now() - t0 > timeLimitMs) return { best: Infinity, timedOut: true }
+      dfsCallCount++
+      
+      // Early termination: if we already found a perfect solution, stop searching
+      if (foundPerfectSolution) {
+        return { best: Infinity, earlyTerminated: true }
+      }
+      
+      // Log progress every 1000 calls
+      if (dfsCallCount - lastProgressLog >= 1000) {
+        const elapsed = performance.now() - t0
+        console.log(`🔄 DFS call #${dfsCallCount}, elapsed: ${elapsed.toFixed(0)}ms, memo hits: ${memoHits}, memo size: ${memo.size}`)
+        lastProgressLog = dfsCallCount
+      }
+      
+      if (performance.now() - t0 > timeLimitMs) {
+        console.log(`⏰ Time limit reached after ${dfsCallCount} DFS calls`)
+        return { best: Infinity, timedOut: true }
+      }
+      
       const remaining = C - k
       const needMore = need - selected
+      
       if (needMore === 0) {
         if (!(usedHi === FULL && usedLo === FULL)) return { best: Infinity }
         const coveredCount = popcount32(coverMask)
         const missing = M - coveredCount
         if (requireCoverAll && missing > 0) return { best: Infinity }
         const penalty = coverPenaltyPerMissing * missing
+        console.log(`🎉 Found complete solution! Cost: ${penalty}, missing categories: ${missing}`)
+        
+        // Early termination: if we found a perfect solution (cost=0), return immediately
+        if (penalty === 0) {
+          console.log(`✨ Perfect solution found! Terminating search early.`)
+          foundPerfectSolution = true
+          return { best: penalty, picks: [], solutionCount: 1, perfectSolution: true }
+        }
+        
         return { best: penalty, picks: [], solutionCount: 1 }
       }
+      
       if (remaining < needMore) return { best: Infinity }
 
       const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask)
-      if (memo.has(memoKey)) return memo.get(memoKey)
+      if (memo.has(memoKey)) {
+        memoHits++
+        return memo.get(memoKey)
+      }
 
       let best = { best: Infinity, solutionCount: 0 }
       const ch = chans[order[k]]
@@ -283,6 +346,19 @@ function Matchmaker() {
         if ((pairMask & bit) !== 0n) continue
         const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit)
         const total = sub.best === Infinity ? Infinity : pr.cost + sub.best
+        
+        // Early termination: if we found a perfect solution, return immediately
+        if (sub.perfectSolution && total === 0) {
+          console.log(`✨ Perfect solution found in recursive call! Terminating search early.`)
+          foundPerfectSolution = true
+          return { 
+            best: total, 
+            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
+            solutionCount: countSolutions ? (sub.solutionCount || 0) : 0,
+            perfectSolution: true
+          }
+        }
+        
         if (total < best.best) {
           best = { 
             best: total, 
@@ -296,6 +372,19 @@ function Matchmaker() {
 
       if (remaining - 1 >= needMore) {
         const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask)
+        
+        // Early termination: if we found a perfect solution in skip path, return immediately
+        if (subSkip.perfectSolution && subSkip.best === 0) {
+          console.log(`✨ Perfect solution found in skip path! Terminating search early.`)
+          foundPerfectSolution = true
+          return { 
+            best: subSkip.best, 
+            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
+            solutionCount: countSolutions ? (subSkip.solutionCount || 0) : 0,
+            perfectSolution: true
+          }
+        }
+        
         if (subSkip.best < best.best) {
           best = { 
             best: subSkip.best, 
@@ -311,9 +400,25 @@ function Matchmaker() {
       return best
     }
 
+    console.log('🚀 Starting DFS from root state...')
+    const dfsStartTime = performance.now()
     const ans = dfs(0, 0, 0, 0, 0n, 0)
-    if (!Number.isFinite(ans.best)) return { ok: false, reason: ans.timedOut ? 'Search time limit reached' : 'No feasible assignment found' }
+    const dfsEndTime = performance.now()
+    
+    console.log(`🏁 DFS completed in ${(dfsEndTime - dfsStartTime).toFixed(2)}ms`)
+    console.log(`📊 Final stats: ${dfsCallCount} DFS calls, ${memoHits} memo hits (${(memoHits/dfsCallCount*100).toFixed(1)}%), ${memo.size} memo entries`)
+    if (ans.perfectSolution) {
+      console.log(`✨ Search terminated early due to perfect solution (cost=0)`)
+    }
+    
+    if (!Number.isFinite(ans.best)) {
+      console.log(`❌ No solution found: ${ans.timedOut ? 'Time limit reached' : 'No feasible assignment'}`)
+      return { ok: false, reason: ans.timedOut ? 'Search time limit reached' : 'No feasible assignment found' }
+    }
 
+    console.log(`✅ Solution found with cost: ${ans.best}`)
+    console.log('🔧 Building final assignments...')
+    
     const useMap = new Map()
     for (const step of ans.picks || []) if (step.use) useMap.set(step.chIndex, step.pr)
 
@@ -337,6 +442,10 @@ function Matchmaker() {
         cost: _cost(pr.gap)
       })
     }
+
+    const totalTime = performance.now() - t0
+    console.log(`🎯 Algorithm completed in ${totalTime.toFixed(2)}ms total`)
+    console.log(`📋 Selected ${assignments.length} assignments with total cost: ${assignments.reduce((s,a)=>s+a.cost,0)}`)
 
     return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C, solutionCount: ans.solutionCount || 0 }
   }
@@ -456,9 +565,14 @@ function Matchmaker() {
   }
 
   const solveFromGrid = () => {
+    console.log('🎮 Starting solveFromGrid process...')
+    const overallStartTime = performance.now()
+    
     // Generate a new seed for matchmaking to ensure different results each time
     const newSeed = generateSeed()
+    console.log(`🎲 Generated seed: ${newSeed}`)
     
+    console.log('📖 Reading players from grid...')
     const parsed = readPlayersFromGrid()
     setSolveOutput('')
     if (!parsed.ok) { 
@@ -471,12 +585,18 @@ function Matchmaker() {
       return
     }
     
+    console.log(`✅ Parsed ${parsed.players.length} players, ${parsed.categories.length} categories, ${parsed.challenges.length} challenges`)
+    
     setSolveStatus('Checking feasibility…')
+    console.log('🔍 Running feasibility check...')
+    const feasibilityStartTime = performance.now()
     const feasible = checkFeasible(parsed.players, parsed.categories, parsed.challenges, { 
       timeLimitMs: 2000, 
       selectN: numPlayers, 
       requireCoverAll: false 
     })
+    const feasibilityTime = performance.now() - feasibilityStartTime
+    console.log(`⏱️ Feasibility check took ${feasibilityTime.toFixed(2)}ms: ${feasible ? '✅ Feasible' : '❌ Not feasible'}`)
     
     if (!feasible) {
       setSolveStatus('')
@@ -486,11 +606,14 @@ function Matchmaker() {
     
     const targetGapValue = targetGap || Math.ceil(parsed.categories.length/2)
     setSolveStatus('Solving…')
+    console.log(`🎯 Target gap: ${targetGapValue}, Gap mode: ${gapMode}`)
     
     // Create cost function based on gap mode
     const rand = rng(newSeed)
     const costFn = createCostFunction(targetGapValue, gapMode, rand)
     
+    console.log('🚀 Starting main solveMatchmaking algorithm...')
+    const solveStartTime = performance.now()
     const res = solveMatchmaking(parsed.players, parsed.categories, parsed.challenges, { 
       targetGap: targetGapValue, 
       timeLimitMs: Infinity,
@@ -501,13 +624,20 @@ function Matchmaker() {
       randomSeed: newSeed,
       countSolutions: true
     })
+    const solveTime = performance.now() - solveStartTime
+    console.log(`⏱️ Main solveMatchmaking took ${solveTime.toFixed(2)}ms`)
+    
     setSolveStatus('')
     if (!res.ok) { 
       setSolveOutput(`<div class="validation-message">Error: ${res.reason}</div>`)
       return 
     }
 
+    console.log('🔄 Optimizing match ordering...')
+    const optimizeStartTime = performance.now()
     const optimizedAssignments = optimizeMatchOrdering(res.assignments, newSeed)
+    const optimizeTime = performance.now() - optimizeStartTime
+    console.log(`⏱️ Match ordering optimization took ${optimizeTime.toFixed(2)}ms`)
     
     // Store assignments for efficient saving
     setCurrentAssignments(optimizedAssignments)
@@ -530,6 +660,14 @@ function Matchmaker() {
         <tbody>${tableRows}</tbody>
       </table>
     `)
+    
+    const overallTime = performance.now() - overallStartTime
+    console.log(`🏆 Complete solveFromGrid process took ${overallTime.toFixed(2)}ms`)
+    console.log(`📊 Time breakdown:`)
+    console.log(`  - Feasibility check: ${feasibilityTime.toFixed(2)}ms (${(feasibilityTime/overallTime*100).toFixed(1)}%)`)
+    console.log(`  - Main algorithm: ${solveTime.toFixed(2)}ms (${(solveTime/overallTime*100).toFixed(1)}%)`)
+    console.log(`  - Match ordering: ${optimizeTime.toFixed(2)}ms (${(optimizeTime/overallTime*100).toFixed(1)}%)`)
+    console.log(`  - Other overhead: ${(overallTime - feasibilityTime - solveTime - optimizeTime).toFixed(2)}ms`)
   }
 
   const generateShareUrl = () => {
