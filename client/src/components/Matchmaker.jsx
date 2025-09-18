@@ -847,6 +847,55 @@ function Matchmaker() {
     }
   }
 
+  const saveConfig = () => {
+    try {
+      const parsed = readPlayersFromGrid()
+      
+      if (!categories.length) {
+        alert('Please add at least one category before saving.')
+        return
+      }
+      
+      if (!parsed.ok) {
+        alert(`Cannot save: ${parsed.reason}`)
+        return
+      }
+      
+      const categoriesStr = categories.map(c => c.name).join(',')
+      const challengeCounts = categories.map(c => c.count).join(',')
+      const playerNames = parsed.players.map(p => p.name).join(',')
+      
+      const rankSections = parsed.players.map(player => {
+        return categories.map(cat => player.ranks[cat.name]).join(',')
+      })
+      
+      const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
+      const encodedData = btoa(dataString)
+      const baseUrl = window.location.origin + window.location.pathname
+      const configUrl = `${baseUrl}?data=${encodedData}`
+      
+      console.log('Generated config URL:', configUrl)
+      
+      navigator.clipboard.writeText(configUrl).then(() => {
+        setShareStatus('Config URL copied to clipboard!')
+        setTimeout(() => setShareStatus(''), 3000)
+        // Redirect to the saved URL after copying
+        window.location.href = configUrl
+      }).catch(() => {
+        prompt('Share this URL:', configUrl)
+        setShareStatus('Config URL generated!')
+        setTimeout(() => setShareStatus(''), 3000)
+        // Still redirect even if clipboard copy failed
+        window.location.href = configUrl
+      })
+      
+    } catch (error) {
+      console.error('Error generating config URL:', error)
+      setShareStatus('Error generating config URL')
+      setTimeout(() => setShareStatus(''), 3000)
+    }
+  }
+
   const toggleLock = () => {
     setIsUnlocked(!isUnlocked)
   }
@@ -1253,6 +1302,9 @@ function Matchmaker() {
           <div className="matchmaking-actions">
             <button className="btn btn-primary" onClick={solveFromGrid}>
               Make Matches
+            </button>
+            <button className="btn btn-secondary" onClick={saveConfig}>
+              Save Config
             </button>
             {solveStatus && <div className="status-message">{solveStatus}</div>}
           </div>
