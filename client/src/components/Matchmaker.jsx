@@ -187,7 +187,7 @@ function Matchmaker() {
     return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
   }
 
-  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
+  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, sameCategoryPenalty = 0 } = {}) => {
     console.log('🚀 Starting solveMatchmaking algorithm...')
     console.log(`📊 Problem size: ${players.length} players, ${categories.length} categories, ${challenges.length} challenges`)
     
@@ -271,7 +271,7 @@ function Matchmaker() {
 
     const memo = new Map()
     const FULL = (1<<N) - 1
-    const key = (k, hi, lo, sel, pairMaskStr, coverMask) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}`
+    const key = (k, hi, lo, sel, pairMaskStr, coverMask, playerCategoryMaskStr, totalGapCost) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}|${playerCategoryMaskStr}|${totalGapCost}`
     
     console.log('🧠 Starting dynamic programming search...')
     console.log(`💾 Memoization enabled, FULL mask: ${FULL.toString(2)} (${N} bits)`)
@@ -282,12 +282,50 @@ function Matchmaker() {
       return 1n << BigInt(idx)
     }
 
+    // Helper function to create player-category tracking mask
+    // Since each player has exactly 2 matchups, we track: player -> [category1, category2]
+    function createPlayerCategoryMask() {
+      return new Map() // player index -> [category1, category2] or [category1] or []
+    }
+
+    // Helper function to clone player-category mask
+    function clonePlayerCategoryMask(mask) {
+      const newMask = new Map()
+      for (const [player, categories] of mask) {
+        newMask.set(player, [...categories]) // Copy array
+      }
+      return newMask
+    }
+
+    // Helper function to serialize player-category mask for memoization
+    function serializePlayerCategoryMask(mask) {
+      const entries = []
+      for (const [player, categories] of mask) {
+        const sortedCategories = [...categories].sort()
+        entries.push(`${player}:${sortedCategories.join(',')}`)
+      }
+      return entries.sort().join('|')
+    }
+
+    // Helper function to calculate same-category penalty
+    function calculateSameCategoryPenalty(mask) {
+      let penalty = 0
+      for (const [player, categories] of mask) {
+        // Since each player has exactly 2 matchups, penalty is 0 or 1
+        if (categories.length === 2 && categories[0] === categories[1]) {
+          penalty += sameCategoryPenalty
+        }
+      }
+      return penalty
+    }
+
     let dfsCallCount = 0
     let memoHits = 0
     let lastProgressLog = 0
     let foundPerfectSolution = false
+    let bestSolutionSoFar = { best: Infinity, picks: null }
     
-    function dfs(k, usedHi, usedLo, selected, pairMask, coverMask) {
+    function dfs(k, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost = 0) {
       dfsCallCount++
       
       // Early termination: if we already found a perfect solution, stop searching
@@ -304,7 +342,8 @@ function Matchmaker() {
       
       if (performance.now() - t0 > timeLimitMs) {
         console.log(`⏰ Time limit reached after ${dfsCallCount} DFS calls`)
-        return { best: Infinity, timedOut: true }
+        console.log(`🏆 Best solution found so far: cost = ${bestSolutionSoFar.best === Infinity ? 'none' : bestSolutionSoFar.best.toFixed(2)}`)
+        return { best: bestSolutionSoFar.best, picks: bestSolutionSoFar.picks, timedOut: true }
       }
       
       const remaining = C - k
@@ -315,22 +354,30 @@ function Matchmaker() {
         const coveredCount = popcount32(coverMask)
         const missing = M - coveredCount
         if (requireCoverAll && missing > 0) return { best: Infinity }
-        const penalty = coverPenaltyPerMissing * missing
-        console.log(`🎉 Found complete solution! Cost: ${penalty}, missing categories: ${missing}`)
+        const coverPenalty = coverPenaltyPerMissing * missing
+        const sameCategoryPenaltyCost = calculateSameCategoryPenalty(playerCategoryMask)
+        const totalPenalty = totalGapCost + coverPenalty + sameCategoryPenaltyCost
+        console.log(`🎉 Found complete solution! Gap cost: ${totalGapCost}, cover penalty: ${coverPenalty}, same-category penalty: ${sameCategoryPenaltyCost}, total: ${totalPenalty}`)
         
-        // Early termination: if we found a perfect solution (cost=0), return immediately
-        if (penalty === 0) {
-          console.log(`✨ Perfect solution found! Terminating search early.`)
-          foundPerfectSolution = true
-          return { best: penalty, picks: [], perfectSolution: true }
+        // Track the best solution found so far
+        if (totalPenalty < bestSolutionSoFar.best) {
+          bestSolutionSoFar = { best: totalPenalty, picks: [] }
+          console.log(`🏆 New best solution found: cost = ${totalPenalty.toFixed(2)}`)
         }
         
-        return { best: penalty, picks: [] }
+        // Early termination: if we found a perfect solution (cost=0), return immediately
+        if (totalPenalty === 0) {
+          console.log(`✨ Perfect solution found! Terminating search early.`)
+          foundPerfectSolution = true
+          return { best: totalPenalty, picks: [], perfectSolution: true }
+        }
+        
+        return { best: totalPenalty, picks: [] }
       }
       
       if (remaining < needMore) return { best: Infinity }
 
-      const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask)
+      const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask, serializePlayerCategoryMask(playerCategoryMask), totalGapCost)
       if (memo.has(memoKey)) {
         memoHits++
         return memo.get(memoKey)
@@ -344,8 +391,25 @@ function Matchmaker() {
         if (((usedLo >>> pr.loIdx) & 1) === 1) continue
         const bit = pairBit(pr.hiIdx, pr.loIdx)
         if ((pairMask & bit) !== 0n) continue
-        const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit)
-        const total = sub.best === Infinity ? Infinity : pr.cost + sub.best
+        
+        // Update player-category mask for this assignment
+        const newPlayerCategoryMask = clonePlayerCategoryMask(playerCategoryMask)
+        const categoryIndex = catIndex.get(ch.category)
+        
+        // Add category to high player's assignments
+        if (!newPlayerCategoryMask.has(pr.hiIdx)) {
+          newPlayerCategoryMask.set(pr.hiIdx, [])
+        }
+        newPlayerCategoryMask.get(pr.hiIdx).push(categoryIndex)
+        
+        // Add category to low player's assignments  
+        if (!newPlayerCategoryMask.has(pr.loIdx)) {
+          newPlayerCategoryMask.set(pr.loIdx, [])
+        }
+        newPlayerCategoryMask.get(pr.loIdx).push(categoryIndex)
+        
+        const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit, newPlayerCategoryMask, totalGapCost + pr.cost)
+        const total = sub.best === Infinity ? Infinity : sub.best
         
         // Early termination: if we found a perfect solution, return immediately
         if (sub.perfectSolution && total === 0) {
@@ -367,7 +431,7 @@ function Matchmaker() {
       }
 
       if (remaining - 1 >= needMore) {
-        const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask)
+        const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost)
         
         // Early termination: if we found a perfect solution in skip path, return immediately
         if (subSkip.perfectSolution && subSkip.best === 0) {
@@ -394,7 +458,7 @@ function Matchmaker() {
 
     console.log('🚀 Starting DFS from root state...')
     const dfsStartTime = performance.now()
-    const ans = dfs(0, 0, 0, 0, 0n, 0)
+    const ans = dfs(0, 0, 0, 0, 0n, 0, createPlayerCategoryMask(), 0)
     const dfsEndTime = performance.now()
     
     console.log(`🏁 DFS completed in ${(dfsEndTime - dfsStartTime).toFixed(2)}ms`)
@@ -404,11 +468,25 @@ function Matchmaker() {
     }
     
     if (!Number.isFinite(ans.best)) {
-      console.log(`❌ No solution found: ${ans.timedOut ? 'Time limit reached' : 'No feasible assignment'}`)
-      return { ok: false, reason: ans.timedOut ? 'Search time limit reached' : 'No feasible assignment found' }
+      if (ans.timedOut) {
+        console.log(`⏰ Search timed out after 10 seconds`)
+        if (bestSolutionSoFar.best === Infinity) {
+          console.log(`❌ No solution found within time limit`)
+          return { ok: false, reason: 'Search time limit reached - no solution found' }
+        } else {
+          console.log(`🏆 Returning best solution found: cost = ${bestSolutionSoFar.best.toFixed(2)}`)
+          // Use the best solution found so far
+          ans.best = bestSolutionSoFar.best
+          ans.picks = bestSolutionSoFar.picks
+          ans.timedOut = true
+        }
+      } else {
+        console.log(`❌ No feasible assignment found`)
+        return { ok: false, reason: 'No feasible assignment found' }
+      }
     }
 
-    console.log(`✅ Solution found with cost: ${ans.best}`)
+    console.log(`✅ Solution found with cost: ${ans.best}${ans.timedOut ? ' (timeout - best found)' : ''}`)
     console.log('🔧 Building final assignments...')
     
     const useMap = new Map()
@@ -436,10 +514,20 @@ function Matchmaker() {
     }
 
     const totalTime = performance.now() - t0
+    const gapCost = assignments.reduce((s,a)=>s+a.cost,0)
+    
     console.log(`🎯 Algorithm completed in ${totalTime.toFixed(2)}ms total`)
-    console.log(`📋 Selected ${assignments.length} assignments with total cost: ${assignments.reduce((s,a)=>s+a.cost,0)}`)
+    console.log(`📋 Selected ${assignments.length} assignments`)
+    console.log(`💰 Gap cost: ${gapCost.toFixed(2)}, Total cost: ${ans.best.toFixed(2)}`)
 
-    return { ok: true, assignments, totalCost: assignments.reduce((s,a)=>s+a.cost,0), selectedCount: assignments.length, considered: C }
+    return { 
+      ok: true, 
+      assignments, 
+      totalCost: ans.best, 
+      gapCost,
+      selectedCount: assignments.length, 
+      considered: C 
+    }
   }
 
   const checkFeasible = (players, categories, challenges, { timeLimitMs = 2000, selectN, requireCoverAll = false } = {}) => {
@@ -608,12 +696,13 @@ function Matchmaker() {
     const solveStartTime = performance.now()
     const res = solveMatchmaking(parsed.players, parsed.categories, parsed.challenges, { 
       targetGap: targetGapValue, 
-      timeLimitMs: Infinity,
+      timeLimitMs: 10000,  // 10 second timeout to prevent UI freezing
       costFn: costFn,
       selectN: numPlayers, 
       coverPenaltyPerMissing: 10,
       requireCoverAll: false,
-      randomSeed: newSeed
+      randomSeed: newSeed,
+      sameCategoryPenalty: 1000  // Heavy penalty for same-category assignments
     })
     const solveTime = performance.now() - solveStartTime
     console.log(`⏱️ Main solveMatchmaking took ${solveTime.toFixed(2)}ms`)
@@ -623,6 +712,12 @@ function Matchmaker() {
       setSolveOutput(`<div class="validation-message">Error: ${res.reason}</div>`)
       return 
     }
+
+    console.log(`✅ Solution found! Total cost: ${res.totalCost.toFixed(2)}`)
+    console.log(`📊 Solution breakdown:`)
+    console.log(`  - Selected ${res.selectedCount} assignments out of ${res.considered} challenges`)
+    console.log(`  - Gap cost: ${res.gapCost.toFixed(2)}`)
+    console.log(`  - Total cost (including penalties): ${res.totalCost.toFixed(2)}`)
 
     console.log('🔄 Optimizing match ordering...')
     const optimizeStartTime = performance.now()
