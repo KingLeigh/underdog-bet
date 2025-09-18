@@ -594,18 +594,14 @@ function Matchmaker() {
         return
       }
       
-      // Create minimal matchup data (only what's displayed)
-      const matchups = currentAssignments.map((assignment, index) => ({
-        number: index + 1,
-        category: assignment.category,
-        high: assignment.high,
-        low: assignment.low,
-        matchup: `${assignment.highRank} vs ${assignment.lowRank}`
-      }))
+      // Create compact matchup data using colon-separated format
+      // Format: number:category:high:low:matchup
+      const compactMatchups = currentAssignments.map((assignment, index) => 
+        `${index + 1}:${assignment.category}:${assignment.high}:${assignment.low}:${assignment.highRank} vs ${assignment.lowRank}`
+      ).join('|')
       
-      // Encode matchups data
-      const matchupsString = JSON.stringify(matchups)
-      const encodedMatchups = btoa(matchupsString)
+      // Encode compact matchups data
+      const encodedMatchups = btoa(compactMatchups)
       
       const baseUrl = window.location.origin + window.location.pathname
       const shareUrl = `${baseUrl}?save=${encodedMatchups}`
@@ -648,7 +644,18 @@ function Matchmaker() {
     if (saveParam) {
       try {
         const decodedMatchups = atob(saveParam)
-        const matchups = JSON.parse(decodedMatchups)
+        
+        // Parse compact format: number:category:high:low:matchup|number:category:high:low:matchup|...
+        const matchups = decodedMatchups.split('|').map(matchupStr => {
+          const [number, category, high, low, matchup] = matchupStr.split(':')
+          return { 
+            number: parseInt(number), 
+            category, 
+            high, 
+            low, 
+            matchup 
+          }
+        })
         
         // Generate HTML table from matchups data
         const tableRows = matchups.map((matchup, index) => 
