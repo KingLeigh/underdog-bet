@@ -75,6 +75,13 @@ function Home() {
                 Matchmaker
               </button>
               
+              <button 
+                className="btn btn-secondary"
+                onClick={() => navigate('/challenge-selector')}
+              >
+                Challenge Selector
+              </button>
+              
               <div className="divider">or</div>
             </>
           )}

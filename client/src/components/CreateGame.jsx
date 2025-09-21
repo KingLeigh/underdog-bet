@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import './CreateGame.css'
 
 function CreateGame() {
+  const [searchParams] = useSearchParams()
   const [createPlayerName, setCreatePlayerName] = useState('')
   const [categories, setCategories] = useState('')
   const [challengesPerCategory, setChallengesPerCategory] = useState('')
@@ -11,22 +12,44 @@ function CreateGame() {
   const [maxBetSize, setMaxBetSize] = useState('')
   const [bounty, setBounty] = useState('None')
   const [bountyAmount, setBountyAmount] = useState('')
+  const [isPreFilled, setIsPreFilled] = useState(false)
   
   const navigate = useNavigate()
   const { createGame, currentGame, gameState, error, clearError } = useGame()
 
-  // Update challenges per category when categories change
+  // Parse URL parameters and pre-fill form fields, or auto-fill based on categories
   useEffect(() => {
-    if (categories.trim()) {
-      const categoryCount = categories.split(',').filter(cat => cat.trim()).length
-      if (categoryCount > 0) {
-        const defaultChallenges = Array(categoryCount).fill('1').join(',')
-        setChallengesPerCategory(defaultChallenges)
-      }
+    const categoriesParam = searchParams.get('categories')
+    const countsParam = searchParams.get('counts')
+    
+    // If we have URL parameters, use them (only run once when URL params change)
+    if (categoriesParam && countsParam) {
+      setCategories(categoriesParam)
+      setChallengesPerCategory(countsParam)
+      setIsPreFilled(true)
     } else {
-      setChallengesPerCategory('')
+      setIsPreFilled(false)
     }
-  }, [categories])
+  }, [searchParams])
+
+  // Auto-fill challenges when categories change (only if no URL parameters)
+  useEffect(() => {
+    const categoriesParam = searchParams.get('categories')
+    const countsParam = searchParams.get('counts')
+    
+    // Only auto-fill if we don't have URL parameters
+    if (!categoriesParam && !countsParam) {
+      if (categories.trim()) {
+        const categoryCount = categories.split(',').filter(cat => cat.trim()).length
+        if (categoryCount > 0) {
+          const defaultChallenges = Array(categoryCount).fill('1').join(',')
+          setChallengesPerCategory(defaultChallenges)
+        }
+      } else {
+        setChallengesPerCategory('')
+      }
+    }
+  }, [categories, searchParams])
 
   // Validation function to check for unique category names
   const validateUniqueCategories = () => {
@@ -275,10 +298,16 @@ function CreateGame() {
                 onChange={(e) => setCategories(e.target.value)}
                 placeholder="e.g., Speed, Strength, Intelligence, Luck"
                 className="categories-input"
+                disabled={isPreFilled}
               />
               <small className="form-help">
                 Comma-separated list of categories for player ranking. Players will rank themselves 1-N in each category before the game starts.
               </small>
+              {isPreFilled && (
+                <div className="info-message">
+                  <strong>Pre-filled from Challenge Selector:</strong> These fields are locked because they match your selected challenges.
+                </div>
+              )}
               {!validateUniqueCategories().isValid && (
                 <div className="error-message">
                   <strong>Duplicate categories found:</strong> {validateUniqueCategories().duplicates.join(', ')}. Please ensure all category names are unique.
@@ -296,6 +325,7 @@ function CreateGame() {
                 onChange={(e) => setChallengesPerCategory(e.target.value)}
                 placeholder="1,1,1,1"
                 className="challenges-input"
+                disabled={isPreFilled}
               />
               <small className="form-help">
                 Comma-separated list of challenge counts for each category. Each number represents how many challenges will be created for that category.
