@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const fetch = require('node-fetch');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,123 @@ const wagerStates = new Map(); // gameId -> wager state with odds
 // Player management system
 const playerRegistry = new Map(); // playerID -> { socketID, playerName, gameId, lastSeen }
 let nextPlayerID = 1;
+
+// Challenge data caching system
+const challengeCache = {
+  data: null,
+  lastFetch: null,
+  ttl: 10 * 60 * 1000, // 10 minutes cache TTL
+  googleAppsScriptUrl: process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzZOykCWffTiFponUkXk3LJm7Dyo9nYJz6_2gd1mOqkGXyvx_Ln7wnmpL0kCrLJS9tR2A/exec'
+};
+
+// Fetch challenges from Google Apps Script
+async function fetchChallengesFromGoogleAppsScript() {
+  if (!challengeCache.googleAppsScriptUrl) {
+    console.log('No Google Apps Script URL configured, using demo data');
+    return getDemoChallenges();
+  }
+
+  try {
+    console.log('Fetching challenges from Google Apps Script...');
+    const response = await fetch(challengeCache.googleAppsScriptUrl);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Successfully fetched challenges from Google Apps Script');
+    return data;
+  } catch (error) {
+    console.error('Error fetching challenges from Google Apps Script:', error);
+    console.log('Falling back to demo data');
+    return getDemoChallenges();
+  }
+}
+
+// Get challenges (from cache or fetch fresh)
+async function getChallenges() {
+  const now = Date.now();
+  
+  // Check if we have cached data and it's still valid
+  if (challengeCache.data && challengeCache.lastFetch && 
+      (now - challengeCache.lastFetch) < challengeCache.ttl) {
+    console.log('Returning cached challenge data');
+    return challengeCache.data;
+  }
+  
+  // Fetch fresh data
+  console.log('Cache miss or expired, fetching fresh challenge data');
+  const freshData = await fetchChallengesFromGoogleAppsScript();
+  
+  // Update cache
+  challengeCache.data = freshData;
+  challengeCache.lastFetch = now;
+  
+  return freshData;
+}
+
+// Demo challenges data (fallback)
+function getDemoChallenges() {
+  return [
+    {
+      id: 1,
+      category: "Trivia (USA)",
+      challengeName: "Name State Capitals",
+      requirements: "Timer",
+      rules: "Each player takes it in turns to name a US state capital. Whichever players' turn it is when 60 seconds is reached loses."
+    },
+    {
+      id: 2,
+      category: "Hand Eye Coordination",
+      challengeName: "Tallest solo-cup stack",
+      requirements: "Solo cups",
+      rules: "Both players attempt to build the tallest tower using cups. Tallest stack after 60 seconds wins"
+    },
+    {
+      id: 3,
+      category: "Hand Eye Coordination",
+      challengeName: "Flip cup race",
+      requirements: "Solo cups, Timer",
+      rules: "Both players attempt to flip cups at the same time. First to flip 10 cups wins."
+    },
+    {
+      id: 4,
+      category: "Cardio",
+      challengeName: "Balloon burst race",
+      requirements: "Balloons, Timer",
+      rules: "Both players inflate a balloon at the same time. First balloon to burst wins"
+    },
+    {
+      id: 5,
+      category: "Brain Games",
+      challengeName: "Spot It drag race",
+      requirements: "Spot It cards, Timer",
+      rules: "The Underdog has 45 seconds to match as many Spot It cards as possible. The Favorite then has 45 seconds to beat that number"
+    },
+    {
+      id: 6,
+      category: "Trivia (USA)",
+      challengeName: "Presidential Facts",
+      requirements: "Timer",
+      rules: "Players take turns answering questions about US presidents. First to get 3 wrong loses."
+    },
+    {
+      id: 7,
+      category: "Hand Eye Coordination",
+      challengeName: "Cup stacking speed",
+      requirements: "Solo cups, Timer",
+      rules: "Both players stack cups in a pyramid formation. Fastest time wins."
+    },
+    {
+      id: 8,
+      category: "Brain Games",
+      challengeName: "Memory sequence",
+      requirements: "Timer",
+      rules: "Players must remember and repeat increasingly long sequences of numbers. First to make a mistake loses."
+    }
+  ];
+}
 
 // Generate unique player ID
 function generatePlayerID() {
@@ -970,6 +1088,17 @@ app.get('/api/games/:id/wager', (req, res) => {
     res.json({ gameId: req.params.id, wagerState });
   } else {
     res.status(404).json({ error: 'Game not found' });
+  }
+});
+
+// Get challenges (with caching)
+app.get('/api/challenges', async (req, res) => {
+  try {
+    const challenges = await getChallenges();
+    res.json(challenges);
+  } catch (error) {
+    console.error('Error fetching challenges:', error);
+    res.status(500).json({ error: 'Failed to fetch challenges' });
   }
 });
 

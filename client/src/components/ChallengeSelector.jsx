@@ -1,71 +1,58 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './ChallengeSelector.css'
 
 function ChallengeSelector() {
   const navigate = useNavigate()
-  // Demo data matching the provided format
-  const demoChallenges = [
-    {
-      id: 1,
-      category: "Trivia (USA)",
-      challengeName: "Name State Capitals",
-      requirements: "Timer",
-      rules: "Each player takes it in turns to name a US state capital. Whichever players' turn it is when 60 seconds is reached loses."
-    },
-    {
-      id: 2,
-      category: "Hand Eye Coordination",
-      challengeName: "Tallest solo-cup stack",
-      requirements: "Solo cups, Timer",
-      rules: "Both players attempt to build the tallest tower using cups. Tallest stack after 60 seconds wins"
-    },
-    {
-      id: 3,
-      category: "Hand Eye Coordination",
-      challengeName: "Flip cup race",
-      requirements: "Solo cups",
-      rules: "Both players attempt to flip cups at the same time. First to flip 10 cups wins."
-    },
-    {
-      id: 4,
-      category: "Cardio",
-      challengeName: "Balloon burst race",
-      requirements: "Balloons, Timer",
-      rules: "Both players inflate a balloon at the same time. First balloon to burst wins"
-    },
-    {
-      id: 5,
-      category: "Brain Games",
-      challengeName: "Spot It drag race",
-      requirements: "Spot It cards, Timer",
-      rules: "The Underdog has 45 seconds to match as many Spot It cards as possible. The Favorite then has 45 seconds to beat that number"
-    },
-    {
-      id: 6,
-      category: "Trivia (USA)",
-      challengeName: "Presidential Facts",
-      requirements: "Timer, Paper, Pen",
-      rules: "Players take turns naming US presidents. First to make a mistake loses."
-    },
-    {
-      id: 7,
-      category: "Cardio",
-      challengeName: "Jump rope endurance",
-      requirements: "Jump rope, Timer",
-      rules: "Both players jump rope simultaneously. Last one standing wins."
-    },
-    {
-      id: 8,
-      category: "Brain Games",
-      challengeName: "Memory sequence",
-      requirements: "Cards, Timer",
-      rules: "Players memorize and repeat card sequences. Longest correct sequence wins."
-    }
-  ]
-
-  const [challenges] = useState(demoChallenges)
   
+  // State for challenges data
+  const [challenges, setChallenges] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  
+  // Filter and selection state
+  const [selectedCategories, setSelectedCategories] = useState(new Set())
+  const [selectedRequirements, setSelectedRequirements] = useState(new Set())
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedChallenge, setSelectedChallenge] = useState(null)
+  const [deselectedChallenges, setDeselectedChallenges] = useState(new Set())
+
+  // Fetch challenges from server
+  useEffect(() => {
+    const fetchChallenges = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch('/api/challenges')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        const data = await response.json()
+        setChallenges(data)
+        
+        // Initialize filter selections with all available options
+        const categories = [...new Set(data.map(challenge => challenge.category))]
+        const allRequirements = data.flatMap(challenge => 
+          challenge.requirements.split(',').map(req => req.trim())
+        )
+        const requirements = [...new Set(allRequirements)]
+        
+        setSelectedCategories(new Set(categories))
+        setSelectedRequirements(new Set(requirements))
+        
+      } catch (err) {
+        console.error('Error fetching challenges:', err)
+        setError('Failed to load challenges. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchChallenges()
+  }, [])
+
   // Get unique categories for filtering
   const categories = [...new Set(challenges.map(challenge => challenge.category))]
   
@@ -74,13 +61,6 @@ function ChallengeSelector() {
     challenge.requirements.split(',').map(req => req.trim())
   )
   const requirements = [...new Set(allRequirements)]
-  
-  // Default to having all categories and requirements selected
-  const [selectedCategories, setSelectedCategories] = useState(new Set(categories))
-  const [selectedRequirements, setSelectedRequirements] = useState(new Set(requirements))
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedChallenge, setSelectedChallenge] = useState(null)
-  const [deselectedChallenges, setDeselectedChallenges] = useState(new Set())
 
   const toggleCategory = (category) => {
     const newSelected = new Set(selectedCategories)
@@ -160,6 +140,44 @@ function ChallengeSelector() {
   
   // Get unique categories from available challenges only
   const availableCategories = [...new Set(availableChallenges.map(challenge => challenge.category))]
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="challenge-selector">
+        <div className="challenge-selector-content">
+          <div className="challenge-selector-header">
+            <h1>Challenge Selector</h1>
+          </div>
+          <div className="loading-state">
+            <p>Loading challenges...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="challenge-selector">
+        <div className="challenge-selector-content">
+          <div className="challenge-selector-header">
+            <h1>Challenge Selector</h1>
+          </div>
+          <div className="error-state">
+            <p>{error}</p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="challenge-selector">

@@ -311,3 +311,29 @@
     font-size: 1.2rem;
   }
 }
+
+/* Loading and Error States */
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.loading-state p {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.error-state p {
+  color: #ff6b6b;
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0;
+}
+
+.error-state button {
+  margin-top: 1rem;
+}

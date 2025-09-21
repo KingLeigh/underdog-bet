@@ -4,90 +4,61 @@ import './ChallengeList.css'
 
 function ChallengeList() {
   const [searchParams] = useSearchParams()
+  const [allChallenges, setAllChallenges] = useState([])
   const [challenges, setChallenges] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedChallenge, setSelectedChallenge] = useState(null)
 
-  // Demo data matching the Challenge Selector format
-  const demoChallenges = [
-    {
-      id: 1,
-      category: "Trivia (USA)",
-      challengeName: "Name State Capitals",
-      requirements: "Timer",
-      rules: "Each player takes it in turns to name a US state capital. Whichever players' turn it is when 60 seconds is reached loses."
-    },
-    {
-      id: 2,
-      category: "Hand Eye Coordination",
-      challengeName: "Tallest solo-cup stack",
-      requirements: "Solo cups, Timer",
-      rules: "Both players attempt to build the tallest tower using cups. Tallest stack after 60 seconds wins"
-    },
-    {
-      id: 3,
-      category: "Hand Eye Coordination",
-      challengeName: "Flip cup race",
-      requirements: "Solo cups",
-      rules: "Both players attempt to flip cups at the same time. First to flip 10 cups wins."
-    },
-    {
-      id: 4,
-      category: "Cardio",
-      challengeName: "Balloon burst race",
-      requirements: "Balloons, Timer",
-      rules: "Both players inflate a balloon at the same time. First balloon to burst wins"
-    },
-    {
-      id: 5,
-      category: "Brain Games",
-      challengeName: "Spot It drag race",
-      requirements: "Spot It cards, Timer",
-      rules: "The Underdog has 45 seconds to match as many Spot It cards as possible. The Favorite then has 45 seconds to beat that number"
-    },
-    {
-      id: 6,
-      category: "Trivia (USA)",
-      challengeName: "Presidential Facts",
-      requirements: "Timer, Paper, Pen",
-      rules: "Players take turns naming US presidents. First to make a mistake loses."
-    },
-    {
-      id: 7,
-      category: "Cardio",
-      challengeName: "Jump rope endurance",
-      requirements: "Jump rope, Timer",
-      rules: "Both players jump rope simultaneously. Last one standing wins."
-    },
-    {
-      id: 8,
-      category: "Brain Games",
-      challengeName: "Memory sequence",
-      requirements: "Cards, Timer",
-      rules: "Players memorize and repeat card sequences. Longest correct sequence wins."
-    }
-  ]
-
+  // Fetch all challenges from server
   useEffect(() => {
-    // Parse challenge IDs from URL parameter
-    const challengeIdsParam = searchParams.get('challenges')
-    if (challengeIdsParam) {
-      const challengeIds = challengeIdsParam.split(',').map(id => parseInt(id.trim()))
-      const selectedChallenges = demoChallenges.filter(challenge => 
-        challengeIds.includes(challenge.id)
-      ).sort((a, b) => {
-        // Sort by category first, then by ID within each category
-        if (a.category !== b.category) {
-          return a.category.localeCompare(b.category)
+    const fetchChallenges = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch('/api/challenges')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
-        return a.id - b.id
-      })
-      setChallenges(selectedChallenges)
-    } else {
-      // If no challenges parameter, show all challenges
-      setChallenges(demoChallenges)
+        
+        const data = await response.json()
+        setAllChallenges(data)
+        
+      } catch (err) {
+        console.error('Error fetching challenges:', err)
+        setError('Failed to load challenges. Please try again.')
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [searchParams])
+
+    fetchChallenges()
+  }, [])
+
+  // Filter challenges based on URL parameter
+  useEffect(() => {
+    if (allChallenges.length > 0) {
+      const challengeIdsParam = searchParams.get('challenges')
+      if (challengeIdsParam) {
+        const challengeIds = challengeIdsParam.split(',').map(id => parseInt(id.trim()))
+        const selectedChallenges = allChallenges.filter(challenge => 
+          challengeIds.includes(challenge.id)
+        ).sort((a, b) => {
+          // Sort by category first, then by ID within each category
+          if (a.category !== b.category) {
+            return a.category.localeCompare(b.category)
+          }
+          return a.id - b.id
+        })
+        setChallenges(selectedChallenges)
+      } else {
+        // If no challenges parameter, show all challenges
+        setChallenges(allChallenges)
+      }
+    }
+  }, [allChallenges, searchParams])
 
   const openRulesModal = (challenge) => {
     setSelectedChallenge(challenge)
@@ -117,6 +88,44 @@ function ChallengeList() {
 
   // Get unique categories from challenges
   const categories = [...new Set(challenges.map(challenge => challenge.category))]
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="challenge-list">
+        <div className="challenge-list-content">
+          <div className="challenge-list-header">
+            <h1>Selected Challenges</h1>
+          </div>
+          <div className="loading-state">
+            <p>Loading challenges...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="challenge-list">
+        <div className="challenge-list-content">
+          <div className="challenge-list-header">
+            <h1>Selected Challenges</h1>
+          </div>
+          <div className="error-state">
+            <p>{error}</p>
+            <button 
+              className="btn btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="challenge-list">
