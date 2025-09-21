@@ -137,7 +137,7 @@ function ChallengeList() {
         {/* Challenges Table */}
         <div className="challenges-section">
           <div className="challenges-panel">
-            <h3>Your Challenge List ({challenges.length})</h3>
+            <h3>Challenge List</h3>
             <div className="challenges-summary">
               <span className="summary-text">
                 Showing {challenges.length} challenges across {categories.length} categories
@@ -182,16 +182,12 @@ function ChallengeList() {
         {/* Create Game Section */}
         <div className="create-game-section">
           <div className="create-game-panel">
-            <div className="create-game-content">
-              <h3>Ready to Start Your Game?</h3>
-              <p>Create a new game with your selected {challenges.length} challenges.</p>
-              <button 
-                className="btn btn-primary btn-large"
-                onClick={createGame}
-              >
-                Create Game
-              </button>
-            </div>
+            <button 
+              className="btn btn-primary btn-large"
+              onClick={createGame}
+            >
+              Create Game
+            </button>
           </div>
         </div>
       </div>

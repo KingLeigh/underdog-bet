@@ -58,7 +58,7 @@ function ChallengeSelector() {
   
   // Get unique requirements for filtering (split comma-separated values)
   const allRequirements = challenges.flatMap(challenge => 
-    challenge.requirements.split(',').map(req => req.trim())
+    challenge.requirements.split(',').map(req => req.trim()).filter(req => req !== '')
   )
   const requirements = [...new Set(allRequirements)]
 
@@ -106,6 +106,22 @@ function ChallengeSelector() {
     const selectedChallengeIds = availableChallenges.map(challenge => challenge.id)
     const challengeIdsParam = selectedChallengeIds.join(',')
     navigate(`/challenge-list?challenges=${challengeIdsParam}`)
+  }
+
+  const testMatchmaker = () => {
+    // Calculate categories and their counts
+    const categoryCounts = {}
+    availableChallenges.forEach(challenge => {
+      categoryCounts[challenge.category] = (categoryCounts[challenge.category] || 0) + 1
+    })
+    
+    // Create URL parameters
+    const categoriesParam = Object.keys(categoryCounts).join(',')
+    const countsParam = Object.values(categoryCounts).join(',')
+    
+    // Open in new tab with unlocked fields
+    const matchmakerUrl = `/matchmaker?categories=${categoriesParam}&counts=${countsParam}&unlocked=true`
+    window.open(matchmakerUrl, '_blank')
   }
 
   // Filter challenges based on selected categories AND requirements
@@ -255,7 +271,7 @@ function ChallengeSelector() {
         {/* Challenges Table */}
         <div className="challenges-section">
           <div className="challenges-panel">
-            <h3>Available Challenges ({availableChallenges.length})</h3>
+            <h3>Active Challenges</h3>
             <div className="challenges-summary">
               <span className="summary-text">
                 Showing {availableChallenges.length} challenges across {availableCategories.length} categories
@@ -310,15 +326,22 @@ function ChallengeSelector() {
         <div className="save-section">
           <div className="save-panel">
             <div className="save-content">
-              <h3>Ready to Create Your Game?</h3>
-              <p>You have selected {availableChallenges.length} challenges across {availableCategories.length} categories.</p>
-              <button 
-                className="btn btn-primary btn-large"
-                onClick={saveChallenges}
-                disabled={availableChallenges.length === 0}
-              >
-                Save Challenges
-              </button>
+              <div className="save-buttons">
+                <button 
+                  className="btn btn-primary btn-large"
+                  onClick={saveChallenges}
+                  disabled={availableChallenges.length === 0}
+                >
+                  Save Challenges
+                </button>
+                <button 
+                  className="btn btn-secondary btn-large"
+                  onClick={testMatchmaker}
+                  disabled={availableChallenges.length === 0}
+                >
+                  Test Matchmaker
+                </button>
+              </div>
             </div>
           </div>
         </div>

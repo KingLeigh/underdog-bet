@@ -248,20 +248,8 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.create-game-content {
+.create-game-panel {
   text-align: center;
-}
-
-.create-game-content h3 {
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.create-game-content p {
-  margin-bottom: 1.5rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1rem;
 }
 
 .btn-large {

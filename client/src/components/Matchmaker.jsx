@@ -907,6 +907,41 @@ function Matchmaker() {
     const urlParams = new URLSearchParams(window.location.search)
     const dataParam = urlParams.get('data')
     const saveParam = urlParams.get('save')
+    const categoriesParam = urlParams.get('categories')
+    const countsParam = urlParams.get('counts')
+    const unlockedParam = urlParams.get('unlocked')
+    
+    // Handle categories and counts parameters (from Challenge Selector)
+    if (categoriesParam && countsParam) {
+      try {
+        const categoriesList = categoriesParam.split(',')
+        const countsList = countsParam.split(',').map(count => parseInt(count.trim()))
+        
+        if (categoriesList.length !== countsList.length) {
+          throw new Error(`Mismatch: ${categoriesList.length} categories but ${countsList.length} counts`)
+        }
+        
+        const newCategories = categoriesList.map((name, index) => ({
+          name: name.trim(),
+          count: countsList[index]
+        }))
+        
+        setCategories(newCategories)
+        setIsUrlLoaded(true)
+        
+        // If unlocked=true, keep fields editable
+        if (unlockedParam === 'true') {
+          setIsUnlocked(true)
+        }
+        
+        console.log('Successfully loaded categories and counts from URL parameters')
+        return // Exit early, don't process other parameters
+        
+      } catch (error) {
+        console.error('Error parsing categories/counts from URL:', error.message)
+        alert(`Error loading categories/counts from URL: ${error.message}\n\nUsing default configuration instead.`)
+      }
+    }
     
     // Handle ?save parameter (pre-generated matchups)
     if (saveParam) {
