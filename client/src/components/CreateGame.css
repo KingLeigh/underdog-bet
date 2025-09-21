@@ -145,28 +145,148 @@ input:disabled {
 /* Responsive design */
 @media (max-width: 768px) {
   .create-game {
-    padding: 1rem;
+    padding: 0.5rem;
+    align-items: flex-start;
+    padding-top: 1rem;
   }
   
   .create-game-content {
-    padding: 2rem;
+    padding: 1.5rem;
+    margin: 0;
+    border-radius: 15px;
+  }
+  
+  .create-game-header {
+    margin-bottom: 2rem;
   }
   
   .create-game-header h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .create-game-header p {
+    font-size: 1rem;
+  }
+  
+  .create-game-form {
+    gap: 1.5rem;
   }
   
   .form-section {
-    padding: 1.5rem;
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+  
+  .form-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+  
+  .form-group label {
+    font-size: 0.95rem;
+    margin-bottom: 0.375rem;
+  }
+  
+  .form-group input,
+  .form-group select {
+    font-size: 0.95rem;
+    padding: 0.625rem;
+    border-radius: 6px;
+  }
+  
+  .form-help {
+    font-size: 0.8rem;
+    margin-top: 0.375rem;
   }
   
   .form-actions {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
   }
   
   .btn-large {
     width: 100%;
-    max-width: 300px;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+    min-width: auto;
+  }
+  
+  .error-message {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+  
+  .info-message {
+    padding: 0.625rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .create-game {
+    padding: 0.25rem;
+    padding-top: 0.5rem;
+  }
+  
+  .create-game-content {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  
+  .create-game-header {
+    margin-bottom: 1.5rem;
+  }
+  
+  .create-game-header h1 {
+    font-size: 1.6rem;
+  }
+  
+  .create-game-header p {
+    font-size: 0.9rem;
+  }
+  
+  .create-game-form {
+    gap: 1.25rem;
+  }
+  
+  .form-section {
+    padding: 1rem;
+    border-radius: 10px;
+  }
+  
+  .form-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+  }
+  
+  .form-group input,
+  .form-group select {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+  
+  .form-help {
+    font-size: 0.75rem;
+  }
+  
+  .btn-large {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
   }
 }
