@@ -263,10 +263,12 @@ td input:focus {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
 }
 
 .matchmaking-results table {
   margin: 0;
+  min-width: 600px;
 }
 
 .matchmaking-results th {
@@ -304,6 +306,14 @@ td input:focus {
   
   .player-grid {
     overflow-x: scroll;
+  }
+  
+  .matchmaking-results {
+    padding: 0.75rem;
+  }
+  
+  .matchmaking-results table {
+    min-width: 500px;
   }
   
   button {
