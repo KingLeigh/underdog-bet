@@ -165,13 +165,13 @@ function GameBoard() {
     <div className="game-board">
       <div className="game-board-content">
         <div className="game-header">
-          <h2>Underdogs</h2>
+          <h1>Underdogs</h1>
         </div>
 
         <div className="game-area panel-spacing">
           {/* Wager System Interface */}
           <div className="wager-section standard-panel">
-            <h3>Current Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h3>
+            <h2>Current Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h2>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
@@ -467,7 +467,7 @@ function GameBoard() {
         {/* Player Rankings Section */}
         {categories && categories.length > 0 && rankingsComplete && (
           <div className="player-rankings-section panel-spacing standard-panel">
-            <h3>Player Rankings</h3>
+            <h2>Player Rankings</h2>
             <div className="rankings-grid">
               {players.map(pid => (
                 <div key={pid} className="player-ranking-card">

@@ -56,7 +56,7 @@ function Home() {
   return (
     <div className="home">
       <div className="home-content">
-        <h2>Underdogs</h2>
+        <h1>Underdogs</h1>
         
         <div className="action-buttons">
           {!hasGameParam && (

@@ -4,7 +4,7 @@ import './RulesPanel.css'
 function RulesPanel({ gameState, playerWagerCount, categories }) {
   return (
     <div className="game-info-panel standard-panel">
-      <h3>Rules</h3>
+      <h2>Rules</h2>
       <table className="game-info-table">
         <tbody>
           <tr>

@@ -22,6 +22,40 @@ main {
   margin-bottom: 0;
 }
 
+/* Shared Heading Styles */
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fff, #e0e7ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+}
+
 /* Standard panel styling - used by all top-level panels */
 .standard-panel {
   border-radius: 15px;
@@ -29,35 +63,56 @@ main {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.standard-panel h3 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
-}
-
 /* Mobile styles for standard panels */
 @media (max-width: 768px) {
+  h1 {
+    font-size: 2rem;
+  }
+  
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  h4 {
+    font-size: 1rem;
+    margin-bottom: 0.625rem;
+  }
+  
   .standard-panel {
     padding: 1.5rem;
     border-radius: 12px;
   }
-  
-  .standard-panel h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-  }
 }
 
 @media (max-width: 480px) {
+  h1 {
+    font-size: 1.8rem;
+  }
+  
+  h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+  
   .standard-panel {
     padding: 1.25rem;
     border-radius: 10px;
-  }
-  
-  .standard-panel h3 {
-    font-size: 1.1rem;
-    margin-bottom: 0.875rem;
   }
 }
 

@@ -205,7 +205,7 @@ function ChallengeSelector() {
         {/* Filter Section */}
         <div className="filter-section panel-spacing">
           <div className="filter-panel">
-            <h3>Filter by Category</h3>
+            <h2>Filter by Category</h2>
             <div className="category-filters">
               {categories.map(category => (
                 <label key={category} className="filter-checkbox">
@@ -238,7 +238,7 @@ function ChallengeSelector() {
         {/* Requirements Filter Section */}
         <div className="filter-section">
           <div className="filter-panel">
-            <h3>Filter by Requirements</h3>
+            <h2>Filter by Requirements</h2>
             <div className="requirements-filters">
               {requirements.map(requirement => (
                 <label key={requirement} className="filter-checkbox">
@@ -271,7 +271,7 @@ function ChallengeSelector() {
         {/* Challenges Table */}
         <div className="challenges-section panel-spacing">
           <div className="challenges-panel">
-            <h3>Active Challenges</h3>
+            <h2>Active Challenges</h2>
             <div className="challenges-summary">
               <span className="summary-text">
                 Showing {availableChallenges.length} challenges across {availableCategories.length} categories

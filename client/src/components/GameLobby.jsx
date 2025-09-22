@@ -173,7 +173,7 @@ function GameLobby() {
     <div className="lobby">
       <div className="lobby-content">
         <div className="lobby-header">
-          <h2>Game Lobby</h2>
+          <h1>Game Lobby</h1>
           <div className="game-info">
             <div className="game-id">
               Game ID: <span>{gameId}</span>
@@ -185,7 +185,7 @@ function GameLobby() {
         </div>
 
         <div className="players-section panel-spacing">
-          <h3>Players ({players.length})</h3>
+          <h2>Players ({players.length})</h2>
           <div className="players-list">
             {players.map((playerId) => (
               <div key={playerId} className="player-item">
@@ -212,7 +212,7 @@ function GameLobby() {
             {categories && categories.length > 0 && !playerRankings[playerId] && (
               <>
                 <div className="ranking-header">
-                  <h3>Rank Your Categories</h3>
+                  <h2>Rank Your Categories</h2>
                   <p>Click each category in order of preference. Rank 1 is your strongest, {categories.length} is your weakest.</p>
                 </div>
                 
