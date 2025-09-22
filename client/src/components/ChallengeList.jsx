@@ -118,7 +118,7 @@ function ChallengeList() {
       <div className="challenge-list">
         <div className="challenge-list-content">
           <div className="challenge-list-header">
-            <h1>Selected Challenges</h1>
+            <h1>Underdogs</h1>
           </div>
           <div className="loading-state">
             <p>Loading challenges...</p>
@@ -134,7 +134,7 @@ function ChallengeList() {
       <div className="challenge-list">
         <div className="challenge-list-content">
           <div className="challenge-list-header">
-            <h1>Selected Challenges</h1>
+            <h1>Underdogs</h1>
           </div>
           <div className="error-state">
             <p>{error}</p>
@@ -154,7 +154,7 @@ function ChallengeList() {
     <div className="challenge-list">
       <div className="challenge-list-content">
         <div className="challenge-list-header">
-          <h1>Selected Challenges</h1>
+          <h1>Underdogs</h1>
         </div>
 
         {/* Challenges Table */}
