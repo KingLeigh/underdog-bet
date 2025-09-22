@@ -208,7 +208,7 @@ function GameLobby() {
 
         {/* Category Ranking Section */}
         {categories && categories.length > 0 && (
-          <div className="categories-section category-ranking panel-spacing">
+          <div className="categories-section category-ranking panel-spacing standard-panel">
             {categories && categories.length > 0 && !playerRankings[playerId] && (
               <>
                 <div className="ranking-header">

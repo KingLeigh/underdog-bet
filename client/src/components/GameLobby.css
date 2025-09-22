@@ -190,21 +190,7 @@
   text-align: center;
 }
 
-/* Category Ranking Section */
-.categories-section {
-  margin-bottom: 2rem;
-  padding: 2rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.categories-section h3 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
-}
+/* Category Ranking Section - panel styling now handled by shared .standard-panel class in App.css */
 
 .category-name {
   color: #4ade80;
@@ -512,15 +498,7 @@
     font-size: 0.95rem;
   }
   
-  .categories-section {
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  .categories-section h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-  }
+  /* Panel styling now handled by shared .standard-panel class in App.css */
   
   .ranking-status p {
     font-size: 1rem;
@@ -715,15 +693,7 @@
     font-size: 0.9rem;
   }
   
-  .categories-section {
-    padding: 1.25rem;
-    margin-bottom: 1.25rem;
-  }
-  
-  .categories-section h3 {
-    font-size: 1.1rem;
-    margin-bottom: 0.875rem;
-  }
+  /* Panel styling now handled by shared .standard-panel class in App.css */
   
   .ranking-status p {
     font-size: 0.95rem;

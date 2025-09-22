@@ -159,7 +159,7 @@ function ChallengeList() {
 
         {/* Challenges Table */}
         <div className="challenges-section panel-spacing">
-          <div className="challenges-panel">
+          <div className="challenges-panel standard-panel">
             <div className="challenges-summary">
               <span className="summary-text">
                 Showing {availableChallenges.length} active challenges across {categories.length} categories
@@ -215,7 +215,7 @@ function ChallengeList() {
 
         {/* Create Game Section */}
         <div className="create-game-section panel-spacing">
-          <div className="create-game-panel">
+          <div className="create-game-panel standard-panel">
             <button 
               className="btn btn-primary btn-large"
               onClick={createGame}

@@ -204,7 +204,7 @@ function ChallengeSelector() {
 
         {/* Filter Section */}
         <div className="filter-section panel-spacing">
-          <div className="filter-panel">
+          <div className="filter-panel standard-panel">
             <h2>Filter by Category</h2>
             <div className="category-filters">
               {categories.map(category => (
@@ -237,7 +237,7 @@ function ChallengeSelector() {
 
         {/* Requirements Filter Section */}
         <div className="filter-section">
-          <div className="filter-panel">
+          <div className="filter-panel standard-panel">
             <h2>Filter by Requirements</h2>
             <div className="requirements-filters">
               {requirements.map(requirement => (
@@ -270,7 +270,7 @@ function ChallengeSelector() {
 
         {/* Challenges Table */}
         <div className="challenges-section panel-spacing">
-          <div className="challenges-panel">
+          <div className="challenges-panel standard-panel">
             <h2>Active Challenges</h2>
             <div className="challenges-summary">
               <span className="summary-text">
@@ -324,7 +324,7 @@ function ChallengeSelector() {
 
         {/* Save Challenges Section */}
         <div className="save-section panel-spacing">
-          <div className="save-panel">
+          <div className="save-panel standard-panel">
             <div className="save-content">
               <div className="save-buttons">
                 <button 
