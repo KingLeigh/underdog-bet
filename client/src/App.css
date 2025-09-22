@@ -13,6 +13,55 @@ main {
   margin: 0 auto;
 }
 
+/* Shared Panel Spacing Utilities */
+.panel-spacing {
+  margin-bottom: 2rem;
+}
+
+.panel-spacing:last-child {
+  margin-bottom: 0;
+}
+
+/* Standard panel styling - used by all top-level panels */
+.standard-panel {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.standard-panel h3 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Mobile styles for standard panels */
+@media (max-width: 768px) {
+  .standard-panel {
+    padding: 1.5rem;
+    border-radius: 12px;
+  }
+  
+  .standard-panel h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .standard-panel {
+    padding: 1.25rem;
+    border-radius: 10px;
+  }
+  
+  .standard-panel h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+}
+
 /* Button styles */
 .btn {
   padding: 0.75rem 1.5rem;

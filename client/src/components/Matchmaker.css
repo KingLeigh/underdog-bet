@@ -48,14 +48,11 @@
   margin-bottom: 0;
 }
 
-/* Panel styling to match GameLobby categories-section */
+/* Panel styling - now handled by shared .standard-panel class in App.css */
 .setup-panel,
 .simulation-panel,
 .matchups-panel {
-  padding: 2rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* All styling moved to shared .standard-panel class in App.css */
 }
 
 .setup-panel h3,
@@ -308,7 +305,7 @@ td input:focus {
   .setup-panel,
   .simulation-panel,
   .matchups-panel {
-    padding: 1.5rem;
+    /* Panel styling now handled by shared .standard-panel class in App.css */
   }
   
   .setup-panel h3,
@@ -496,7 +493,7 @@ td input:focus {
   .setup-panel,
   .simulation-panel,
   .matchups-panel {
-    padding: 1.25rem;
+    /* Panel styling now handled by shared .standard-panel class in App.css */
   }
   
   .setup-panel h3,

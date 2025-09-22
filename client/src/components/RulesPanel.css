@@ -1,17 +1,6 @@
-/* Game Information Panel */
+/* Game Information Panel - now uses .standard-panel class */
 .game-info-panel {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-top: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.game-info-panel h3 {
-  text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
+  /* All styling moved to shared .standard-panel class in App.css */
 }
 
 .game-info-table {
@@ -46,18 +35,9 @@
   font-weight: 500;
 }
 
-/* Responsive design */
+/* Responsive design - mobile styles now handled by shared .standard-panel class */
 @media (max-width: 768px) {
-  .game-info-panel {
-    padding: 0.875rem;
-    margin-top: 0.875rem;
-    border-radius: 6px;
-  }
-  
-  .game-info-panel h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1.25rem;
-  }
+  /* Panel styling moved to shared .standard-panel class in App.css */
   
   .game-info-table td {
     padding: 0.4rem 0.6rem;
@@ -77,18 +57,9 @@
   }
 }
 
-/* Extra small mobile devices */
+/* Extra small mobile devices - panel styling now handled by shared .standard-panel class */
 @media (max-width: 480px) {
-  .game-info-panel {
-    padding: 0.75rem;
-    margin-top: 0.75rem;
-    border-radius: 5px;
-  }
-  
-  .game-info-panel h3 {
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-  }
+  /* Panel styling moved to shared .standard-panel class in App.css */
   
   .game-info-table td {
     padding: 0.35rem 0.5rem;

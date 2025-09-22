@@ -203,7 +203,7 @@ function ChallengeSelector() {
         </div>
 
         {/* Filter Section */}
-        <div className="filter-section">
+        <div className="filter-section panel-spacing">
           <div className="filter-panel">
             <h3>Filter by Category</h3>
             <div className="category-filters">
@@ -269,7 +269,7 @@ function ChallengeSelector() {
         </div>
 
         {/* Challenges Table */}
-        <div className="challenges-section">
+        <div className="challenges-section panel-spacing">
           <div className="challenges-panel">
             <h3>Active Challenges</h3>
             <div className="challenges-summary">
@@ -323,7 +323,7 @@ function ChallengeSelector() {
         </div>
 
         {/* Save Challenges Section */}
-        <div className="save-section">
+        <div className="save-section panel-spacing">
           <div className="save-panel">
             <div className="save-content">
               <div className="save-buttons">

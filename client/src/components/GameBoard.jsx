@@ -168,16 +168,15 @@ function GameBoard() {
           <h2>Underdogs</h2>
         </div>
 
-        <div className="game-area">
+        <div className="game-area panel-spacing">
           {/* Wager System Interface */}
-          <div className="wager-section">
+          <div className="wager-section standard-panel">
             <h3>Current Contest{wagerCategory ? `: ${wagerCategory}` : ''}</h3>
             
             {!wagerActive && !wagerResolved && (
               <div className="wager-setup">
                 {isHost ? (
                   <div className="host-wager-controls">
-                    <h4>Propose a Player Contest</h4>
                     <WagerProposalForm onSubmit={(option1, option2, odds1, odds2, category) => proposeWager(option1, option2, odds1, odds2, category)} />
                   </div>
                 ) : (
@@ -413,7 +412,7 @@ function GameBoard() {
           </div>
         </div>
 
-        <div className="players-panel">
+        <div className="players-panel panel-spacing standard-panel">
           <div className="score-table">
             <table>
               <thead>
@@ -457,15 +456,17 @@ function GameBoard() {
         </div>
 
         {/* Game Information Panel */}
-        <RulesPanel 
-          gameState={gameState}
-          playerWagerCount={playerWagerCount}
-          categories={categories}
-        />
+        <div className="panel-spacing">
+          <RulesPanel 
+            gameState={gameState}
+            playerWagerCount={playerWagerCount}
+            categories={categories}
+          />
+        </div>
 
         {/* Player Rankings Section */}
         {categories && categories.length > 0 && rankingsComplete && (
-          <div className="player-rankings-section">
+          <div className="player-rankings-section panel-spacing standard-panel">
             <h3>Player Rankings</h3>
             <div className="rankings-grid">
               {players.map(pid => (

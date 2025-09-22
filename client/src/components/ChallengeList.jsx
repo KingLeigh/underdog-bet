@@ -158,7 +158,7 @@ function ChallengeList() {
         </div>
 
         {/* Challenges Table */}
-        <div className="challenges-section">
+        <div className="challenges-section panel-spacing">
           <div className="challenges-panel">
             <div className="challenges-summary">
               <span className="summary-text">
@@ -214,7 +214,7 @@ function ChallengeList() {
         </div>
 
         {/* Create Game Section */}
-        <div className="create-game-section">
+        <div className="create-game-section panel-spacing">
           <div className="create-game-panel">
             <button 
               className="btn btn-primary btn-large"

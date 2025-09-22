@@ -184,7 +184,7 @@ function GameLobby() {
           </div>
         </div>
 
-        <div className="players-section">
+        <div className="players-section panel-spacing">
           <h3>Players ({players.length})</h3>
           <div className="players-list">
             {players.map((playerId) => (
@@ -208,7 +208,7 @@ function GameLobby() {
 
         {/* Category Ranking Section */}
         {categories && categories.length > 0 && (
-          <div className="categories-section category-ranking">
+          <div className="categories-section category-ranking panel-spacing">
             {categories && categories.length > 0 && !playerRankings[playerId] && (
               <>
                 <div className="ranking-header">
@@ -277,7 +277,7 @@ function GameLobby() {
 
         {/* Rankings Status */}
         {categories && categories.length > 0 && (
-          <div className="ranking-status">
+          <div className="ranking-status panel-spacing">
             <p>
               {Object.keys(playerRankings).length} of {players.length} players have submitted rankings
             </p>
@@ -285,11 +285,13 @@ function GameLobby() {
         )}
 
         {/* Rules Panel */}
-        <RulesPanel 
-          gameState={gameState}
-          playerWagerCount={null}
-          categories={categories}
-        />
+        <div className="panel-spacing">
+          <RulesPanel 
+            gameState={gameState}
+            playerWagerCount={null}
+            categories={categories}
+          />
+        </div>
 
         {isHost && players.length >= 2 && (
           <div className="host-controls">

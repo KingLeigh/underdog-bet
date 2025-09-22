@@ -1096,8 +1096,8 @@ function Matchmaker() {
 
         {/* Game Setup Section */}
         {!isViewOnlyMode && (
-        <div className="game-setup-section">
-          <div className="setup-panel">
+        <div className="game-setup-section panel-spacing">
+          <div className="setup-panel standard-panel">
             <h3>Game Setup</h3>
             
             <div className="top-controls">
@@ -1202,8 +1202,8 @@ function Matchmaker() {
 
         {/* Simulation Section */}
         {!isViewOnlyMode && !isUrlLoaded && (
-        <div className="simulation-section">
-          <div className="simulation-panel">
+        <div className="simulation-section panel-spacing">
+          <div className="simulation-panel standard-panel">
             <h3>Simulation</h3>
             
             <div className="simulation-controls">
@@ -1242,7 +1242,7 @@ function Matchmaker() {
 
         {/* Player Rankings Section */}
         {!isViewOnlyMode && (
-        <div className="player-rankings-section">
+        <div className="player-rankings-section panel-spacing standard-panel">
           <h3>Player Rankings</h3>
           
           <div className="player-controls">
@@ -1348,8 +1348,8 @@ function Matchmaker() {
 
         {/* Match Ups Section */}
         {solveOutput && (
-          <div className="matchups-section">
-            <div className="matchups-panel">
+          <div className="matchups-section panel-spacing">
+            <div className="matchups-panel standard-panel">
               <h3>Matchups</h3>
               <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
               {!isViewOnlyMode && (
