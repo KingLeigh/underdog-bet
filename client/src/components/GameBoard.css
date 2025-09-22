@@ -786,18 +786,46 @@
 }
 
 @media (max-width: 768px) {
+  .game-board {
+    padding: 0.5rem 0;
+    align-items: flex-start;
+    padding-top: 1rem;
+  }
+  
   .game-board-content {
-    margin: 1rem;
     padding: 1.5rem;
+    margin: 0;
+    border-radius: 15px;
+  }
+  
+  .game-header {
+    margin-bottom: 1.5rem;
   }
   
   .game-header h2 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
   }
   
   .game-info {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
+  }
+  
+  .game-info > span,
+  .game-info > div {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    min-width: 100px;
+  }
+  
+  .players-panel {
+    padding: 1.5rem;
+  }
+  
+  .players-panel h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
   
   .score-table th,
@@ -823,28 +851,614 @@
     padding: 0.2rem 0.4rem;
   }
   
-  /* Wager system responsive */
-  .wager-options {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+  .wager-section {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .wager-section h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
   }
   
   .wager-proposal-form {
     max-width: 100%;
-  }
-  
-  .wager-resolution-form {
-    max-width: 100%;
-  }
-  
-  .choice-radio {
-    flex-direction: column;
     gap: 0.75rem;
+  }
+  
+  .form-group {
+    gap: 0.4rem;
+  }
+  
+  .form-group label {
+    font-size: 0.95rem;
+  }
+  
+  .form-input {
+    font-size: 0.95rem;
+    padding: 0.625rem;
   }
   
   .odds-section {
     grid-template-columns: 1fr;
     gap: 0.75rem;
+  }
+  
+  .odds-input {
+    font-size: 0.9rem;
+  }
+  
+  .odds-display {
+    font-size: 0.8rem;
+  }
+  
+  .wager-options {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .wager-option {
+    padding: 0.75rem;
+  }
+  
+  .wager-option strong {
+    font-size: 0.95rem;
+  }
+  
+  .rank-display {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .wager-input-section {
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+    max-width: 100%;
+  }
+  
+  .wager-input-section h4 {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .wager-input-form {
+    gap: 0.75rem;
+  }
+  
+  .form-actions {
+    gap: 0.75rem;
+    margin-top: 0.875rem;
+  }
+  
+  .form-actions .btn {
+    min-width: 100px;
+    padding: 0.625rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .player-choice h4 {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .choice-made {
+    padding: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .choice-made strong {
+    font-size: 0.95rem;
+  }
+  
+  .player-choices-summary h4 {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .player-choice-item {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .player-choice-item strong {
+    font-size: 0.9rem;
+  }
+  
+  .host-resolve-controls {
+    padding: 1.25rem;
+    margin-top: 0.875rem;
+  }
+  
+  .host-resolve-controls h4 {
+    font-size: 1.1rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .wager-resolution-form {
+    max-width: 100%;
+    gap: 0.75rem;
+  }
+  
+  .resolution-label {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .resolution-options {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .resolution-option {
+    padding: 0.75rem;
+  }
+  
+  .resolution-option strong {
+    font-size: 0.95rem;
+  }
+  
+  .wager-results h4 {
+    font-size: 1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .wager-results p {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .result-item {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .result-header {
+    font-size: 0.9rem;
+  }
+  
+  .result-detail {
+    font-size: 0.8rem;
+  }
+  
+  .wager-amount {
+    font-size: 0.9rem;
+  }
+  
+  .points-change {
+    font-size: 0.9rem;
+  }
+  
+  .waiting-message {
+    padding: 0.875rem;
+    font-size: 0.9rem;
+  }
+  
+  .player-rankings-section {
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .player-rankings-section h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .rankings-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .player-ranking-card {
+    padding: 0.75rem;
+  }
+  
+  .player-ranking-card h4 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .ranking-item {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .category-name {
+    font-size: 0.9rem;
+  }
+  
+  .rank-value {
+    font-size: 0.9rem;
+  }
+  
+  .bounty-display {
+    padding: 0.875rem;
+    margin: 0.875rem 0;
+  }
+  
+  .bounty-label {
+    font-size: 1rem;
+  }
+  
+  .bounty-amount {
+    font-size: 1.1rem;
+  }
+  
+  .bounty-description {
+    font-size: 0.8rem;
+  }
+  
+  .bounty-result {
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .bounty-icon {
+    font-size: 1.25rem;
+  }
+  
+  .bounty-text {
+    font-size: 1rem;
+  }
+  
+  .bounty-text strong {
+    font-size: 1.05rem;
+  }
+  
+  .bounty-badge {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+  }
+  
+  .bounty-points {
+    font-size: 1rem;
+  }
+  
+  .winner-label {
+    font-size: 0.95rem;
+  }
+  
+  .positive-points {
+    font-size: 1rem;
+  }
+  
+  .negative-points {
+    font-size: 1rem;
+  }
+  
+  .error-message {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .game-board {
+    padding: 0.25rem 0;
+    padding-top: 0.5rem;
+  }
+  
+  .game-board-content {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  
+  .game-header {
+    margin-bottom: 1.25rem;
+  }
+  
+  .game-header h2 {
+    font-size: 1.6rem;
+  }
+  
+  .game-info {
+    gap: 0.5rem;
+  }
+  
+  .game-info > span,
+  .game-info > div {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+    min-width: 90px;
+  }
+  
+  .players-panel {
+    padding: 1.25rem;
+  }
+  
+  .players-panel h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .score-table th,
+  .score-table td {
+    padding: 0.6rem 0.4rem;
+  }
+  
+  .player-name {
+    font-size: 0.85rem;
+  }
+  
+  .points-value {
+    font-size: 0.95rem;
+  }
+  
+  .host-badge {
+    font-size: 0.55rem;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .wager-section {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .wager-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .wager-proposal-form {
+    gap: 0.6rem;
+  }
+  
+  .form-group {
+    gap: 0.3rem;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+  }
+  
+  .form-input {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+  
+  .odds-input {
+    font-size: 0.85rem;
+  }
+  
+  .odds-display {
+    font-size: 0.75rem;
+  }
+  
+  .wager-option {
+    padding: 0.625rem;
+  }
+  
+  .wager-option strong {
+    font-size: 0.9rem;
+  }
+  
+  .rank-display {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .wager-input-section {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .wager-input-section h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .wager-input-form {
+    gap: 0.6rem;
+  }
+  
+  .form-actions {
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+  }
+  
+  .form-actions .btn {
+    min-width: 90px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .btn-small {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+  }
+  
+  .player-choice h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .choice-made {
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .choice-made strong {
+    font-size: 0.9rem;
+  }
+  
+  .player-choices-summary h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .player-choice-item {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .player-choice-item strong {
+    font-size: 0.85rem;
+  }
+  
+  .host-resolve-controls {
+    padding: 1rem;
+    margin-top: 0.75rem;
+  }
+  
+  .host-resolve-controls h4 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .wager-resolution-form {
+    gap: 0.6rem;
+  }
+  
+  .resolution-label {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .resolution-options {
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  
+  .resolution-option {
+    padding: 0.625rem;
+  }
+  
+  .resolution-option strong {
+    font-size: 0.9rem;
+  }
+  
+  .wager-results h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .wager-results p {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+  
+  .result-item {
+    padding: 0.5rem 0.6rem;
+    margin-bottom: 0.3rem;
+  }
+  
+  .result-header {
+    font-size: 0.85rem;
+  }
+  
+  .result-detail {
+    font-size: 0.75rem;
+  }
+  
+  .wager-amount {
+    font-size: 0.85rem;
+  }
+  
+  .points-change {
+    font-size: 0.85rem;
+  }
+  
+  .waiting-message {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .player-rankings-section {
+    padding: 1.25rem;
+    margin-top: 1.25rem;
+  }
+  
+  .player-rankings-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .player-ranking-card {
+    padding: 0.625rem;
+  }
+  
+  .player-ranking-card h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.625rem;
+  }
+  
+  .ranking-item {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .category-name {
+    font-size: 0.85rem;
+  }
+  
+  .rank-value {
+    font-size: 0.85rem;
+  }
+  
+  .bounty-display {
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  
+  .bounty-label {
+    font-size: 0.95rem;
+  }
+  
+  .bounty-amount {
+    font-size: 1rem;
+  }
+  
+  .bounty-description {
+    font-size: 0.75rem;
+  }
+  
+  .bounty-result {
+    padding: 0.5rem 0.6rem;
+    margin-bottom: 0.3rem;
+  }
+  
+  .bounty-icon {
+    font-size: 1.1rem;
+  }
+  
+  .bounty-text {
+    font-size: 0.95rem;
+  }
+  
+  .bounty-text strong {
+    font-size: 1rem;
+  }
+  
+  .bounty-badge {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .bounty-points {
+    font-size: 0.95rem;
+  }
+  
+  .winner-label {
+    font-size: 0.9rem;
+  }
+  
+  .positive-points {
+    font-size: 0.95rem;
+  }
+  
+  .negative-points {
+    font-size: 0.95rem;
+  }
+  
+  .error-message {
+    padding: 0.625rem;
+    font-size: 0.85rem;
   }
 }
 

@@ -45,3 +45,65 @@
   color: #f59e0b;
   font-weight: 500;
 }
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .game-info-panel {
+    padding: 0.875rem;
+    margin-top: 0.875rem;
+    border-radius: 6px;
+  }
+  
+  .game-info-panel h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .game-info-table td {
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .info-label {
+    font-size: 0.85rem;
+    width: 35%;
+  }
+  
+  .info-value {
+    font-size: 0.9rem;
+  }
+  
+  .bounty-detail {
+    font-size: 0.9rem;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .game-info-panel {
+    padding: 0.75rem;
+    margin-top: 0.75rem;
+    border-radius: 5px;
+  }
+  
+  .game-info-panel h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .game-info-table td {
+    padding: 0.35rem 0.5rem;
+  }
+  
+  .info-label {
+    font-size: 0.8rem;
+    width: 30%;
+  }
+  
+  .info-value {
+    font-size: 0.85rem;
+  }
+  
+  .bounty-detail {
+    font-size: 0.85rem;
+  }
+}

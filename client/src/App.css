@@ -57,6 +57,147 @@ main {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* Shared Mobile CSS Utilities */
+.mobile-container {
+  padding: 0.5rem;
+  align-items: flex-start;
+  padding-top: 1rem;
+}
+
+.mobile-content {
+  padding: 1.5rem;
+  margin: 0;
+  border-radius: 15px;
+}
+
+.mobile-header {
+  margin-bottom: 2rem;
+}
+
+.mobile-header h1,
+.mobile-header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.mobile-header p {
+  font-size: 1rem;
+}
+
+.mobile-section {
+  padding: 1.25rem;
+  border-radius: 12px;
+}
+
+.mobile-section h2,
+.mobile-section h3 {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.mobile-form-group {
+  margin-bottom: 1.25rem;
+}
+
+.mobile-form-group label {
+  font-size: 0.95rem;
+  margin-bottom: 0.375rem;
+}
+
+.mobile-form-group input,
+.mobile-form-group select {
+  font-size: 0.95rem;
+  padding: 0.625rem;
+  border-radius: 6px;
+}
+
+.mobile-form-help {
+  font-size: 0.8rem;
+  margin-top: 0.375rem;
+}
+
+.mobile-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.mobile-btn-large {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  min-width: auto;
+}
+
+.mobile-error-message {
+  padding: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.mobile-info-message {
+  padding: 0.625rem;
+  font-size: 0.85rem;
+}
+
+/* Extra small mobile devices */
+.mobile-container-xs {
+  padding: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+.mobile-content-xs {
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.mobile-header-xs {
+  margin-bottom: 1.5rem;
+}
+
+.mobile-header-xs h1,
+.mobile-header-xs h2 {
+  font-size: 1.6rem;
+}
+
+.mobile-header-xs p {
+  font-size: 0.9rem;
+}
+
+.mobile-section-xs {
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.mobile-section-xs h2,
+.mobile-section-xs h3 {
+  font-size: 1.1rem;
+  margin-bottom: 0.875rem;
+}
+
+.mobile-form-group-xs {
+  margin-bottom: 1rem;
+}
+
+.mobile-form-group-xs label {
+  font-size: 0.9rem;
+}
+
+.mobile-form-group-xs input,
+.mobile-form-group-xs select {
+  font-size: 0.9rem;
+  padding: 0.5rem;
+}
+
+.mobile-form-help-xs {
+  font-size: 0.75rem;
+}
+
+.mobile-btn-large-xs {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   main {

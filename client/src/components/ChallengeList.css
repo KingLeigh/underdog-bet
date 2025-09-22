@@ -261,32 +261,92 @@
 /* Responsive design */
 @media (max-width: 768px) {
   .challenge-list {
-    padding: 1rem 0;
+    padding: 0.5rem 0;
+    align-items: flex-start;
+    padding-top: 1rem;
   }
   
   .challenge-list-content {
     padding: 1.5rem;
+    margin: 0;
+    border-radius: 15px;
+  }
+  
+  .challenge-list-header {
+    margin-bottom: 1.5rem;
   }
   
   .challenge-list-header h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .challenges-section {
+    margin-bottom: 1.5rem;
   }
   
   .challenges-panel {
     padding: 1.5rem;
   }
   
+  .challenges-panel h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .challenges-summary {
+    margin-bottom: 0.875rem;
+  }
+  
+  .summary-text {
+    font-size: 0.85rem;
+  }
+  
+  .challenges-table-container {
+    margin-top: 0.875rem;
+  }
+  
   .challenges-table {
     min-width: 600px;
   }
   
-  .challenge-rules {
+  .challenges-table th,
+  .challenges-table td {
+    padding: 0.6rem 0.5rem;
+  }
+  
+  .challenges-table th {
+    font-size: 0.8rem;
+  }
+  
+  .challenges-table td {
+    font-size: 0.85rem;
+  }
+  
+  .challenge-category {
+    width: 120px;
+  }
+  
+  .challenge-name {
+    width: 150px;
+  }
+  
+  .challenge-requirements {
     width: 100px;
+  }
+  
+  .challenge-rules {
+    width: 80px;
+  }
+  
+  .rules-link {
+    font-size: 0.75rem;
   }
   
   .rules-modal-content {
     width: 95%;
     max-height: 90vh;
+    margin: 0.5rem;
   }
   
   .rules-modal-header,
@@ -296,7 +356,208 @@
   }
   
   .rules-modal-header h3 {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+  }
+  
+  .challenge-info {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.875rem;
+  }
+  
+  .challenge-info p {
+    font-size: 0.9rem;
+  }
+  
+  .rules-content h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .rules-content p {
+    font-size: 0.9rem;
+  }
+  
+  .create-game-section {
+    margin-top: 1.5rem;
+  }
+  
+  .create-game-panel {
+    padding: 1.5rem;
+  }
+  
+  .btn-large {
+    width: 100%;
+    max-width: 200px;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .loading-state,
+  .error-state {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  
+  .loading-state p {
+    font-size: 1rem;
+  }
+  
+  .error-state p {
+    font-size: 1rem;
+  }
+  
+  .error-state button {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .challenge-list {
+    padding: 0.25rem 0;
+    padding-top: 0.5rem;
+  }
+  
+  .challenge-list-content {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  
+  .challenge-list-header {
+    margin-bottom: 1.25rem;
+  }
+  
+  .challenge-list-header h1 {
+    font-size: 1.6rem;
+  }
+  
+  .challenges-section {
+    margin-bottom: 1.25rem;
+  }
+  
+  .challenges-panel {
+    padding: 1.25rem;
+  }
+  
+  .challenges-panel h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+  
+  .challenges-summary {
+    margin-bottom: 0.75rem;
+  }
+  
+  .summary-text {
+    font-size: 0.8rem;
+  }
+  
+  .challenges-table-container {
+    margin-top: 0.75rem;
+  }
+  
+  .challenges-table {
+    min-width: 500px;
+  }
+  
+  .challenges-table th,
+  .challenges-table td {
+    padding: 0.5rem 0.4rem;
+  }
+  
+  .challenges-table th {
+    font-size: 0.75rem;
+  }
+  
+  .challenges-table td {
+    font-size: 0.8rem;
+  }
+  
+  .challenge-category {
+    width: 100px;
+  }
+  
+  .challenge-name {
+    width: 120px;
+  }
+  
+  .challenge-requirements {
+    width: 80px;
+  }
+  
+  .challenge-rules {
+    width: 70px;
+  }
+  
+  .rules-link {
+    font-size: 0.7rem;
+  }
+  
+  .rules-modal-content {
+    width: 98%;
+    margin: 0.25rem;
+  }
+  
+  .rules-modal-header,
+  .rules-modal-body,
+  .rules-modal-footer {
+    padding: 0.75rem;
+  }
+  
+  .rules-modal-header h3 {
+    font-size: 1rem;
+  }
+  
+  .challenge-info {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  .challenge-info p {
+    font-size: 0.85rem;
+  }
+  
+  .rules-content h4 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .rules-content p {
+    font-size: 0.85rem;
+  }
+  
+  .create-game-section {
+    margin-top: 1.25rem;
+  }
+  
+  .create-game-panel {
+    padding: 1.25rem;
+  }
+  
+  .btn-large {
+    max-width: 180px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+  }
+  
+  .loading-state,
+  .error-state {
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+  }
+  
+  .loading-state p {
+    font-size: 0.95rem;
+  }
+  
+  .error-state p {
+    font-size: 0.95rem;
+  }
+  
+  .error-state button {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
   }
 }
 
