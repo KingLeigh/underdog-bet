@@ -178,7 +178,7 @@ function CreateGame() {
         </div>
 
         <form onSubmit={handleCreateGame} className="create-game-form">
-          <div className="form-section">
+          <div className="form-section standard-panel">
             <h2>Player</h2>
             
             <div className="form-group">
@@ -195,7 +195,7 @@ function CreateGame() {
             </div>
           </div>
 
-          <div className="form-section">
+          <div className="form-section standard-panel">
             <h2>Betting Options</h2>
             
             <div className="form-group">
@@ -285,7 +285,7 @@ function CreateGame() {
             )}
           </div>
 
-          <div className="form-section">
+          <div className="form-section standard-panel">
             <h2>Game Categories</h2>
             
             <div className="form-group">

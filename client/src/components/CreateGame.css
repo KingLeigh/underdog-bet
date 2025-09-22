@@ -42,13 +42,6 @@
   gap: 2rem;
 }
 
-.form-section {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 15px;
-  padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
 .form-section h2 {
   font-size: 1.5rem;
   margin-bottom: 1.5rem;
@@ -173,11 +166,6 @@ input:disabled {
     gap: 1.5rem;
   }
   
-  .form-section {
-    padding: 1.25rem;
-    border-radius: 12px;
-  }
-  
   .form-section h2 {
     font-size: 1.25rem;
     margin-bottom: 1rem;
@@ -255,11 +243,6 @@ input:disabled {
   
   .create-game-form {
     gap: 1.25rem;
-  }
-  
-  .form-section {
-    padding: 1rem;
-    border-radius: 10px;
   }
   
   .form-section h2 {

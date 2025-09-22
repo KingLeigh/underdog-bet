@@ -24,7 +24,6 @@ main {
 
 /* Standard panel styling - used by all top-level panels */
 .standard-panel {
-  background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
   padding: 2rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
