@@ -1,12 +1,10 @@
-.category-ranking {
+.category-ranking,
+.categories-section.category-ranking {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
   padding: 2rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   margin-bottom: 2rem;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .ranking-header {
@@ -118,9 +116,9 @@
 
 /* Mobile-specific styles */
 @media (max-width: 768px) {
-  .category-ranking {
+  .category-ranking,
+  .categories-section.category-ranking {
     padding: 1.5rem;
-    margin: 0.5rem;
     border-radius: 12px;
   }
   
@@ -180,9 +178,9 @@
 
 /* Extra small mobile devices */
 @media (max-width: 480px) {
-  .category-ranking {
+  .category-ranking,
+  .categories-section.category-ranking {
     padding: 1.25rem;
-    margin: 0.25rem;
     border-radius: 10px;
   }
   

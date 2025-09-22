@@ -1091,7 +1091,7 @@ function Matchmaker() {
     <div className="matchmaker">
       <div className="matchmaker-content">
         <div className="matchmaker-header">
-          <h1>Underdogs Matchmaker</h1>
+          <h1>Matchmaker</h1>
         </div>
 
         {/* Game Setup Section */}

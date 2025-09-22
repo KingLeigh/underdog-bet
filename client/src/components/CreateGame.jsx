@@ -286,7 +286,7 @@ function CreateGame() {
           </div>
 
           <div className="form-section">
-            <h2>Game Categories (Optional)</h2>
+            <h2>Game Categories</h2>
             
             <div className="form-group">
               <label htmlFor="categories">Categories:</label>
@@ -303,11 +303,6 @@ function CreateGame() {
               <small className="form-help">
                 Comma-separated list of categories for player ranking. Players will rank themselves 1-N in each category before the game starts.
               </small>
-              {isPreFilled && (
-                <div className="info-message">
-                  <strong>Pre-filled from Challenge Selector:</strong> These fields are locked because they match your selected challenges.
-                </div>
-              )}
               {!validateUniqueCategories().isValid && (
                 <div className="error-message">
                   <strong>Duplicate categories found:</strong> {validateUniqueCategories().duplicates.join(', ')}. Please ensure all category names are unique.
