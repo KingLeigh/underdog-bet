@@ -120,6 +120,26 @@
   text-align: center;
 }
 
+/* Row selection styling */
+.challenges-table tr {
+  transition: all 0.2s ease;
+}
+
+.challenges-table tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.deselected-row {
+  opacity: 0.4;
+  text-decoration: line-through;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.deselected-row:hover {
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0.6;
+}
+
 /* Rules link styling */
 .rules-link {
   color: rgba(255, 255, 255, 0.9);

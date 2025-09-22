@@ -10,6 +10,7 @@ function ChallengeList() {
   const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedChallenge, setSelectedChallenge] = useState(null)
+  const [deselectedChallenges, setDeselectedChallenges] = useState(new Set())
 
   // Fetch all challenges from server
   useEffect(() => {
@@ -46,7 +47,15 @@ function ChallengeList() {
         const selectedChallenges = allChallenges.filter(challenge => 
           challengeIds.includes(challenge.id)
         ).sort((a, b) => {
-          // Sort by category first, then by ID within each category
+          // First sort by selection status (selected first, deselected last)
+          const aSelected = !deselectedChallenges.has(a.id)
+          const bSelected = !deselectedChallenges.has(b.id)
+          
+          if (aSelected !== bSelected) {
+            return bSelected - aSelected // true (selected) comes before false (deselected)
+          }
+          
+          // Then sort by category, then by ID within each category
           if (a.category !== b.category) {
             return a.category.localeCompare(b.category)
           }
@@ -58,7 +67,7 @@ function ChallengeList() {
         setChallenges(allChallenges)
       }
     }
-  }, [allChallenges, searchParams])
+  }, [allChallenges, searchParams, deselectedChallenges])
 
   const openRulesModal = (challenge) => {
     setSelectedChallenge(challenge)
@@ -70,10 +79,23 @@ function ChallengeList() {
     setSelectedChallenge(null)
   }
 
+  const toggleChallengeSelection = (challengeId) => {
+    const newDeselected = new Set(deselectedChallenges)
+    if (newDeselected.has(challengeId)) {
+      newDeselected.delete(challengeId)
+    } else {
+      newDeselected.add(challengeId)
+    }
+    setDeselectedChallenges(newDeselected)
+  }
+
   const createGame = () => {
+    // Only use challenges that are not deselected
+    const availableChallenges = challenges.filter(challenge => !deselectedChallenges.has(challenge.id))
+    
     // Calculate categories and their counts
     const categoryCounts = {}
-    challenges.forEach(challenge => {
+    availableChallenges.forEach(challenge => {
       categoryCounts[challenge.category] = (categoryCounts[challenge.category] || 0) + 1
     })
     
@@ -86,8 +108,9 @@ function ChallengeList() {
     window.open(createGameUrl, '_blank')
   }
 
-  // Get unique categories from challenges
-  const categories = [...new Set(challenges.map(challenge => challenge.category))]
+  // Get unique categories from non-deselected challenges only
+  const availableChallenges = challenges.filter(challenge => !deselectedChallenges.has(challenge.id))
+  const categories = [...new Set(availableChallenges.map(challenge => challenge.category))]
 
   // Show loading state
   if (loading) {
@@ -140,7 +163,10 @@ function ChallengeList() {
             <h3>Challenge List</h3>
             <div className="challenges-summary">
               <span className="summary-text">
-                Showing {challenges.length} challenges across {categories.length} categories
+                Showing {availableChallenges.length} active challenges across {categories.length} categories
+                {deselectedChallenges.size > 0 && (
+                  <span> ({deselectedChallenges.size} deselected)</span>
+                )}
               </span>
             </div>
             <div className="challenges-table-container">
@@ -154,25 +180,34 @@ function ChallengeList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {challenges.map(challenge => (
-                    <tr key={challenge.id}>
-                      <td className="challenge-category">{challenge.category}</td>
-                      <td className="challenge-name">{challenge.challengeName}</td>
-                      <td className="challenge-requirements">{challenge.requirements}</td>
-                      <td className="challenge-rules">
-                        <a 
-                          href="#"
-                          className="rules-link"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            openRulesModal(challenge)
-                          }}
-                        >
-                          Show Rules
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
+                  {challenges.map(challenge => {
+                    const isDeselected = deselectedChallenges.has(challenge.id)
+                    return (
+                      <tr 
+                        key={challenge.id}
+                        className={isDeselected ? 'deselected-row' : ''}
+                        onClick={() => toggleChallengeSelection(challenge.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td className="challenge-category">{challenge.category}</td>
+                        <td className="challenge-name">{challenge.challengeName}</td>
+                        <td className="challenge-requirements">{challenge.requirements}</td>
+                        <td className="challenge-rules">
+                          <a 
+                            href="#"
+                            className="rules-link"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              openRulesModal(challenge)
+                            }}
+                          >
+                            Show Rules
+                          </a>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -185,6 +220,7 @@ function ChallengeList() {
             <button 
               className="btn btn-primary btn-large"
               onClick={createGame}
+              disabled={availableChallenges.length === 0}
             >
               Create Game
             </button>
