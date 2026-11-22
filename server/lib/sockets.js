@@ -97,6 +97,10 @@ function registerSocketHandlers(io) {
       playerData.gameId = gameId;
 
       const startingPoints = gameConfig.startingPoints || 100;
+      // Minimum balance floor: losses are clamped so no player ever drops
+      // below it (0 allows busting). Clamped into [0, startingPoints].
+      const requestedMinBalance = Number.isFinite(gameConfig.minBalance) ? gameConfig.minBalance : 10;
+      const minBalance = Math.max(0, Math.min(requestedMinBalance, startingPoints));
       const maxBetSize = gameConfig.maxBetSize || null;
       const bounty = gameConfig.bounty || 'None';
       const bountyAmount = gameConfig.bountyAmount || null;
@@ -108,6 +112,7 @@ function registerSocketHandlers(io) {
         status: 'waiting',
         createdAt: new Date().toISOString(),
         startingPoints: startingPoints,
+        minBalance: minBalance,
         maxBetSize: maxBetSize,
         bounty: bounty,
         bountyAmount: bountyAmount,

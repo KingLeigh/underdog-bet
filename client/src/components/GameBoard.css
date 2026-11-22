@@ -179,10 +179,6 @@
   font-size: 1.2rem;
 }
 
-.points-value.negative {
-  color: #ef4444;
-}
-
 .points-value.highest-score {
   color: #fbbf24;
 }

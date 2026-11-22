@@ -29,7 +29,7 @@ function lastEvent(events, name) {
   return null;
 }
 
-// A 3-player game: p1 hosts, all at 100 points
+// A 3-player game: p1 hosts, all at 100 points, minimum balance floor 10
 function makeGame(overrides = {}) {
   return {
     id: 'TEST01',
@@ -37,6 +37,7 @@ function makeGame(overrides = {}) {
     players: ['p1', 'p2', 'p3'],
     status: 'playing',
     startingPoints: 100,
+    minBalance: 10,
     maxBetSize: null,
     bounty: 'None',
     bountyAmount: null,
@@ -136,13 +137,13 @@ test('makeChoice records the bet and keeps the choice secret in the broadcast', 
   assert.equal(emitted.points, 30);
 });
 
-test('makeChoice rejects non-positive and over-limit bets', () => {
+test('makeChoice rejects non-positive bets and bets above the balance', () => {
   const game = makeGame();
   propose(io, game);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 0 }, 'p3');
   processGameAction(io, game, 'makeChoice', { choice: 0, points: -5 }, 'p3');
-  // p3 has 100 points: cap is max(50, 100) = 100
+  // p3 has 100 points: a bet can never exceed the balance
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 101 }, 'p3');
 
   assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
@@ -151,12 +152,15 @@ test('makeChoice rejects non-positive and over-limit bets', () => {
   assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 100);
 });
 
-test('a player with few points may still bet up to 50 (scores can go negative)', () => {
+test('a player at the floor can bet their whole balance, but no more', () => {
   const game = makeGame({ playerPoints: { p1: 100, p2: 100, p3: 10 } });
   propose(io, game);
 
-  processGameAction(io, game, 'makeChoice', { choice: 0, points: 50 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 50);
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 11 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 10);
 });
 
 test('the game-level maxBetSize caps every bet', () => {
@@ -254,6 +258,57 @@ test('resolution resets the wager state for the next round', () => {
   assert.equal(state.isActive, false);
   assert.deepEqual(state.contestants, []);
   assert.deepEqual(state.playerChoices, {});
+});
+
+// ---- minimum balance floor --------------------------------------------------
+
+test('losses are clamped at the minimum balance floor', () => {
+  const game = makeGame({ minBalance: 10 });
+  propose(io, game);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 100 }, 'p3'); // all-in
+  processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
+
+  assert.equal(game.playerPoints.p3, 10, 'balance stops at the floor');
+  const emitted = lastEvent(events, 'wagerResolved');
+  assert.equal(emitted.results.find(r => r.playerId === 'p3').pointsChange, '-90',
+    'reported change is the actual clamped loss');
+});
+
+test('a losing bet placed from the floor costs nothing', () => {
+  const game = makeGame({ minBalance: 10, playerPoints: { p1: 100, p2: 100, p3: 10 } });
+  propose(io, game);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
+
+  assert.equal(game.playerPoints.p3, 10, 'floor player keeps their balance');
+  const emitted = lastEvent(events, 'wagerResolved');
+  assert.equal(emitted.results.find(r => r.playerId === 'p3').pointsChange, '-0');
+});
+
+test('losses comfortably above the floor are not clamped', () => {
+  const game = makeGame({ minBalance: 10 });
+  propose(io, game);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 30 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
+
+  assert.equal(game.playerPoints.p3, 70, 'full stake lost away from the floor');
+});
+
+test('with minimum balance 0 a player can bust and can no longer bet', () => {
+  const game = makeGame({ minBalance: 0, playerPoints: { p1: 100, p2: 100, p3: 40 } });
+  propose(io, game);
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 40 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
+
+  assert.equal(game.playerPoints.p3, 0, 'busted to zero');
+
+  // Next wager: the busted player cannot place any bet
+  propose(io, game);
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 1 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
 });
 
 // ---- bounty rules -----------------------------------------------------------

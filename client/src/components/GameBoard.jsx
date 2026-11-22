@@ -296,6 +296,7 @@ function GameBoard() {
                           setSelectedOption(null);
                         }}
                         currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
+                        minBalance={gameState?.minBalance || 0}
                         maxBetSize={gameState?.maxBetSize}
                         onCancel={() => setSelectedOption(null)}
                       />
@@ -434,7 +435,7 @@ function GameBoard() {
                         </div>
                       </td>
                       <td className="points-cell">
-                        <span className={`points-value ${player.points < 0 ? 'negative' : ''} ${index === 0 ? 'highest-score' : ''}`}>{player.points}</span>
+                        <span className={`points-value ${index === 0 ? 'highest-score' : ''}`}>{player.points}</span>
                       </td>
                     </tr>
                   ))}
@@ -707,28 +708,27 @@ function WagerProposalForm({ onSubmit }) {
 }
 
 // Wager Input Form Component (for points only)
-function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
+function WagerInputForm({ onSubmit, currentPoints, minBalance, maxBetSize, onCancel }) {
   const [points, setPoints] = useState('')
 
-  // Calculate the effective maximum wager
-  const calculateMaxWager = () => {
-    // Players can bet up to 50 points OR their current points, whichever is larger
-    let maxWager = Math.max(50, currentPoints);
-    
-    // Apply game-level maximum bet size limit if configured
-    if (maxBetSize !== null && maxBetSize !== undefined) {
-      maxWager = Math.min(maxWager, maxBetSize);
-    }
-    
-    return maxWager;
+  // Players can never bet more than their balance (optionally clamped by the
+  // game's maximum bet size)
+  let maxWager = currentPoints;
+  if (maxBetSize !== null && maxBetSize !== undefined) {
+    maxWager = Math.min(maxWager, maxBetSize);
   }
 
-  const maxWager = calculateMaxWager();
+  const parsedPoints = parseInt(points)
+  const validBet = !isNaN(parsedPoints) && parsedPoints > 0 && parsedPoints <= maxWager
+
+  // Losses are clamped at the minimum balance floor, so only the part of the
+  // bet above the floor is actually at risk
+  const atRisk = validBet ? Math.min(parsedPoints, Math.max(0, currentPoints - minBalance)) : null
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
-      onSubmit(parseInt(points))
+    if (validBet) {
+      onSubmit(parsedPoints)
       setPoints('')
     }
   }
@@ -748,10 +748,19 @@ function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
           required
           className="form-input"
         />
+        {atRisk !== null && (
+          <small className="form-help">
+            {atRisk === 0
+              ? 'Risk-free: you are at the minimum balance, so a loss costs nothing.'
+              : atRisk < parsedPoints
+                ? `At risk: ${atRisk} of ${parsedPoints} points (losses stop at the minimum balance of ${minBalance}).`
+                : `At risk: ${parsedPoints} points.`}
+          </small>
+        )}
       </div>
-      
+
       <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) <= 0 || parseInt(points) > maxWager}>
+        <button type="submit" className="btn btn-primary" disabled={!validBet}>
           Submit Wager
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel}>

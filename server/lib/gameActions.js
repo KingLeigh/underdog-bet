@@ -94,20 +94,14 @@ function processGameAction(io, game, action, payload, playerID) {
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
           const currentPoints = game.playerPoints[playerID] || 0;
 
-          // Validate the wager amount
-          if (payload.points <= 0) {
+          // A bet must be positive and can never exceed the player's balance
+          if (payload.points <= 0 || payload.points > currentPoints) {
             return game;
           }
 
-          // Calculate maximum allowed wager: 50 points OR current points, whichever is larger
-          let maxWager = Math.max(50, currentPoints);
-
           // Apply game-level maximum bet size limit if configured
-          if (game.maxBetSize !== null && game.maxBetSize !== undefined) {
-            maxWager = Math.min(maxWager, game.maxBetSize);
-          }
-
-          if (payload.points > maxWager) {
+          if (game.maxBetSize !== null && game.maxBetSize !== undefined &&
+              payload.points > game.maxBetSize) {
             return game;
           }
 
@@ -205,8 +199,12 @@ function processGameAction(io, game, action, payload, playerID) {
                 isWinner: isPlayerInContest
               });
             } else {
-              // Player was incorrect - they lose the points they wagered (unaffected by odds)
-              addPoints(game, playerId, -points);
+              // Player was incorrect - they lose their stake (unaffected by
+              // odds), clamped so their balance never drops below the game's
+              // minimum balance floor
+              const minBalance = game.minBalance || 0;
+              const loss = Math.min(points, Math.max(0, (game.playerPoints[playerId] || 0) - minBalance));
+              addPoints(game, playerId, -loss);
               results.push({
                 playerId,
                 playerName: game.playerNames[playerId] || 'Unknown Player',
@@ -215,7 +213,7 @@ function processGameAction(io, game, action, payload, playerID) {
                 odds: wagerState.odds[choice],
                 correct: false,
                 pointsAwarded: 0,
-                pointsChange: `-${points}`,
+                pointsChange: `-${loss}`,
                 isWinner: false
               });
             }

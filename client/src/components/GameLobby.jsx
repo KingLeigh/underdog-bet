@@ -175,7 +175,7 @@ function GameLobby() {
                     {playerNames[playerId] || 'Unknown Player'}
                   </div>
                   <div className="player-points">
-                    Points: <span className={`points-value ${(playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0) < 0 ? 'negative' : ''}`}>{playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}</span>
+                    Points: <span className="points-value">{playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}</span>
                   </div>
                 </div>
                 {playerId === gameState.host && (

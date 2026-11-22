@@ -9,6 +9,7 @@ function CreateGame() {
   const [categories, setCategories] = useState('')
   const [challengesPerCategory, setChallengesPerCategory] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
+  const [minBalance, setMinBalance] = useState(10)
   const [maxBetSize, setMaxBetSize] = useState('')
   const [bounty, setBounty] = useState('None')
   const [bountyAmount, setBountyAmount] = useState('')
@@ -104,17 +105,28 @@ function CreateGame() {
     })
   }
 
+  // The minimum balance floor must fit within the starting points
+  const validateMinBalance = () => {
+    const minValue = minBalance === '' ? 10 : minBalance
+    const startValue = startingPoints === '' ? 100 : startingPoints
+    return minValue >= 0 && minValue <= startValue
+  }
+
   const handleCreateGame = (e) => {
     e.preventDefault()
-    
+
     // Validate unique categories before proceeding
     const categoryValidation = validateUniqueCategories()
     if (!categoryValidation.isValid) {
       return
     }
-    
+
     // Validate challenges input before proceeding
     if (!validateChallengesInput()) {
+      return
+    }
+
+    if (!validateMinBalance()) {
       return
     }
     
@@ -139,6 +151,7 @@ function CreateGame() {
       categories: categoriesList,
       challengesPerCategory: challengesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
+      minBalance: minBalance === '' ? 10 : minBalance,
       maxBetSize: maxBetValue,
       bounty: bounty,
       bountyAmount: bountyAmountValue
@@ -214,7 +227,39 @@ function CreateGame() {
                 The number of points each player starts with. Default is 100.
               </small>
             </div>
-            
+
+            <div className="form-group">
+              <label htmlFor="minBalance">Minimum Balance:</label>
+              <input
+                type="number"
+                id="minBalance"
+                name="minBalance"
+                value={minBalance}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '') {
+                    setMinBalance('');
+                  } else {
+                    const numValue = parseInt(value);
+                    if (!isNaN(numValue)) {
+                      setMinBalance(numValue);
+                    }
+                  }
+                }}
+                min="0"
+                max="10000"
+                className="min-balance-input"
+              />
+              <small className="form-help">
+                Players can never drop below this balance — losses are clamped when a contest resolves, so nobody busts out of betting. Default is 10. Set to 0 to allow busting.
+              </small>
+              {!validateMinBalance() && (
+                <div className="error-message">
+                  <strong>Invalid minimum balance:</strong> it must be between 0 and the starting points.
+                </div>
+              )}
+            </div>
+
             <div className="form-group">
               <label htmlFor="maxBetSize">Maximum Bet Size (Optional):</label>
               <input
@@ -322,7 +367,7 @@ function CreateGame() {
             <button 
               type="submit" 
               className="btn btn-primary btn-large"
-              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid}
+              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid || !validateMinBalance()}
             >
               Create Game
             </button>

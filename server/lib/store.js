@@ -60,10 +60,11 @@ function getPlayerID(socket) {
   return null;
 }
 
-// Point management
+// Point management. Callers are responsible for clamping losses at the
+// game's minimum balance floor; balances never go negative through wagers.
 function addPoints(game, playerId, points) {
   if (game.playerPoints[playerId] !== undefined) {
-    game.playerPoints[playerId] += points; // Allow negative points
+    game.playerPoints[playerId] += points;
     return true;
   }
   return false;

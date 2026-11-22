@@ -19,12 +19,9 @@ The game now includes a complete wager system where:
 4. **Points are awarded** - Players gain their wagered points if correct, lose them if incorrect
 
 ### Wager Rules:
-- **Maximum wager**: 50 points OR current points, whichever is larger
-  - Player with 25 points: can bet up to 50 points
-  - Player with 100 points: can bet up to 100 points
-  - Player with 0 points: can bet up to 50 points
-- **Always playable**: Players can always bet up to their maximum allowed amount, even if they have fewer points (scores can go negative)
-- **Point calculation**: Correct players gain their wagered amount, incorrect players lose their wagered amount
+- **Bets are limited to your balance**: a player can never bet more than they currently hold (optionally clamped by the game's Maximum Bet Size)
+- **Minimum Balance floor** (configurable, default 10): when a contest resolves, losses are clamped so no player ever drops below the floor — nobody can bust out of betting. A player at the floor can still stake their whole balance risk-free. Set the floor to 0 to allow busting.
+- **Point calculation**: correct players gain their stake × the odds; incorrect players lose their stake (clamped at the floor)
 
 ### How to use the Wager System:
 
@@ -129,7 +126,7 @@ the protocol/pure-logic layers only, so they should survive UI iteration.
 2. **Wait in the lobby** for other players to join
 3. **Start the game** when ready (minimum 2 players)
 4. **Use the wager system** to create betting opportunities
-5. **Track points** as players make correct predictions (scores can go negative)
+5. **Track points** as players make correct predictions (losses stop at the game's Minimum Balance)
 
 ## API Endpoints
 

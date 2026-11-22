@@ -12,6 +12,14 @@ function RulesPanel({ gameState, playerWagerCount, categories }) {
             <td className="info-value">{gameState?.startingPoints || 100} points</td>
           </tr>
           <tr>
+            <td className="info-label">Minimum Balance</td>
+            <td className="info-value">
+              {(gameState?.minBalance || 0) > 0
+                ? `${gameState.minBalance} points (losses stop here)`
+                : 'None (players can bust)'}
+            </td>
+          </tr>
+          <tr>
             <td className="info-label">Maximum Bet</td>
             <td className="info-value">
               {gameState?.maxBetSize ? `${gameState.maxBetSize} points` : 'No limit'}
