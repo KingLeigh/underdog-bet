@@ -97,7 +97,6 @@ function registerSocketHandlers(io) {
       playerData.gameId = gameId;
 
       const startingPoints = gameConfig.startingPoints || 100;
-      const minBetSize = gameConfig.minBetSize || null;
       const maxBetSize = gameConfig.maxBetSize || null;
       const bounty = gameConfig.bounty || 'None';
       const bountyAmount = gameConfig.bountyAmount || null;
@@ -109,7 +108,6 @@ function registerSocketHandlers(io) {
         status: 'waiting',
         createdAt: new Date().toISOString(),
         startingPoints: startingPoints,
-        minBetSize: minBetSize,
         maxBetSize: maxBetSize,
         bounty: bounty,
         bountyAmount: bountyAmount,

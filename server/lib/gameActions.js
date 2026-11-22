@@ -93,18 +93,14 @@ function processGameAction(io, game, action, payload, playerID) {
         const wagerState = wagerStates.get(game.id);
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
           const currentPoints = game.playerPoints[playerID] || 0;
-          const minWager = game.minBetSize || 1;
 
-          // Validate the wager amount against the game's minimum (default 1)
-          if (payload.points <= 0 || payload.points < minWager) {
+          // Validate the wager amount
+          if (payload.points <= 0) {
             return game;
           }
 
-          // Maximum allowed wager: 50 points, current points, or the configured
-          // minimum — whichever is largest. Including the minimum in the floor
-          // keeps every player able to bet even from zero or negative points
-          // ("betting out of the hole" is a feature).
-          let maxWager = Math.max(50, currentPoints, minWager);
+          // Calculate maximum allowed wager: 50 points OR current points, whichever is larger
+          let maxWager = Math.max(50, currentPoints);
 
           // Apply game-level maximum bet size limit if configured
           if (game.maxBetSize !== null && game.maxBetSize !== undefined) {

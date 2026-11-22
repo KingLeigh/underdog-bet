@@ -9,7 +9,6 @@ function CreateGame() {
   const [categories, setCategories] = useState('')
   const [challengesPerCategory, setChallengesPerCategory] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
-  const [minBetSize, setMinBetSize] = useState('')
   const [maxBetSize, setMaxBetSize] = useState('')
   const [bounty, setBounty] = useState('None')
   const [bountyAmount, setBountyAmount] = useState('')
@@ -105,41 +104,26 @@ function CreateGame() {
     })
   }
 
-  // Minimum bet must not exceed maximum bet when both are set
-  const validateBetLimits = () => {
-    const minValue = minBetSize.trim() ? parseInt(minBetSize) : null
-    const maxValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
-    if (minValue && maxValue && minValue > maxValue) {
-      return false
-    }
-    return true
-  }
-
   const handleCreateGame = (e) => {
     e.preventDefault()
-
+    
     // Validate unique categories before proceeding
     const categoryValidation = validateUniqueCategories()
     if (!categoryValidation.isValid) {
       return
     }
-
+    
     // Validate challenges input before proceeding
     if (!validateChallengesInput()) {
       return
     }
-
-    if (!validateBetLimits()) {
-      return
-    }
-
+    
     // Parse categories from comma-separated string
-    const categoriesList = categories.trim()
+    const categoriesList = categories.trim() 
       ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
       : []
-
-    // Parse bet limits - convert to numbers if provided, otherwise null
-    const minBetValue = minBetSize.trim() ? parseInt(minBetSize) : null
+    
+    // Parse max bet size - convert to number if provided, otherwise null
     const maxBetValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
     
     // Parse bounty amount - convert to number if Fixed bounty is selected
@@ -155,7 +139,6 @@ function CreateGame() {
       categories: categoriesList,
       challengesPerCategory: challengesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
-      minBetSize: minBetValue,
       maxBetSize: maxBetValue,
       bounty: bounty,
       bountyAmount: bountyAmountValue
@@ -233,24 +216,6 @@ function CreateGame() {
             </div>
             
             <div className="form-group">
-              <label htmlFor="minBetSize">Minimum Bet Size (Optional):</label>
-              <input
-                type="number"
-                id="minBetSize"
-                name="minBetSize"
-                value={minBetSize}
-                onChange={(e) => setMinBetSize(e.target.value)}
-                min="1"
-                max="10000"
-                className="min-bet-input"
-                placeholder="Leave empty for a 1 point minimum"
-              />
-              <small className="form-help">
-                Minimum bet size per wager. Players can always bet at least this amount, even with zero or negative points.
-              </small>
-            </div>
-
-            <div className="form-group">
               <label htmlFor="maxBetSize">Maximum Bet Size (Optional):</label>
               <input
                 type="number"
@@ -266,11 +231,6 @@ function CreateGame() {
               <small className="form-help">
                 Maximum bet size per wager. If empty, players can bet any amount they have available.
               </small>
-              {!validateBetLimits() && (
-                <div className="error-message">
-                  <strong>Invalid bet limits:</strong> the minimum bet cannot be larger than the maximum bet.
-                </div>
-              )}
             </div>
             
             <div className="form-group">
@@ -362,7 +322,7 @@ function CreateGame() {
             <button 
               type="submit" 
               className="btn btn-primary btn-large"
-              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid || !validateBetLimits()}
+              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid}
             >
               Create Game
             </button>
