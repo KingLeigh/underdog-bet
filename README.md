@@ -19,11 +19,12 @@ The game now includes a complete wager system where:
 4. **Points are awarded** - Players gain their wagered points if correct, lose them if incorrect
 
 ### Wager Rules:
-- **Maximum wager**: 50 points OR current points, whichever is larger
+- **Minimum wager**: 1 point by default, or the game's configured Minimum Bet Size
+- **Maximum wager**: 50 points, current points, or the configured minimum bet — whichever is largest (clamped by the game's Maximum Bet Size if configured)
   - Player with 25 points: can bet up to 50 points
   - Player with 100 points: can bet up to 100 points
-  - Player with 0 points: can bet up to 50 points
-- **Always playable**: Players can always bet up to their maximum allowed amount, even if they have fewer points (scores can go negative)
+  - Player with 0 points: can bet up to 50 points (or the minimum bet, if it is higher)
+- **Always playable**: Players can always bet at least the minimum, even with zero or negative points (scores can go negative)
 - **Point calculation**: Correct players gain their wagered amount, incorrect players lose their wagered amount
 
 ### How to use the Wager System:

@@ -289,13 +289,14 @@ function GameBoard() {
                   return (
                     <div className="wager-input-section">
                       <h4>Wager Points for {selectedOptionName}</h4>
-                      <WagerInputForm 
+                      <WagerInputForm
                         onSubmit={(points) => {
                           makeChoice(selectedOption, points);
                           setUserChoice(selectedOption); // Store the user's choice
                           setSelectedOption(null);
                         }}
                         currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
+                        minBetSize={gameState?.minBetSize}
                         maxBetSize={gameState?.maxBetSize}
                         onCancel={() => setSelectedOption(null)}
                       />
@@ -707,19 +708,22 @@ function WagerProposalForm({ onSubmit }) {
 }
 
 // Wager Input Form Component (for points only)
-function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
+function WagerInputForm({ onSubmit, currentPoints, minBetSize, maxBetSize, onCancel }) {
   const [points, setPoints] = useState('')
 
-  // Calculate the effective maximum wager
+  const minWager = minBetSize || 1;
+
+  // Calculate the effective maximum wager. The configured minimum is part of
+  // the floor so every player can always bet at least the minimum, even with
+  // zero or negative points.
   const calculateMaxWager = () => {
-    // Players can bet up to 50 points OR their current points, whichever is larger
-    let maxWager = Math.max(50, currentPoints);
-    
+    let maxWager = Math.max(50, currentPoints, minWager);
+
     // Apply game-level maximum bet size limit if configured
     if (maxBetSize !== null && maxBetSize !== undefined) {
       maxWager = Math.min(maxWager, maxBetSize);
     }
-    
+
     return maxWager;
   }
 
@@ -727,7 +731,7 @@ function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (points !== '' && parseInt(points) > 0 && parseInt(points) <= maxWager) {
+    if (points !== '' && parseInt(points) >= minWager && parseInt(points) <= maxWager) {
       onSubmit(parseInt(points))
       setPoints('')
     }
@@ -742,16 +746,16 @@ function WagerInputForm({ onSubmit, currentPoints, maxBetSize, onCancel }) {
           id="wager-points"
           value={points}
           onChange={(e) => setPoints(e.target.value)}
-          min="1"
+          min={minWager}
           max={maxWager}
-          placeholder={`1-${maxWager}`}
+          placeholder={`${minWager}-${maxWager}`}
           required
           className="form-input"
         />
       </div>
-      
+
       <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) <= 0 || parseInt(points) > maxWager}>
+        <button type="submit" className="btn btn-primary" disabled={points === '' || parseInt(points) < minWager || parseInt(points) > maxWager}>
           Submit Wager
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel}>

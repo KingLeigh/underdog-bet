@@ -37,6 +37,7 @@ function makeGame(overrides = {}) {
     players: ['p1', 'p2', 'p3'],
     status: 'playing',
     startingPoints: 100,
+    minBetSize: null,
     maxBetSize: null,
     bounty: 'None',
     bountyAmount: null,
@@ -168,6 +169,38 @@ test('the game-level maxBetSize caps every bet', () => {
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 30 }, 'p3');
   assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 30);
+});
+
+test('a configured minimum bet rejects smaller bets and accepts the minimum', () => {
+  const game = makeGame({ minBetSize: 25 });
+  propose(io, game);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 24 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 25 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 25);
+});
+
+test('a broke player can always bet at least the minimum, even when it exceeds the 50 floor', () => {
+  // min bet 80, player has 0 points: the betting cap rises to the minimum
+  // so they can still "bet out of the hole"
+  const game = makeGame({ minBetSize: 80, playerPoints: { p1: 100, p2: 100, p3: 0 } });
+  propose(io, game);
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 80 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 80);
+
+  // ...but not more than the raised floor
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 81 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 80);
+});
+
+test('without a configured minimum, the minimum bet is 1', () => {
+  const game = makeGame();
+  propose(io, game);
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 1 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 1);
 });
 
 test('a contestant may only bet on themselves', () => {
