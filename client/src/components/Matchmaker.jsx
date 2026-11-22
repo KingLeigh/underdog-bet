@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import './Matchmaker.css'
 
 function Matchmaker() {
@@ -12,15 +12,16 @@ function Matchmaker() {
   const [playerGrid, setPlayerGrid] = useState([])
   const [simStatus, setSimStatus] = useState('')
   const [simResult, setSimResult] = useState('')
+  const [simRunning, setSimRunning] = useState(false)
   const [solveStatus, setSolveStatus] = useState('')
-  const [solveOutput, setSolveOutput] = useState('')
+  const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup }]
+  const [solveError, setSolveError] = useState('')
   const [shareStatus, setShareStatus] = useState('')
-  const [cancelSimFlag, setCancelSimFlag] = useState(false)
   const [isUrlLoaded, setIsUrlLoaded] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [isViewOnlyMode, setIsViewOnlyMode] = useState(false)
-  const [currentAssignments, setCurrentAssignments] = useState(null)
   const [gapMode, setGapMode] = useState('loose') // 'loose' or 'strict'
+  const cancelSimRef = useRef(false)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -530,13 +531,15 @@ function Matchmaker() {
 
     const trials = Math.max(10, numTrials || 1000)
     const rand = rng()
-    setCancelSimFlag(false)
+    cancelSimRef.current = false
+    setSimRunning(true)
     setSimStatus('Running…')
     setSimResult('')
 
     let infeasible = 0
+    let cancelled = false
     for (let t=0; t<trials; t++) {
-      if (cancelSimFlag) break
+      if (cancelSimRef.current) { cancelled = true; break }
       const players = Array.from({length:numPlayers}, (_,i)=>({
         name: `P${i+1}`,
         ranks: (()=>{
@@ -552,8 +555,8 @@ function Matchmaker() {
         await new Promise(r=>setTimeout(r))
       }
     }
-    setCancelSimFlag(false)
-    const ran = cancelSimFlag ? ' (cancelled early)' : ''
+    setSimRunning(false)
+    const ran = cancelled ? ' (cancelled early)' : ''
     const pct = (infeasible / trials) * 100
     setSimResult(`Infeasible: ${infeasible} / ${trials}${ran} → ${pct.toFixed(2)}%`)
     setSimStatus('Done')
@@ -585,14 +588,15 @@ function Matchmaker() {
     const newSeed = generateSeed()
 
     const parsed = readPlayersFromGrid()
-    setSolveOutput('')
+    setMatchups(null)
+    setSolveError('')
     if (!parsed.ok) {
-      setSolveOutput(`<div class="validation-message">Error: ${parsed.reason}</div>`)
+      setSolveError(`Error: ${parsed.reason}`)
       return
     }
 
     if (parsed.challenges.length < numPlayers) {
-      setSolveOutput(`<div class="validation-message">Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.</div>`)
+      setSolveError(`Not enough challenges! You have ${parsed.challenges.length} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
       return
     }
 
@@ -605,7 +609,7 @@ function Matchmaker() {
 
     if (!feasible) {
       setSolveStatus('')
-      setSolveOutput('No feasible assignment found.')
+      setSolveError('No feasible assignment found.')
       return
     }
 
@@ -628,31 +632,25 @@ function Matchmaker() {
 
     setSolveStatus('')
     if (!res.ok) {
-      setSolveOutput(`<div class="validation-message">Error: ${res.reason}</div>`)
+      setSolveError(`Error: ${res.reason}`)
       return
     }
 
     const optimizedAssignments = optimizeMatchOrdering(res.assignments, newSeed)
 
-    // Store assignments for efficient saving
-    setCurrentAssignments(optimizedAssignments)
-
-    const tableRows = optimizedAssignments.map((a, index) =>
-      `<tr><td>${index + 1}</td><td>${a.category}</td><td><strong>${a.high}</strong></td><td>${a.low}</td><td>${a.highRank} vs ${a.lowRank}</td></tr>`
-    ).join('')
-
-    setSolveOutput(`
-      <table>
-        <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-    `)
+    setMatchups(optimizedAssignments.map((a, index) => ({
+      number: index + 1,
+      category: a.category,
+      high: a.high,
+      low: a.low,
+      matchup: `${a.highRank} vs ${a.lowRank}`
+    })))
   }
 
   const generateShareUrl = () => {
     try {
       // If we have matchups already generated, use the more efficient ?save approach
-      if (solveOutput) {
+      if (matchups && matchups.length > 0) {
         return generateMatchupsUrl()
       }
 
@@ -704,15 +702,15 @@ function Matchmaker() {
 
   const generateMatchupsUrl = () => {
     try {
-      if (!currentAssignments || currentAssignments.length === 0) {
+      if (!matchups || matchups.length === 0) {
         alert('No matchups to save. Please generate matches first.')
         return
       }
 
       // Create compact matchup data using colon-separated format
       // Format: number:category:high:low:matchup
-      const compactMatchups = currentAssignments.map((assignment, index) =>
-        `${index + 1}:${assignment.category}:${assignment.high}:${assignment.low}:${assignment.highRank} vs ${assignment.lowRank}`
+      const compactMatchups = matchups.map((m) =>
+        `${m.number}:${m.category}:${m.high}:${m.low}:${m.matchup}`
       ).join('|')
 
       // Encode compact matchups data
@@ -840,7 +838,8 @@ function Matchmaker() {
         const decodedMatchups = atob(saveParam)
 
         // Parse compact format: number:category:high:low:matchup|number:category:high:low:matchup|...
-        const matchups = decodedMatchups.split('|').map(matchupStr => {
+        // Rendered as React data, never as raw HTML, so a crafted URL cannot inject markup.
+        const loadedMatchups = decodedMatchups.split('|').map(matchupStr => {
           const [number, category, high, low, matchup] = matchupStr.split(':')
           return {
             number: parseInt(number),
@@ -851,19 +850,7 @@ function Matchmaker() {
           }
         })
 
-        // Generate HTML table from matchups data
-        const tableRows = matchups.map((matchup) =>
-          `<tr><td>${matchup.number}</td><td>${matchup.category}</td><td><strong>${matchup.high}</strong></td><td>${matchup.low}</td><td>${matchup.matchup}</td></tr>`
-        ).join('')
-
-        const matchupsHtml = `
-          <table>
-            <thead><tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr></thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-        `
-
-        setSolveOutput(matchupsHtml)
+        setMatchups(loadedMatchups)
         setIsViewOnlyMode(true) // Enable view-only mode to hide other panels
         setIsUrlLoaded(true)
 
@@ -1101,13 +1088,13 @@ function Matchmaker() {
               </div>
 
               <div className="simulation-actions">
-                <button className="btn btn-primary" onClick={runSimulation}>
+                <button className="btn btn-primary" disabled={simRunning} onClick={runSimulation}>
                   Run Simulation
                 </button>
                 <button
                   className="btn btn-secondary"
-                  disabled={!cancelSimFlag}
-                  onClick={() => setCancelSimFlag(true)}
+                  disabled={!simRunning}
+                  onClick={() => { cancelSimRef.current = true }}
                 >
                   Cancel
                 </button>
@@ -1117,7 +1104,7 @@ function Matchmaker() {
             </div>
 
             {simResult && (
-              <div className="simulation-result" dangerouslySetInnerHTML={{ __html: simResult }}></div>
+              <div className="simulation-result">{simResult}</div>
             )}
           </div>
         </div>
@@ -1230,12 +1217,34 @@ function Matchmaker() {
         )}
 
         {/* Match Ups Section */}
-        {solveOutput && (
+        {((matchups && matchups.length > 0) || solveError) && (
           <div className="matchups-section panel-spacing">
             <div className="matchups-panel standard-panel">
               <h2>Matchups</h2>
-              <div className="matchmaking-results" dangerouslySetInnerHTML={{ __html: solveOutput }}></div>
-              {!isViewOnlyMode && (
+              <div className="matchmaking-results">
+                {solveError && (
+                  <div className="validation-message">{solveError}</div>
+                )}
+                {matchups && matchups.length > 0 && (
+                  <table>
+                    <thead>
+                      <tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr>
+                    </thead>
+                    <tbody>
+                      {matchups.map((m) => (
+                        <tr key={m.number}>
+                          <td>{m.number}</td>
+                          <td>{m.category}</td>
+                          <td><strong>{m.high}</strong></td>
+                          <td>{m.low}</td>
+                          <td>{m.matchup}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              {!isViewOnlyMode && matchups && matchups.length > 0 && (
                 <div className="matchups-actions" style={{ marginTop: '20px' }}>
                   <button className="btn btn-primary" onClick={generateShareUrl}>
                     💾 Save

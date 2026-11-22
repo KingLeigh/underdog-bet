@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react'
 
 const GameContext = createContext()
 
@@ -14,7 +14,8 @@ const initialState = {
   playerWagerCount: {}, // Track how many wagers each player has participated in
   error: null,
   // Wager system state
-  wagerOptions: [],
+  wagerOptions: { options: [], odds: [1, 1] },
+  wagerContestants: [], // playerIDs of the two players being bet on
   wagerActive: false,
   playerChoices: {},
   wagerResolved: false,
@@ -24,79 +25,124 @@ const initialState = {
   categories: [],
   challengesPerCategory: [],
   playerRankings: {},
-  rankingsComplete: false,
-  // Bounty system state
-  bountyAmount: null,
-  bountyVisible: false
+  rankingsComplete: false
+}
+
+// Fields derived from a server gameState payload, shared by
+// gameCreated / gameJoined / gameStateUpdate handling.
+function fromGameState(gameState) {
+  const next = {
+    gameState,
+    players: gameState.players,
+    playerPoints: gameState.playerPoints,
+    playerNames: gameState.playerNames,
+    playerWagerCount: gameState.playerWagerCount || {}
+  }
+  if (gameState.categories) next.categories = gameState.categories
+  if (gameState.challengesPerCategory) next.challengesPerCategory = gameState.challengesPerCategory
+  if (gameState.playerRankings) next.playerRankings = gameState.playerRankings
+  if (gameState.rankingsComplete !== undefined) next.rankingsComplete = gameState.rankingsComplete
+  return next
+}
+
+const clearedWagerFields = {
+  wagerOptions: { options: [], odds: [1, 1] },
+  wagerContestants: [],
+  wagerActive: false,
+  playerChoices: {},
+  wagerResolved: false,
+  wagerResults: null,
+  wagerCategory: ''
 }
 
 function gameReducer(state, action) {
   switch (action.type) {
-    case 'SET_PLAYER_ID':
-      return { ...state, playerId: action.payload }
+    case 'SET_SESSION':
+      // Game/player identity recovered from the URL on reconnect
+      return { ...state, currentGame: action.payload.gameId, playerId: action.payload.playerId }
 
-    case 'SET_CURRENT_GAME':
-      return { ...state, currentGame: action.payload }
+    case 'GAME_CREATED': {
+      const { playerID, gameState } = action.payload
+      return {
+        ...state,
+        ...fromGameState(gameState),
+        playerId: playerID,
+        currentGame: gameState.id,
+        isHost: true
+      }
+    }
 
-    case 'SET_GAME_STATE':
-      return { ...state, gameState: action.payload }
+    case 'GAME_JOINED': {
+      const { gameId, playerID, isHost, gameState } = action.payload
+      return {
+        ...state,
+        ...fromGameState(gameState),
+        playerId: playerID || state.playerId,
+        currentGame: gameId,
+        isHost: !!isHost
+      }
+    }
 
-    case 'SET_PLAYERS':
-      return { ...state, players: action.payload }
+    case 'GAME_STATE_UPDATE': {
+      const gameState = action.payload
+      return {
+        ...state,
+        ...fromGameState(gameState),
+        isHost: !!(state.playerId && gameState.host === state.playerId)
+      }
+    }
 
-    case 'SET_PLAYER_POINTS':
-      return { ...state, playerPoints: action.payload }
+    case 'WAGER_PROPOSED': {
+      const { options, contestants, odds, category } = action.payload
+      return {
+        ...state,
+        ...clearedWagerFields,
+        wagerOptions: { options, odds },
+        wagerContestants: contestants || [],
+        wagerActive: true,
+        wagerCategory: category || ''
+      }
+    }
 
-    case 'SET_PLAYER_NAMES':
-      return { ...state, playerNames: action.payload }
+    case 'CHOICE_MADE': {
+      const { playerId, playerName, hasChosen, choice, points } = action.payload
+      return {
+        ...state,
+        playerChoices: {
+          ...state.playerChoices,
+          [playerId]: { hasChosen, choice, points, playerName }
+        }
+      }
+    }
 
-    case 'SET_PLAYER_WAGER_COUNT':
-      return { ...state, playerWagerCount: action.payload }
+    case 'WAGER_RESOLVED':
+      return {
+        ...state,
+        wagerResolved: true,
+        wagerResults: action.payload,
+        wagerActive: false
+      }
 
-    case 'SET_IS_HOST':
-      return { ...state, isHost: action.payload }
+    case 'WAGER_CLEARED':
+      // Wager cancelled by the host, or reset locally for the next round
+      return { ...state, ...clearedWagerFields }
+
+    case 'RANKINGS_COMPLETE':
+      return {
+        ...state,
+        rankingsComplete: true,
+        playerRankings: action.payload.playerRankings,
+        categories: action.payload.categories
+      }
+
+    case 'GAME_NOT_FOUND':
+      return { ...state, currentGame: null, gameState: null, playerId: null }
 
     case 'SET_ERROR':
       return { ...state, error: action.payload }
 
     case 'CLEAR_ERROR':
       return { ...state, error: null }
-
-    case 'SET_WAGER_OPTIONS':
-      return { ...state, wagerOptions: action.payload }
-
-    case 'SET_WAGER_ACTIVE':
-      return { ...state, wagerActive: action.payload }
-
-    case 'SET_PLAYER_CHOICES':
-      return { ...state, playerChoices: action.payload }
-
-    case 'SET_WAGER_RESOLVED':
-      return { ...state, wagerResolved: action.payload }
-
-    case 'SET_WAGER_RESULTS':
-      return { ...state, wagerResults: action.payload }
-
-    case 'SET_CATEGORIES':
-      return { ...state, categories: action.payload }
-
-    case 'SET_CHALLENGES_PER_CATEGORY':
-      return { ...state, challengesPerCategory: action.payload }
-
-    case 'SET_PLAYER_RANKINGS':
-      return { ...state, playerRankings: action.payload }
-
-    case 'SET_RANKINGS_COMPLETE':
-      return { ...state, rankingsComplete: action.payload }
-
-    case 'SET_BOUNTY_AMOUNT':
-      return { ...state, bountyAmount: action.payload }
-
-    case 'SET_BOUNTY_VISIBLE':
-      return { ...state, bountyVisible: action.payload }
-
-    case 'SET_WAGER_CATEGORY':
-      return { ...state, wagerCategory: action.payload }
 
     default:
       return state
@@ -106,201 +152,102 @@ function gameReducer(state, action) {
 export function GameProvider({ children, socket }) {
   const [state, dispatch] = useReducer(gameReducer, initialState)
 
+  // Keep a ref to the latest state so socket handlers (registered once)
+  // never read stale values.
+  const stateRef = useRef(state)
+  stateRef.current = state
+
   useEffect(() => {
     if (!socket) return
 
-    // Set player ID when connected
-    socket.on('connect', () => {
+    const handleConnect = () => {
       // Check if we're on a game page with player ID in URL
       // This handles the case where the page is refreshed and we need to reconnect
-      const currentPath = window.location.pathname;
-      const gameMatch = currentPath.match(/\/game\/([^\/]+)\/player\/([^\/]+)/);
+      const gameMatch = window.location.pathname.match(/\/game\/([^\/]+)\/player\/([^\/]+)/)
 
       if (gameMatch) {
-        const [, gameId, playerId] = gameMatch;
-
-        // Set the current game and player ID from URL
-        dispatch({ type: 'SET_CURRENT_GAME', payload: gameId });
-        dispatch({ type: 'SET_PLAYER_ID', payload: playerId });
-
-        // Attempt to rejoin the game
-        rejoinGame(gameId, playerId);
-      } else if (state.currentGame) {
+        const [, gameId, playerId] = gameMatch
+        dispatch({ type: 'SET_SESSION', payload: { gameId, playerId } })
+        socket.emit('rejoinGame', { gameId, playerID: playerId })
+      } else if (stateRef.current.currentGame && stateRef.current.playerId) {
         // Fallback: if we have a saved game state, try to rejoin
-        rejoinGame(state.currentGame, state.playerId);
-      }
-    })
-
-    // Shared handling for gameCreated / gameJoined / gameStateUpdate payloads
-    const applyGameState = (gameState) => {
-      dispatch({ type: 'SET_GAME_STATE', payload: gameState })
-      dispatch({ type: 'SET_PLAYERS', payload: gameState.players })
-      dispatch({ type: 'SET_PLAYER_POINTS', payload: gameState.playerPoints })
-      dispatch({ type: 'SET_PLAYER_NAMES', payload: gameState.playerNames })
-      dispatch({ type: 'SET_PLAYER_WAGER_COUNT', payload: gameState.playerWagerCount || {} })
-
-      // Update category ranking state
-      if (gameState.categories) {
-        dispatch({ type: 'SET_CATEGORIES', payload: gameState.categories })
-      }
-      if (gameState.challengesPerCategory) {
-        dispatch({ type: 'SET_CHALLENGES_PER_CATEGORY', payload: gameState.challengesPerCategory })
-      }
-      if (gameState.playerRankings) {
-        dispatch({ type: 'SET_PLAYER_RANKINGS', payload: gameState.playerRankings })
-      }
-      if (gameState.rankingsComplete !== undefined) {
-        dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: gameState.rankingsComplete })
+        socket.emit('rejoinGame', {
+          gameId: stateRef.current.currentGame,
+          playerID: stateRef.current.playerId
+        })
       }
     }
 
-    // Handle game creation
-    socket.on('gameCreated', (gameData) => {
-      const { playerID, ...gameState } = gameData;
+    const handleGameCreated = (gameData) => {
+      const { playerID, ...gameState } = gameData
+      dispatch({ type: 'GAME_CREATED', payload: { playerID, gameState } })
+    }
 
-      dispatch({ type: 'SET_PLAYER_ID', payload: playerID })
-      dispatch({ type: 'SET_CURRENT_GAME', payload: gameState.id })
-      dispatch({ type: 'SET_IS_HOST', payload: true })
-      applyGameState(gameState)
-    })
+    const handleGameJoined = ({ gameId, gameState, playerID, isHost }) => {
+      dispatch({ type: 'GAME_JOINED', payload: { gameId, gameState, playerID, isHost } })
+    }
 
-    // Handle joining a game
-    socket.on('gameJoined', ({ gameId, gameState, playerID, isHost }) => {
-      // Set the playerID from the server
-      if (playerID) {
-        dispatch({ type: 'SET_PLAYER_ID', payload: playerID })
-      }
+    const handleGameStateUpdate = (gameState) => {
+      dispatch({ type: 'GAME_STATE_UPDATE', payload: gameState })
+    }
 
-      dispatch({ type: 'SET_CURRENT_GAME', payload: gameId })
-      dispatch({ type: 'SET_IS_HOST', payload: isHost || false })
-      applyGameState(gameState)
-    })
+    const handleWagerProposed = (payload) => {
+      dispatch({ type: 'WAGER_PROPOSED', payload })
+    }
 
-    // Handle game state updates
-    socket.on('gameStateUpdate', (gameState) => {
-      // Update host status based on current player ID and game host
-      const isHost = state.playerId && gameState.host === state.playerId;
+    const handleChoiceMade = (payload) => {
+      dispatch({ type: 'CHOICE_MADE', payload })
+    }
 
-      dispatch({ type: 'SET_IS_HOST', payload: isHost })
-      applyGameState(gameState)
-    })
+    const handleWagerResolved = (payload) => {
+      dispatch({ type: 'WAGER_RESOLVED', payload })
+    }
 
-    // Handle wager events
-    socket.on('wagerProposed', ({ options, odds, category }) => {
-      dispatch({ type: 'SET_WAGER_OPTIONS', payload: { options, odds } })
-      dispatch({ type: 'SET_WAGER_ACTIVE', payload: true })
-      dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
-      dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
-      dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
-      dispatch({ type: 'SET_WAGER_CATEGORY', payload: category || '' })
+    const handleWagerCancelled = () => {
+      dispatch({ type: 'WAGER_CLEARED' })
+    }
 
-      // Reset bounty visibility - will be updated when bets are placed
-      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
-      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: null })
-    })
+    const handleRankingsComplete = (payload) => {
+      dispatch({ type: 'RANKINGS_COMPLETE', payload })
+    }
 
-    socket.on('choiceMade', ({ playerId, playerName, hasChosen, choice, points }) => {
-      const updatedChoices = {
-        ...state.playerChoices,
-        [playerId]: { hasChosen, choice, points, playerName }
-      };
-      dispatch({ type: 'SET_PLAYER_CHOICES', payload: updatedChoices })
-
-      // Update bounty visibility for competing players
-      if (state.gameState && state.gameState.bounty && state.gameState.bounty !== 'None') {
-        const currentPlayerName = state.playerNames[state.playerId];
-        const isPlayerInContest = currentPlayerName === state.wagerOptions.options?.[0] || currentPlayerName === state.wagerOptions.options?.[1];
-
-        if (isPlayerInContest) {
-          // Calculate bounty amount based on current bets
-          const allBets = Object.values(updatedChoices).map(choice => choice.points).filter(points => points > 0);
-          let bountyAmount = null;
-
-          if (allBets.length > 0) {
-            switch (state.gameState.bounty) {
-              case 'Fixed':
-                bountyAmount = state.gameState.bountyAmount || 0;
-                break;
-              case 'Min':
-                bountyAmount = Math.min(...allBets);
-                break;
-              case 'Max':
-                bountyAmount = Math.max(...allBets);
-                break;
-              case 'Average':
-                bountyAmount = Math.floor(allBets.reduce((sum, bet) => sum + bet, 0) / allBets.length);
-                break;
-            }
-          }
-
-          if (bountyAmount !== null) {
-            dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: true })
-            dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: bountyAmount })
-          }
-        }
-      }
-    })
-
-    socket.on('wagerResolved', ({ correctChoice, results, wagerState, bountyAmount, winnerPlayerId }) => {
-      dispatch({ type: 'SET_WAGER_RESOLVED', payload: true })
-      dispatch({ type: 'SET_WAGER_RESULTS', payload: { correctChoice, results, wagerState, bountyAmount, winnerPlayerId } })
-      dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
-      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: bountyAmount })
-      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
-    })
-
-    socket.on('wagerCancelled', () => {
-      dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
-      dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
-      dispatch({ type: 'SET_WAGER_OPTIONS', payload: [] })
-      dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
-      dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
-      dispatch({ type: 'SET_WAGER_CATEGORY', payload: '' })
-      dispatch({ type: 'SET_BOUNTY_AMOUNT', payload: null })
-      dispatch({ type: 'SET_BOUNTY_VISIBLE', payload: false })
-    })
-
-    // Handle category ranking events
-    socket.on('rankingsComplete', ({ playerRankings, categories }) => {
-      dispatch({ type: 'SET_RANKINGS_COMPLETE', payload: true })
-      dispatch({ type: 'SET_PLAYER_RANKINGS', payload: playerRankings })
-      dispatch({ type: 'SET_CATEGORIES', payload: categories })
-    })
-
-    // Handle errors
-    socket.on('error', ({ message }) => {
-      console.error('Server error:', message);
+    const handleError = ({ message }) => {
+      console.error('Server error:', message)
 
       // If the error indicates the game was not found, clear the stored game and redirect
       if (message === 'Game not found' || message === 'Player not found in game') {
-        dispatch({ type: 'SET_CURRENT_GAME', payload: null });
-        dispatch({ type: 'SET_GAME_STATE', payload: null });
-        dispatch({ type: 'SET_PLAYER_ID', payload: null });
-
-        // Redirect to home page
-        window.location.href = '/';
-        return;
+        dispatch({ type: 'GAME_NOT_FOUND' })
+        window.location.href = '/'
+        return
       }
 
-      // Handle other errors normally
-      dispatch({ type: 'SET_ERROR', payload: message });
-    })
+      dispatch({ type: 'SET_ERROR', payload: message })
+    }
+
+    socket.on('connect', handleConnect)
+    socket.on('gameCreated', handleGameCreated)
+    socket.on('gameJoined', handleGameJoined)
+    socket.on('gameStateUpdate', handleGameStateUpdate)
+    socket.on('wagerProposed', handleWagerProposed)
+    socket.on('choiceMade', handleChoiceMade)
+    socket.on('wagerResolved', handleWagerResolved)
+    socket.on('wagerCancelled', handleWagerCancelled)
+    socket.on('rankingsComplete', handleRankingsComplete)
+    socket.on('error', handleError)
 
     return () => {
-      socket.off('connect')
-      socket.off('gameCreated')
-      socket.off('gameJoined')
-      socket.off('gameStateUpdate')
-      socket.off('error')
-      // Clean up wager events
-      socket.off('wagerProposed')
-      socket.off('choiceMade')
-      socket.off('wagerResolved')
-      socket.off('wagerCancelled')
-      // Clean up category ranking events
-      socket.off('rankingsComplete')
+      socket.off('connect', handleConnect)
+      socket.off('gameCreated', handleGameCreated)
+      socket.off('gameJoined', handleGameJoined)
+      socket.off('gameStateUpdate', handleGameStateUpdate)
+      socket.off('wagerProposed', handleWagerProposed)
+      socket.off('choiceMade', handleChoiceMade)
+      socket.off('wagerResolved', handleWagerResolved)
+      socket.off('wagerCancelled', handleWagerCancelled)
+      socket.off('rankingsComplete', handleRankingsComplete)
+      socket.off('error', handleError)
     }
-  }, [socket, state.gameState])
+  }, [socket])
 
   const createGame = (gameConfig) => {
     if (socket) {
@@ -315,16 +262,14 @@ export function GameProvider({ children, socket }) {
   }
 
   const rejoinGame = (gameId, playerId) => {
-    // For reconnection, we need the gameId and playerID passed as parameters
-    // This avoids the race condition with state updates
-    const targetGameId = gameId || state.currentGame;
-    const targetPlayerId = playerId || state.playerId;
+    const targetGameId = gameId || state.currentGame
+    const targetPlayerId = playerId || state.playerId
 
     if (targetGameId && targetPlayerId && socket) {
       socket.emit('rejoinGame', {
         gameId: targetGameId,
         playerID: targetPlayerId
-      });
+      })
     }
   }
 
@@ -339,8 +284,8 @@ export function GameProvider({ children, socket }) {
   }
 
   // Wager system functions
-  const proposeWager = (option1, option2, odds1 = 1, odds2 = 1, category = '') => {
-    sendGameAction('proposeWager', { option1, option2, odds1, odds2, category })
+  const proposeWager = (player1, player2, odds1 = 1, odds2 = 1, category = '') => {
+    sendGameAction('proposeWager', { player1, player2, odds1, odds2, category })
   }
 
   const makeChoice = (choice, points) => {
@@ -352,12 +297,7 @@ export function GameProvider({ children, socket }) {
   }
 
   const resetWagerState = () => {
-    dispatch({ type: 'SET_WAGER_RESOLVED', payload: false })
-    dispatch({ type: 'SET_WAGER_RESULTS', payload: null })
-    dispatch({ type: 'SET_WAGER_OPTIONS', payload: [] })
-    dispatch({ type: 'SET_PLAYER_CHOICES', payload: {} })
-    dispatch({ type: 'SET_WAGER_ACTIVE', payload: false })
-    dispatch({ type: 'SET_WAGER_CATEGORY', payload: '' })
+    dispatch({ type: 'WAGER_CLEARED' })
   }
 
   const cancelWager = () => {

@@ -21,6 +21,7 @@ function GameBoard() {
     playerId, 
     isHost,
     wagerOptions,
+    wagerContestants,
     wagerActive,
     playerChoices,
     wagerResolved,
@@ -37,8 +38,6 @@ function GameBoard() {
     challengesPerCategory,
     playerRankings,
     rankingsComplete,
-    bountyAmount,
-    bountyVisible,
     wagerCategory
   } = useGame()
 
@@ -139,6 +138,22 @@ function GameBoard() {
     }
   }
 
+  // Bounty preview shown to contestants while a wager is active.
+  // (After resolution, the authoritative amount arrives in wagerResults.)
+  const bountyPreview = (() => {
+    if (!wagerActive || !gameState || !gameState.bounty || gameState.bounty === 'None') return null
+    if (!wagerContestants.includes(playerId)) return null
+    const allBets = Object.values(playerChoices).map(c => c.points).filter(p => p > 0)
+    if (allBets.length === 0) return null
+    switch (gameState.bounty) {
+      case 'Fixed': return gameState.bountyAmount || 0
+      case 'Min': return Math.min(...allBets)
+      case 'Max': return Math.max(...allBets)
+      case 'Average': return Math.floor(allBets.reduce((s, b) => s + b, 0) / allBets.length)
+      default: return null
+    }
+  })()
+
   if (!gameState || gameState.status !== 'playing') {
     return (
       <div className="game-board">
@@ -178,38 +193,31 @@ function GameBoard() {
                 <h4>Choose Your Winner</h4>
                 <div className="wager-options">
                   {(() => {
-                    const currentPlayerName = playerNames[playerId];
-                    const option0Name = wagerOptions.options?.[0] || wagerOptions[0];
-                    const option1Name = wagerOptions.options?.[1] || wagerOptions[1];
-                    const odds0 = wagerOptions.odds?.[0] || 1;
-                    const odds1 = wagerOptions.odds?.[1] || 1;
-                    
+                    const odds0 = wagerOptions.odds[0] || 1;
+                    const odds1 = wagerOptions.odds[1] || 1;
+
                     // Sort options by odds (lower odds on the left)
                     const sortedOptions = [
-                      { name: option0Name, odds: odds0, originalIndex: 0 },
-                      { name: option1Name, odds: odds1, originalIndex: 1 }
+                      { name: wagerOptions.options[0], odds: odds0, originalIndex: 0 },
+                      { name: wagerOptions.options[1], odds: odds1, originalIndex: 1 }
                     ].sort((a, b) => a.odds - b.odds);
-                    
+
                     const leftOption = sortedOptions[0];
                     const rightOption = sortedOptions[1];
-                    
-                    const isPlayerInContest = currentPlayerName === option0Name || currentPlayerName === option1Name;
-                    const canBetOnLeft = !isPlayerInContest || currentPlayerName === leftOption.name;
-                    const canBetOnRight = !isPlayerInContest || currentPlayerName === rightOption.name;
-                    
-                    // Get player ranks for the selected category
-                    const getPlayerRank = (playerName) => {
+
+                    const isPlayerInContest = wagerContestants.includes(playerId);
+                    const canBetOnLeft = !isPlayerInContest || wagerContestants[leftOption.originalIndex] === playerId;
+                    const canBetOnRight = !isPlayerInContest || wagerContestants[rightOption.originalIndex] === playerId;
+
+                    // Get contestant ranks for the selected category
+                    const getContestantRank = (originalIndex) => {
                       if (!wagerCategory || !playerRankings) return null;
-                      
-                      // Find the player ID for this name
-                      const playerId = Object.keys(playerNames).find(pid => playerNames[pid] === playerName);
-                      if (!playerId || !playerRankings[playerId]) return null;
-                      
-                      return playerRankings[playerId][wagerCategory] || null;
+                      const pid = wagerContestants[originalIndex];
+                      return (pid && playerRankings[pid]?.[wagerCategory]) || null;
                     };
-                    
-                    const leftRank = getPlayerRank(leftOption.name);
-                    const rightRank = getPlayerRank(rightOption.name);
+
+                    const leftRank = getContestantRank(leftOption.originalIndex);
+                    const rightRank = getContestantRank(rightOption.originalIndex);
                     
                     return (
                       <>
@@ -256,11 +264,11 @@ function GameBoard() {
                 </div>
                 
                 {/* Bounty Display - Only show to competing players */}
-                {bountyVisible && bountyAmount && (
+                {!!bountyPreview && (
                   <div className="bounty-display">
                     <div className="bounty-info">
                       <span className="bounty-label">💰 Bounty:</span>
-                      <span className="bounty-amount">{bountyAmount} points</span>
+                      <span className="bounty-amount">{bountyPreview} points</span>
                     </div>
                     <small className="bounty-description">
                       Winner receives this additional prize
@@ -269,11 +277,10 @@ function GameBoard() {
                 )}
                 
                 {!playerChoices[playerId] && selectedOption !== null && (() => {
-                  const currentPlayerName = playerNames[playerId];
-                  const selectedOptionName = wagerOptions.options?.[selectedOption] || wagerOptions[selectedOption];
-                  const isPlayerInContest = currentPlayerName === wagerOptions.options?.[0] || currentPlayerName === wagerOptions.options?.[1];
-                  const canBetOnSelectedOption = !isPlayerInContest || currentPlayerName === selectedOptionName;
-                  
+                  const selectedOptionName = wagerOptions.options[selectedOption];
+                  const isPlayerInContest = wagerContestants.includes(playerId);
+                  const canBetOnSelectedOption = !isPlayerInContest || wagerContestants[selectedOption] === playerId;
+
                   if (!canBetOnSelectedOption) {
                     return null; // Don't show wager input if they can't bet on this option
                   }
@@ -298,10 +305,14 @@ function GameBoard() {
                 {playerChoices[playerId] && (() => {
                   const choiceData = playerChoices[playerId];
                   const betAmount = choiceData.points;
-                  
-                  // Use the locally stored userChoice to show which option the user selected
-                  const selectedOptionName = wagerOptions.options?.[userChoice] || 'Unknown Player';
-                  
+
+                  // Prefer the locally stored choice; fall back to the server-provided
+                  // own choice (sent on reconnect) so the bet survives a refresh
+                  const myChoice = userChoice !== null ? userChoice : choiceData.choice;
+                  const selectedOptionName = myChoice !== null && myChoice !== undefined
+                    ? wagerOptions.options[myChoice]
+                    : 'Unknown Player';
+
                   return (
                     <div className="choice-made">
                       <p>✅ You bet <strong>{betAmount}</strong> points that <strong>{selectedOptionName}</strong> will win</p>
@@ -311,28 +322,16 @@ function GameBoard() {
 
                 <div className="player-choices-summary">
                   <h4>Player Choices ({Object.keys(playerChoices).length}/{players.length})</h4>
-                  {(() => {
-                    const hasContestParticipants = Object.entries(playerChoices).some(([pid, choiceData]) => {
-                      const playerName = choiceData.playerName || 'Unknown Player';
-                      return playerName === wagerOptions.options?.[0] || playerName === wagerOptions.options?.[1];
-                    });
-                    
-                    return (
-                      <>
+                  {Object.entries(playerChoices).map(([pid, choiceData]) => {
+                    const playerName = choiceData.playerName || 'Unknown Player';
+                    const isPlayerInContest = wagerContestants.includes(pid);
 
-                        {Object.entries(playerChoices).map(([pid, choiceData]) => {
-                          const playerName = choiceData.playerName || 'Unknown Player';
-                          const isPlayerInContest = playerName === wagerOptions.options?.[0] || playerName === wagerOptions.options?.[1];
-                          
-                          return (
-                            <div key={pid} className="player-choice-item">
-                              <strong>{playerName}</strong> wagered <strong>{isPlayerInContest ? '??' : (choiceData.points || 0)}</strong> points
-                            </div>
-                          );
-                        })}
-                      </>
+                    return (
+                      <div key={pid} className="player-choice-item">
+                        <strong>{playerName}</strong> wagered <strong>{isPlayerInContest ? '??' : (choiceData.points || 0)}</strong> points
+                      </div>
                     );
-                  })()}
+                  })}
                   {Object.keys(playerChoices).length === 0 && (
                     <p className="no-choices">No players have made choices yet...</p>
                   )}
@@ -575,26 +574,16 @@ function WagerProposalForm({ onSubmit }) {
     }
   };
 
-  // Get player rank for odds labels
-  const getPlayerRankForLabel = (playerName) => {
-    if (!selectedCategory || !playerRankings || !playerName) return null;
-    
-    // Find the player ID for this name
-    const playerId = Object.keys(playerNames).find(pid => playerNames[pid] === playerName);
-    if (!playerId || !playerRankings[playerId]) return null;
-    
-    return playerRankings[playerId][selectedCategory] || null;
-  };
-
   // Format odds label with rank information
-  const formatOddsLabel = (playerName, defaultText) => {
-    if (!playerName) return defaultText;
-    
-    const rank = getPlayerRankForLabel(playerName);
-    if (selectedCategory && rank) {
-      return `Odds for ${playerName} (Rank ${rank}):`;
+  const formatOddsLabel = (pid, defaultText) => {
+    if (!pid) return defaultText;
+
+    const name = playerNames[pid];
+    const rank = selectedCategory ? playerRankings[pid]?.[selectedCategory] : null;
+    if (rank) {
+      return `Odds for ${name} (Rank ${rank}):`;
     } else {
-      return `Odds for ${playerName}:`;
+      return `Odds for ${name}:`;
     }
   };
 
@@ -630,9 +619,9 @@ function WagerProposalForm({ onSubmit }) {
           className="form-input player-select"
         >
           <option value="">Select a player</option>
-          {playerNameList.map((player, index) => (
-            <option key={index} value={player.name} disabled={player.name === option2}>
-              {formatPlayerDisplay(player)} {player.name === option2 ? '(Already selected)' : ''}
+          {playerNameList.map((player) => (
+            <option key={player.pid} value={player.pid} disabled={player.pid === option2}>
+              {formatPlayerDisplay(player)} {player.pid === option2 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
@@ -647,9 +636,9 @@ function WagerProposalForm({ onSubmit }) {
           className="form-input player-select"
         >
           <option value="">Select a player</option>
-          {playerNameList.map((player, index) => (
-            <option key={index} value={player.name} disabled={player.name === option1}>
-              {formatPlayerDisplay(player)} {player.name === option1 ? '(Already selected)' : ''}
+          {playerNameList.map((player) => (
+            <option key={player.pid} value={player.pid} disabled={player.pid === option1}>
+              {formatPlayerDisplay(player)} {player.pid === option1 ? '(Already selected)' : ''}
             </option>
           ))}
         </select>
@@ -804,19 +793,19 @@ function WagerResolutionForm({ onSubmit, wagerOptions, onSelectionChange }) {
       <div className="form-group">
         <label className="resolution-label">Who won the contest?</label>
         <div className="resolution-options">
-          <div 
+          <div
             className={`resolution-option ${correctChoice === '0' ? 'selected' : 'clickable'}`}
             onClick={() => handleOptionClick('0')}
           >
-            <strong>{wagerOptions.options?.[0] || wagerOptions[0]}</strong>
-            <span className="odds-display">{wagerOptions.odds?.[0] || 1}:1</span>
+            <strong>{wagerOptions.options[0]}</strong>
+            <span className="odds-display">{wagerOptions.odds[0] || 1}:1</span>
           </div>
-          <div 
+          <div
             className={`resolution-option ${correctChoice === '1' ? 'selected' : 'clickable'}`}
             onClick={() => handleOptionClick('1')}
           >
-            <strong>{wagerOptions.options?.[1] || wagerOptions[1]}</strong>
-            <span className="odds-display">{wagerOptions.odds?.[1] || 1}:1</span>
+            <strong>{wagerOptions.options[1]}</strong>
+            <span className="odds-display">{wagerOptions.odds[1] || 1}:1</span>
           </div>
         </div>
       </div>

@@ -154,8 +154,10 @@ function generatePlayerID() {
   return `p${nextPlayerID++}`;
 }
 
-// Get or create player ID for a socket
-function getOrCreatePlayerID(socket, playerName) {
+// Get or create player ID for a socket. When joining a specific game, a
+// matching player name reconnects that player — but only within that game,
+// so the same name in another game never hijacks someone else's identity.
+function getOrCreatePlayerID(socket, playerName, gameId = null) {
   // Check if this socket already has a player ID
   for (const [playerID, playerData] of playerRegistry.entries()) {
     if (playerData.socketID === socket.id) {
@@ -164,13 +166,15 @@ function getOrCreatePlayerID(socket, playerName) {
     }
   }
 
-  // Check if this player name already exists in any game
-  for (const [playerID, playerData] of playerRegistry.entries()) {
-    if (playerData.playerName === playerName && playerData.gameId) {
-      // Found existing player with same name, update socket ID
-      playerData.socketID = socket.id;
-      playerData.lastSeen = Date.now();
-      return playerID;
+  // Check if this player name already exists in the game being joined
+  if (gameId) {
+    for (const [playerID, playerData] of playerRegistry.entries()) {
+      if (playerData.playerName === playerName && playerData.gameId === gameId) {
+        // Found existing player with same name in this game, update socket ID
+        playerData.socketID = socket.id;
+        playerData.lastSeen = Date.now();
+        return playerID;
+      }
     }
   }
 
@@ -196,24 +200,27 @@ function getPlayerID(socket) {
 }
 
 // Send the active wager state (if any) to a player who just (re)joined a game
-function sendActiveWagerTo(socket, game) {
+function sendActiveWagerTo(socket, game, recipientPlayerID) {
   const wagerState = wagerStates.get(game.id);
   if (!wagerState || !wagerState.isActive || wagerState.resolved) return;
 
   // Send wager options
   socket.emit('wagerProposed', {
     options: wagerState.options,
-    odds: wagerState.odds
+    contestants: wagerState.contestants,
+    odds: wagerState.odds,
+    category: wagerState.category || ''
   });
 
-  // Send current player choices (reveal points but keep choice secret)
+  // Send current player choices (reveal points but keep choices secret,
+  // except the recipient's own choice so their bet survives a refresh)
   for (const [choicePlayerId, choiceData] of Object.entries(wagerState.playerChoices)) {
     const choicePlayerName = game.playerNames[choicePlayerId] || 'Unknown Player';
     socket.emit('choiceMade', {
       playerId: choicePlayerId,
       playerName: choicePlayerName,
       hasChosen: true,
-      choice: null, // Don't reveal the choice until resolution
+      choice: choicePlayerId === recipientPlayerID ? choiceData.choice : null,
       points: choiceData.points // Show the wager amount for tension
     });
   }
@@ -227,7 +234,7 @@ io.on('connection', (socket) => {
 
     if (gameSessions.has(gameId)) {
       const game = gameSessions.get(gameId);
-      const playerID = getOrCreatePlayerID(socket, playerName);
+      const playerID = getOrCreatePlayerID(socket, playerName, gameId);
 
       // Update player registry with game ID
       const playerData = playerRegistry.get(playerID);
@@ -238,7 +245,7 @@ io.on('connection', (socket) => {
         // Player is rejoining - just update their socket ID
         socket.join(gameId);
         socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: game.host === playerID });
-        sendActiveWagerTo(socket, game);
+        sendActiveWagerTo(socket, game, playerID);
 
         // Notify other players about the reconnection
         socket.to(gameId).emit('gameStateUpdate', game);
@@ -307,6 +314,7 @@ io.on('connection', (socket) => {
     wagerStates.set(gameId, {
       isActive: false,
       options: [],
+      contestants: [], // playerIDs of the two players being bet on
       odds: [1, 1], // Default odds of 1 for each option
       playerChoices: {},
       resolved: false,
@@ -384,7 +392,7 @@ io.on('connection', (socket) => {
       isHost: game.host === playerID
     });
 
-    sendActiveWagerTo(socket, game);
+    sendActiveWagerTo(socket, game, playerID);
 
     // Notify other players about the reconnection
     socket.to(gameId).emit('gameStateUpdate', game);
@@ -429,17 +437,21 @@ function processGameAction(game, action, payload, playerID) {
       }
       return game;
 
-    case 'proposeWager':
-      // Host proposes a wager with two options and odds
-      if (game.host === playerID && payload.option1 && payload.option2) {
+    case 'proposeWager': {
+      // Host proposes a wager between two players (by playerID) with odds
+      const { player1, player2 } = payload;
+      if (game.host === playerID && player1 && player2 && player1 !== player2 &&
+          game.players.includes(player1) && game.players.includes(player2)) {
         // Extract odds from payload, defaulting to 1 if not provided
         const odds1 = payload.odds1 || 1;
         const odds2 = payload.odds2 || 1;
         const category = payload.category || '';
+        const options = [game.playerNames[player1], game.playerNames[player2]];
 
         wagerStates.set(game.id, {
           isActive: true,
-          options: [payload.option1, payload.option2],
+          options: options,
+          contestants: [player1, player2],
           odds: [odds1, odds2],
           category: category,
           playerChoices: {},
@@ -447,22 +459,24 @@ function processGameAction(game, action, payload, playerID) {
           correctOption: null
         });
 
-        console.log(`Game ${game.id}: wager proposed "${payload.option1}" (${odds1}x) vs "${payload.option2}" (${odds2}x)${category ? ` in ${category}` : ''}`);
+        console.log(`Game ${game.id}: wager proposed "${options[0]}" (${odds1}x) vs "${options[1]}" (${odds2}x)${category ? ` in ${category}` : ''}`);
 
         // Emit wager proposed event to all players
         io.to(game.id).emit('wagerProposed', {
-          options: [payload.option1, payload.option2],
+          options: options,
+          contestants: [player1, player2],
           odds: [odds1, odds2],
           category: category
         });
       } else {
         console.error(`Invalid wager proposal in game ${game.id}:`, {
           isHost: game.host === playerID,
-          hasOption1: !!payload.option1,
-          hasOption2: !!payload.option2
+          player1,
+          player2
         });
       }
       return game;
+    }
 
     case 'makeChoice':
       // Player makes a choice on the current wager with points
@@ -489,15 +503,11 @@ function processGameAction(game, action, payload, playerID) {
           }
 
           // Prevent players from betting against themselves
-          const currentPlayerName = game.playerNames[playerID];
-          const isPlayerInContest = currentPlayerName === wagerState.options[0] || currentPlayerName === wagerState.options[1];
+          const isPlayerInContest = wagerState.contestants.includes(playerID);
 
-          if (isPlayerInContest) {
+          if (isPlayerInContest && wagerState.contestants[payload.choice] !== playerID) {
             // Player is in the contest - they can only bet on themselves
-            const chosenOptionName = wagerState.options[payload.choice];
-            if (chosenOptionName !== currentPlayerName) {
-              return game;
-            }
+            return game;
           }
 
           // Store the choice and wager amount
@@ -552,25 +562,16 @@ function processGameAction(game, action, payload, playerID) {
           }
 
           let results = [];
-          let winnerPlayerId = null;
 
-          // First, identify the contest winner based on the correct choice
+          // The contest winner is the contestant at the correct choice index
+          const winnerPlayerId = wagerState.contestants[payload.correctChoice] || null;
           const winningOption = wagerState.options[payload.correctChoice];
-
-          // Find the player ID for the winning option
-          for (const [playerId, playerName] of Object.entries(game.playerNames)) {
-            if (playerName === winningOption) {
-              winnerPlayerId = playerId;
-              break;
-            }
-          }
 
           for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const { choice, points } = choiceData;
 
             // Check if this player is one of the two being compared in the contest
-            const playerName = game.playerNames[playerId];
-            const isPlayerInContest = playerName === wagerState.options[0] || playerName === wagerState.options[1];
+            const isPlayerInContest = wagerState.contestants.includes(playerId);
 
             // Only increment wager count for players who are actually in the contest
             if (isPlayerInContest) {
@@ -630,6 +631,7 @@ function processGameAction(game, action, payload, playerID) {
           // Reset wager state for next round
           wagerState.isActive = false;
           wagerState.options = [];
+          wagerState.contestants = [];
           wagerState.odds = [1, 1]; // Reset to default odds
           wagerState.playerChoices = {};
           wagerState.correctOption = null;
