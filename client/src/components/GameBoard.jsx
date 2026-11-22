@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
+import { buildMatchmakerConfigUrl } from '../lib/matchmakerUrl'
 import './GameBoard.css'
 
 function GameBoard() {
@@ -131,7 +132,7 @@ function GameBoard() {
         : categories.map(() => 1) // Fallback to 1 challenge per category
 
       const baseUrl = `${window.location.origin}/matchmaker`
-      return window.generateMatchmakerFullUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
+      return buildMatchmakerConfigUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
     } catch (error) {
       console.error('Error generating matchmaker URL:', error)
       return null

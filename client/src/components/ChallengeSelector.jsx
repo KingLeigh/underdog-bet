@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ChallengesTable from './shared/ChallengesTable'
+import RulesModal from './shared/RulesModal'
 import './ChallengeSelector.css'
 
 function ChallengeSelector() {
@@ -277,48 +279,12 @@ function ChallengeSelector() {
                 Showing {availableChallenges.length} challenges across {availableCategories.length} categories
               </span>
             </div>
-            <div className="challenges-table-container">
-              <table className="challenges-table">
-                <thead>
-                  <tr>
-                    <th>Category</th>
-                    <th>Challenge Name</th>
-                    <th>Requirements</th>
-                    <th>Rules</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredChallenges.map(challenge => {
-                    const isDeselected = deselectedChallenges.has(challenge.id)
-                    return (
-                      <tr 
-                        key={challenge.id}
-                        className={isDeselected ? 'deselected-row' : ''}
-                        onClick={() => toggleChallengeSelection(challenge.id)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td className="challenge-category">{challenge.category}</td>
-                        <td className="challenge-name">{challenge.challengeName}</td>
-                        <td className="challenge-requirements">{challenge.requirements}</td>
-                        <td className="challenge-rules">
-                          <a 
-                            href="#"
-                            className="rules-link"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openRulesModal(challenge)
-                            }}
-                          >
-                            Show Rules
-                          </a>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ChallengesTable
+              challenges={filteredChallenges}
+              deselectedChallenges={deselectedChallenges}
+              onToggleChallenge={toggleChallengeSelection}
+              onShowRules={openRulesModal}
+            />
           </div>
         </div>
 
@@ -348,33 +314,7 @@ function ChallengeSelector() {
       </div>
 
       {/* Rules Modal */}
-      {modalOpen && selectedChallenge && (
-        <div className="rules-modal-overlay" onClick={closeRulesModal}>
-          <div className="rules-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="rules-modal-header">
-              <h3>{selectedChallenge.challengeName}</h3>
-              <button className="modal-close-btn" onClick={closeRulesModal}>
-                ×
-              </button>
-            </div>
-            <div className="rules-modal-body">
-              <div className="challenge-info">
-                <p><strong>Category:</strong> {selectedChallenge.category}</p>
-                <p><strong>Requirements:</strong> {selectedChallenge.requirements}</p>
-              </div>
-              <div className="rules-content">
-                <h4>Rules</h4>
-                <p>{selectedChallenge.rules}</p>
-              </div>
-            </div>
-            <div className="rules-modal-footer">
-              <button className="btn btn-primary" onClick={closeRulesModal}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {modalOpen && <RulesModal challenge={selectedChallenge} onClose={closeRulesModal} />}
     </div>
   )
 }

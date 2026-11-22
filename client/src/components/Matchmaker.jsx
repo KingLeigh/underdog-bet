@@ -1,4 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react'
+import {
+  rng,
+  generateSeed,
+  shuffle,
+  createCostFunction,
+  buildChallenges,
+  solveMatchmaking,
+  checkFeasible,
+  optimizeMatchOrdering
+} from '../lib/matchmakerSolver'
+import { buildMatchmakerConfigUrl } from '../lib/matchmakerUrl'
 import './Matchmaker.css'
 
 function Matchmaker() {
@@ -28,54 +39,6 @@ function Matchmaker() {
 
   // Sample player names
   const sampleNames = ['Leigh', 'Andy', 'Kirsten', 'Brett', 'Steff', 'Talpos', 'Ves', 'Gage', 'Miles', 'Elliot', 'Libby', 'Caitlin']
-
-  // Utility functions
-  const rng = (seed) => {
-    if (seed == null || seed === "") return Math.random
-    let t = Number(seed) >>> 0
-    return function() {
-      t += 0x6D2B79F5
-      let r = Math.imul(t ^ t >>> 15, 1 | t)
-      r ^= r + Math.imul(r ^ r >>> 7, 61 | r)
-      return ((r ^ r >>> 14) >>> 0) / 4294967296
-    }
-  }
-
-  const generateSeed = () => {
-    return Math.floor(Math.random() * 2147483647) // Max 32-bit integer
-  }
-
-  const createCostFunction = (targetGap, mode, rand) => {
-    return (d) => {
-      const x = d - targetGap
-
-      if (mode === 'chaos') {
-        // In chaos mode, all gaps have the same cost (0)
-        // Any matchup where high > low is equally valid
-        return 0
-      } else if (mode === 'loose') {
-        // In loose mode, gaps N-1, N, N+1 all have the same cost (0)
-        if (Math.abs(x) <= 1) return 0
-        // Outside tolerance zone, use quadratic penalty
-        const baseCost = x * x
-        const perturbation = (rand() - 0.5) * 0.1 * baseCost
-        return baseCost + perturbation
-      } else {
-        // In strict mode, only exact target gap has cost 0
-        const baseCost = x * x
-        const perturbation = (rand() - 0.5) * 0.1 * baseCost
-        return baseCost + perturbation
-      }
-    }
-  }
-
-  const shuffle = (arr, rand = Math.random) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1))
-      ;[arr[i], arr[j]] = [arr[j], arr[i]]
-    }
-    return arr
-  }
 
   const addCategory = (name = '', count = 1) => {
     if (!name) {
@@ -133,16 +96,6 @@ function Matchmaker() {
     setTargetGap(suggested)
   }
 
-  const buildChallenges = (cats) => {
-    const arr = []
-    for (const c of cats) {
-      for (let i = 0; i < c.count; i++) {
-        arr.push({ id: `${c.name}-${i+1}`, category: c.name })
-      }
-    }
-    return arr
-  }
-
   const randomizeRanks = () => {
     if (categories.length < 1) {
       alert('Add at least one category first.')
@@ -173,349 +126,6 @@ function Matchmaker() {
     })
 
     setPlayerGrid(updatedGrid)
-  }
-
-  // Core matchmaking algorithm functions
-  const setBit = (mask, i) => mask | (1 << i)
-  const popcount32 = (x) => {
-    x = x - ((x >>> 1) & 0x55555555)
-    x = (x & 0x33333333) + ((x >>> 2) & 0x33333333)
-    return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
-  }
-
-  const solveMatchmaking = (players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) => {
-    const N = players.length
-    const M = categories.length
-    const C = challenges.length
-    const need = selectN ?? N
-
-    if (C < need) return { ok: false, reason: `Need at least ${need} challenges; got ${C}.` }
-
-    // Validate ranks
-    for (const p of players) {
-      if (!p.ranks) return { ok: false, reason: `Missing ranks for player ${p.name}` }
-      for (const c of categories) if (typeof p.ranks[c] !== 'number') return { ok: false, reason: `Missing numeric rank for ${p.name} in ${c}` }
-    }
-
-    const _target = Number.isFinite(targetGap) ? targetGap : Math.max(1, Math.ceil(M/2))
-    const rand = rng(randomSeed)
-
-    const _cost = typeof costFn === 'function' ? costFn : (d) => {
-      const x = d - _target
-      const baseCost = x*x
-      const perturbation = (rand() - 0.5) * 0.1 * baseCost
-      return baseCost + perturbation
-    }
-
-    const t0 = performance.now()
-
-    const catIndex = new Map(categories.map((c,i)=>[c,i]))
-
-    const chans = challenges.map((ch, idx) => {
-      const pairs = []
-      for (let i=0;i<N;i++) for (let j=0;j<N;j++) if (i!==j) {
-        const rHi = players[i].ranks[ch.category]
-        const rLo = players[j].ranks[ch.category]
-        if (rHi < rLo) {
-          const gap = Math.abs(rHi-rLo)
-          pairs.push({hiIdx:i, loIdx:j, gap, cost:_cost(gap)})
-        }
-      }
-      pairs.sort((a,b)=> {
-        const costDiff = a.cost - b.cost
-        if (Math.abs(costDiff) < 0.001) {
-          return (rand() - 0.5) * 0.1
-        }
-        return costDiff || a.hiIdx - b.hiIdx || a.loIdx - b.loIdx
-      })
-      return { id: ch.id, category: ch.category, catBit: (1 << (catIndex.get(ch.category) ?? 0)), pairs, idx }
-    })
-
-    const zeroes = chans.filter(ch=>ch.pairs.length===0).length
-    if (C - zeroes < need) return { ok: false, reason: 'Too many challenges have no valid pairs.' }
-
-    // Order challenges by number of pairs (fewest first)
-    const order = [...chans].map((ch,i)=>({i,len:ch.pairs.length})).sort((a,b)=>{
-      const lenDiff = a.len - b.len
-      if (lenDiff === 0) {
-        return (rand() - 0.5) * 0.1
-      }
-      return lenDiff
-    }).map(o=>o.i)
-
-    const memo = new Map()
-    const FULL = (1<<N) - 1
-    const key = (k, hi, lo, sel, pairMaskStr, coverMask, playerCategoryMaskStr, totalGapCost) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}|${playerCategoryMaskStr}|${totalGapCost}`
-
-    function pairBit(i, j) {
-      if (i > j) [i, j] = [j, i]
-      const idx = i * N + j
-      return 1n << BigInt(idx)
-    }
-
-    // Helper function to create player-category tracking mask
-    // Since each player has exactly 2 matchups, we track: player -> [category1, category2]
-    function createPlayerCategoryMask() {
-      return new Map() // player index -> [category1, category2] or [category1] or []
-    }
-
-    // Helper function to clone player-category mask
-    function clonePlayerCategoryMask(mask) {
-      const newMask = new Map()
-      for (const [player, categories] of mask) {
-        newMask.set(player, [...categories]) // Copy array
-      }
-      return newMask
-    }
-
-    // Helper function to serialize player-category mask for memoization
-    function serializePlayerCategoryMask(mask) {
-      const entries = []
-      for (const [player, categories] of mask) {
-        const sortedCategories = [...categories].sort()
-        entries.push(`${player}:${sortedCategories.join(',')}`)
-      }
-      return entries.sort().join('|')
-    }
-
-    // Helper function to check if a pair would create same-category conflict
-    function wouldCreateSameCategoryConflict(pr, currentPlayerCategoryMask, categoryIndex) {
-      // Check if high player already assigned to this category
-      if (currentPlayerCategoryMask.has(pr.hiIdx) &&
-          currentPlayerCategoryMask.get(pr.hiIdx).includes(categoryIndex)) {
-        return true
-      }
-
-      // Check if low player already assigned to this category
-      if (currentPlayerCategoryMask.has(pr.loIdx) &&
-          currentPlayerCategoryMask.get(pr.loIdx).includes(categoryIndex)) {
-        return true
-      }
-
-      return false
-    }
-
-    let foundPerfectSolution = false
-    let bestSolutionSoFar = { best: Infinity, picks: null }
-
-    function dfs(k, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost = 0) {
-      // Early termination: if we already found a perfect solution, stop searching
-      if (foundPerfectSolution) {
-        return { best: Infinity, earlyTerminated: true }
-      }
-
-      if (performance.now() - t0 > timeLimitMs) {
-        return { best: bestSolutionSoFar.best, picks: bestSolutionSoFar.picks, timedOut: true }
-      }
-
-      const remaining = C - k
-      const needMore = need - selected
-
-      if (needMore === 0) {
-        if (!(usedHi === FULL && usedLo === FULL)) return { best: Infinity }
-        const coveredCount = popcount32(coverMask)
-        const missing = M - coveredCount
-        if (requireCoverAll && missing > 0) return { best: Infinity }
-        const coverPenalty = coverPenaltyPerMissing * missing
-        const totalPenalty = totalGapCost + coverPenalty
-
-        // Track the best solution found so far
-        if (totalPenalty < bestSolutionSoFar.best) {
-          bestSolutionSoFar = { best: totalPenalty, picks: [] }
-        }
-
-        // Early termination: if we found a perfect solution (cost=0), return immediately
-        if (totalPenalty === 0) {
-          foundPerfectSolution = true
-          return { best: totalPenalty, picks: [], perfectSolution: true }
-        }
-
-        return { best: totalPenalty, picks: [] }
-      }
-
-      if (remaining < needMore) return { best: Infinity }
-
-      const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask, serializePlayerCategoryMask(playerCategoryMask), totalGapCost)
-      if (memo.has(memoKey)) {
-        return memo.get(memoKey)
-      }
-
-      let best = { best: Infinity }
-      const ch = chans[order[k]]
-
-      for (const pr of ch.pairs) {
-        if (((usedHi >>> pr.hiIdx) & 1) === 1) continue
-        if (((usedLo >>> pr.loIdx) & 1) === 1) continue
-        const bit = pairBit(pr.hiIdx, pr.loIdx)
-        if ((pairMask & bit) !== 0n) continue
-
-        // Hard constraint: no player can play the same category more than once
-        const categoryIndex = catIndex.get(ch.category)
-        if (wouldCreateSameCategoryConflict(pr, playerCategoryMask, categoryIndex)) {
-          continue  // Skip this pair entirely
-        }
-
-        // Update player-category mask for this assignment
-        const newPlayerCategoryMask = clonePlayerCategoryMask(playerCategoryMask)
-
-        // Add category to high player's assignments
-        if (!newPlayerCategoryMask.has(pr.hiIdx)) {
-          newPlayerCategoryMask.set(pr.hiIdx, [])
-        }
-        newPlayerCategoryMask.get(pr.hiIdx).push(categoryIndex)
-
-        // Add category to low player's assignments
-        if (!newPlayerCategoryMask.has(pr.loIdx)) {
-          newPlayerCategoryMask.set(pr.loIdx, [])
-        }
-        newPlayerCategoryMask.get(pr.loIdx).push(categoryIndex)
-
-        const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit, newPlayerCategoryMask, totalGapCost + pr.cost)
-        const total = sub.best === Infinity ? Infinity : sub.best
-
-        // Early termination: if we found a perfect solution, return immediately
-        if (sub.perfectSolution && total === 0) {
-          foundPerfectSolution = true
-          return {
-            best: total,
-            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
-            perfectSolution: true
-          }
-        }
-
-        if (total < best.best) {
-          best = {
-            best: total,
-            picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}]
-          }
-        }
-      }
-
-      if (remaining - 1 >= needMore) {
-        const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost)
-
-        // Early termination: if we found a perfect solution in skip path, return immediately
-        if (subSkip.perfectSolution && subSkip.best === 0) {
-          foundPerfectSolution = true
-          return {
-            best: subSkip.best,
-            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
-            perfectSolution: true
-          }
-        }
-
-        if (subSkip.best < best.best) {
-          best = {
-            best: subSkip.best,
-            picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}]
-          }
-        }
-      }
-
-      memo.set(memoKey, best)
-      return best
-    }
-
-    const ans = dfs(0, 0, 0, 0, 0n, 0, createPlayerCategoryMask(), 0)
-
-    if (!Number.isFinite(ans.best)) {
-      if (ans.timedOut) {
-        if (bestSolutionSoFar.best === Infinity) {
-          return { ok: false, reason: 'Search time limit reached - no solution found' }
-        } else {
-          // Use the best solution found so far
-          ans.best = bestSolutionSoFar.best
-          ans.picks = bestSolutionSoFar.picks
-          ans.timedOut = true
-        }
-      } else {
-        return { ok: false, reason: 'No feasible assignment found' }
-      }
-    }
-
-    const useMap = new Map()
-    for (const step of ans.picks || []) if (step.use) useMap.set(step.chIndex, step.pr)
-
-    const assignments = []
-    for (let i=0;i<C;i++) {
-      if (!useMap.has(i)) continue
-      const ch = challenges[i]
-      const pr = useMap.get(i)
-      const highPlayer = players[pr.hiIdx]
-      const lowPlayer = players[pr.loIdx]
-      const highRank = highPlayer.ranks[ch.category]
-      const lowRank = lowPlayer.ranks[ch.category]
-      assignments.push({
-        challengeId: ch.id,
-        category: ch.category,
-        high: highPlayer.name,
-        low: lowPlayer.name,
-        highRank: highRank,
-        lowRank: lowRank,
-        gap: pr.gap,
-        cost: _cost(pr.gap)
-      })
-    }
-
-    const gapCost = assignments.reduce((s,a)=>s+a.cost,0)
-
-    return {
-      ok: true,
-      assignments,
-      totalCost: ans.best,
-      gapCost,
-      selectedCount: assignments.length,
-      considered: C
-    }
-  }
-
-  const checkFeasible = (players, categories, challenges, { timeLimitMs = 2000, selectN, requireCoverAll = false } = {}) => {
-    const res = solveMatchmaking(players, categories, challenges, { targetGap: 1, timeLimitMs, costFn: () => 0, selectN, coverPenaltyPerMissing: 0, requireCoverAll })
-    return res.ok
-  }
-
-  const optimizeMatchOrdering = (assignments, seedValue = null) => {
-    if (assignments.length <= 1) return assignments
-
-    const ordered = []
-    const remaining = [...assignments]
-
-    // Use seeded random number generator for consistent ordering
-    const rand = seedValue ? rng(seedValue) : Math.random
-    const startIdx = Math.floor(rand() * remaining.length)
-    ordered.push(remaining.splice(startIdx, 1)[0])
-
-    while (remaining.length > 0) {
-      let bestScore = -Infinity
-      let bestIdx = -1
-
-      for (let i = 0; i < remaining.length; i++) {
-        const match = remaining[i]
-        const lastMatch = ordered[ordered.length - 1]
-
-        let score = 0
-
-        if (match.category !== lastMatch.category) {
-          score += 10
-        }
-
-        if (match.high !== lastMatch.high && match.high !== lastMatch.low &&
-            match.low !== lastMatch.high && match.low !== lastMatch.low) {
-          score += 20
-        }
-
-        score += rand() * 2
-
-        if (score > bestScore) {
-          bestScore = score
-          bestIdx = i
-        }
-      }
-
-      ordered.push(remaining.splice(bestIdx, 1)[0])
-    }
-
-    return ordered
   }
 
   // Simulation and solving functions
@@ -647,6 +257,43 @@ function Matchmaker() {
     })))
   }
 
+  // Copy a share URL to the clipboard (with prompt fallback) and navigate to it
+  const copyAndVisit = (url, successMessage) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setShareStatus(successMessage)
+      setTimeout(() => setShareStatus(''), 3000)
+      window.location.href = url
+    }).catch(() => {
+      prompt('Share this URL:', url)
+      setShareStatus('URL generated!')
+      setTimeout(() => setShareStatus(''), 3000)
+      window.location.href = url
+    })
+  }
+
+  // Build the ?data= config URL from the current grid, or null if invalid
+  const buildConfigUrl = () => {
+    if (!categories.length) {
+      alert('Please add at least one category before saving.')
+      return null
+    }
+
+    const parsed = readPlayersFromGrid()
+    if (!parsed.ok) {
+      alert(`Cannot share: ${parsed.reason}`)
+      return null
+    }
+
+    const baseUrl = window.location.origin + window.location.pathname
+    return buildMatchmakerConfigUrl(
+      baseUrl,
+      categories.map(c => c.name),
+      categories.map(c => c.count),
+      parsed.players.map(p => p.name),
+      parsed.players.map(p => categories.map(cat => p.ranks[cat.name]))
+    )
+  }
+
   const generateShareUrl = () => {
     try {
       // If we have matchups already generated, use the more efficient ?save approach
@@ -654,45 +301,8 @@ function Matchmaker() {
         return generateMatchupsUrl()
       }
 
-      // Otherwise, fall back to the original ?data approach
-      const parsed = readPlayersFromGrid()
-
-      if (!categories.length) {
-        alert('Please add at least one category before sharing.')
-        return
-      }
-
-      if (!parsed.ok) {
-        alert(`Cannot share: ${parsed.reason}`)
-        return
-      }
-
-      const categoriesStr = categories.map(c => c.name).join(',')
-      const challengeCounts = categories.map(c => c.count).join(',')
-      const playerNames = parsed.players.map(p => p.name).join(',')
-
-      const rankSections = parsed.players.map(player => {
-        return categories.map(cat => player.ranks[cat.name]).join(',')
-      })
-
-      const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
-      const encodedData = btoa(dataString)
-      const baseUrl = window.location.origin + window.location.pathname
-      const shareUrl = `${baseUrl}?data=${encodedData}`
-
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setShareStatus('URL copied to clipboard!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Redirect to the saved URL after copying
-        window.location.href = shareUrl
-      }).catch(() => {
-        prompt('Share this URL:', shareUrl)
-        setShareStatus('URL generated!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Still redirect even if clipboard copy failed
-        window.location.href = shareUrl
-      })
-
+      const url = buildConfigUrl()
+      if (url) copyAndVisit(url, 'URL copied to clipboard!')
     } catch (error) {
       console.error('Error generating share URL:', error)
       setShareStatus('Error generating URL')
@@ -713,25 +323,9 @@ function Matchmaker() {
         `${m.number}:${m.category}:${m.high}:${m.low}:${m.matchup}`
       ).join('|')
 
-      // Encode compact matchups data
-      const encodedMatchups = btoa(compactMatchups)
-
       const baseUrl = window.location.origin + window.location.pathname
-      const shareUrl = `${baseUrl}?save=${encodedMatchups}`
-
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        setShareStatus('Matchups URL copied to clipboard!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Redirect to the saved URL after copying
-        window.location.href = shareUrl
-      }).catch(() => {
-        prompt('Share this URL:', shareUrl)
-        setShareStatus('Matchups URL generated!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Still redirect even if clipboard copy failed
-        window.location.href = shareUrl
-      })
-
+      const shareUrl = `${baseUrl}?save=${btoa(compactMatchups)}`
+      copyAndVisit(shareUrl, 'Matchups URL copied to clipboard!')
     } catch (error) {
       console.error('Error generating matchups URL:', error)
       setShareStatus('Error generating matchups URL')
@@ -741,44 +335,8 @@ function Matchmaker() {
 
   const saveConfig = () => {
     try {
-      const parsed = readPlayersFromGrid()
-
-      if (!categories.length) {
-        alert('Please add at least one category before saving.')
-        return
-      }
-
-      if (!parsed.ok) {
-        alert(`Cannot save: ${parsed.reason}`)
-        return
-      }
-
-      const categoriesStr = categories.map(c => c.name).join(',')
-      const challengeCounts = categories.map(c => c.count).join(',')
-      const playerNames = parsed.players.map(p => p.name).join(',')
-
-      const rankSections = parsed.players.map(player => {
-        return categories.map(cat => player.ranks[cat.name]).join(',')
-      })
-
-      const dataString = [categoriesStr, challengeCounts, playerNames, ...rankSections].join('|')
-      const encodedData = btoa(dataString)
-      const baseUrl = window.location.origin + window.location.pathname
-      const configUrl = `${baseUrl}?data=${encodedData}`
-
-      navigator.clipboard.writeText(configUrl).then(() => {
-        setShareStatus('Config URL copied to clipboard!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Redirect to the saved URL after copying
-        window.location.href = configUrl
-      }).catch(() => {
-        prompt('Share this URL:', configUrl)
-        setShareStatus('Config URL generated!')
-        setTimeout(() => setShareStatus(''), 3000)
-        // Still redirect even if clipboard copy failed
-        window.location.href = configUrl
-      })
-
+      const url = buildConfigUrl()
+      if (url) copyAndVisit(url, 'Config URL copied to clipboard!')
     } catch (error) {
       console.error('Error generating config URL:', error)
       setShareStatus('Error generating config URL')
@@ -957,6 +515,7 @@ function Matchmaker() {
     const count = typeof cat.count === 'string' ? parseInt(cat.count) || 0 : cat.count
     return sum + count
   }, 0)
+
   return (
     <div className="matchmaker">
       <div className="matchmaker-content">
@@ -1151,7 +710,7 @@ function Matchmaker() {
                           disabled={isFormLocked}
                           onChange={(e) => {
                             const updated = [...playerGrid]
-                            updated[index].name = e.target.value
+                            updated[index] = { ...updated[index], name: e.target.value }
                             setPlayerGrid(updated)
                           }}
                         />
@@ -1167,7 +726,10 @@ function Matchmaker() {
                             disabled={isFormLocked}
                             onChange={(e) => {
                               const updated = [...playerGrid]
-                              updated[index].ranks[cat.name] = parseInt(e.target.value) || ''
+                              updated[index] = {
+                                ...updated[index],
+                                ranks: { ...updated[index].ranks, [cat.name]: parseInt(e.target.value) || '' }
+                              }
                               setPlayerGrid(updated)
                             }}
                           />

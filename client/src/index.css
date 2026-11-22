@@ -57,24 +57,3 @@ input:focus, select:focus {
   border-color: #4f46e5;
   background: rgba(255, 255, 255, 0.15);
 }
-
-/* Utility classes */
-.text-center { text-align: center; }
-.text-left { text-align: left; }
-.text-right { text-align: right; }
-
-.mt-1 { margin-top: 0.25rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-4 { margin-top: 1rem; }
-.mt-8 { margin-top: 2rem; }
-
-.mb-1 { margin-bottom: 0.25rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mb-4 { margin-bottom: 1rem; }
-.mb-8 { margin-bottom: 2rem; }
-
-.p-4 { padding: 1rem; }
-.p-8 { padding: 2rem; }
-
-.rounded { border-radius: 8px; }
-.rounded-lg { border-radius: 12px; }

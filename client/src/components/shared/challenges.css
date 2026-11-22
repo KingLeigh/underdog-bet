@@ -1,0 +1,441 @@
+/* Shared styles for the challenges table, rules modal, summary line, and
+   loading/error states — used by ChallengeSelector and ChallengeList. */
+
+.challenges-summary {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.summary-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Table styling */
+.challenges-table-container {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.challenges-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.challenges-table th,
+.challenges-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.challenges-table th {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.challenges-table td {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.challenge-category {
+  width: 150px;
+  font-weight: 500;
+}
+
+.challenge-name {
+  width: 200px;
+  font-weight: 600;
+}
+
+.challenge-requirements {
+  width: 120px;
+}
+
+.challenge-rules {
+  width: 120px;
+  text-align: center;
+}
+
+/* Row selection styling */
+.challenges-table tr {
+  transition: all 0.2s ease;
+}
+
+.challenges-table tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.deselected-row {
+  opacity: 0.4;
+  text-decoration: line-through;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.deselected-row:hover {
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0.6;
+}
+
+/* Rules link styling */
+.rules-link {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.rules-link:hover {
+  color: rgba(255, 255, 255, 1);
+  text-decoration: underline;
+}
+
+/* Rules Modal Styling */
+.rules-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.rules-modal-content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.rules-modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rules-modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rules-modal-body {
+  padding: 2rem;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.challenge-info {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.challenge-info p {
+  margin: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.challenge-info strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rules-content h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rules-content p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+.rules-modal-footer {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+/* Loading and Error States */
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.loading-state p {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.error-state p {
+  color: #ff6b6b;
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0;
+}
+
+.error-state button {
+  margin-top: 1rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .challenges-summary {
+    margin-bottom: 0.875rem;
+  }
+
+  .summary-text {
+    font-size: 0.85rem;
+  }
+
+  .challenges-table-container {
+    margin-top: 0.875rem;
+  }
+
+  .challenges-table {
+    min-width: 600px;
+  }
+
+  .challenges-table th,
+  .challenges-table td {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .challenges-table th {
+    font-size: 0.8rem;
+  }
+
+  .challenges-table td {
+    font-size: 0.85rem;
+  }
+
+  .challenge-category {
+    width: 120px;
+  }
+
+  .challenge-name {
+    width: 150px;
+  }
+
+  .challenge-requirements {
+    width: 100px;
+  }
+
+  .challenge-rules {
+    width: 80px;
+  }
+
+  .rules-link {
+    font-size: 0.75rem;
+  }
+
+  .rules-modal-content {
+    width: 95%;
+    max-height: 90vh;
+    margin: 0.5rem;
+  }
+
+  .rules-modal-header,
+  .rules-modal-body,
+  .rules-modal-footer {
+    padding: 1rem;
+  }
+
+  .rules-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .challenge-info {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.875rem;
+  }
+
+  .challenge-info p {
+    font-size: 0.9rem;
+  }
+
+  .rules-content h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .rules-content p {
+    font-size: 0.9rem;
+  }
+
+  .loading-state,
+  .error-state {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .loading-state p {
+    font-size: 1rem;
+  }
+
+  .error-state p {
+    font-size: 1rem;
+  }
+
+  .error-state button {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .challenges-summary {
+    margin-bottom: 0.75rem;
+  }
+
+  .summary-text {
+    font-size: 0.8rem;
+  }
+
+  .challenges-table-container {
+    margin-top: 0.75rem;
+  }
+
+  .challenges-table {
+    min-width: 500px;
+  }
+
+  .challenges-table th,
+  .challenges-table td {
+    padding: 0.5rem 0.4rem;
+  }
+
+  .challenges-table th {
+    font-size: 0.75rem;
+  }
+
+  .challenges-table td {
+    font-size: 0.8rem;
+  }
+
+  .challenge-category {
+    width: 100px;
+  }
+
+  .challenge-name {
+    width: 120px;
+  }
+
+  .challenge-requirements {
+    width: 80px;
+  }
+
+  .challenge-rules {
+    width: 70px;
+  }
+
+  .rules-link {
+    font-size: 0.7rem;
+  }
+
+  .rules-modal-content {
+    width: 98%;
+    margin: 0.25rem;
+  }
+
+  .rules-modal-header,
+  .rules-modal-body,
+  .rules-modal-footer {
+    padding: 0.75rem;
+  }
+
+  .rules-modal-header h3 {
+    font-size: 1rem;
+  }
+
+  .challenge-info {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .challenge-info p {
+    font-size: 0.85rem;
+  }
+
+  .rules-content h4 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .rules-content p {
+    font-size: 0.85rem;
+  }
+
+  .loading-state,
+  .error-state {
+    padding: 1.25rem;
+    margin: 1.25rem 0;
+  }
+
+  .loading-state p {
+    font-size: 0.95rem;
+  }
+
+  .error-state p {
+    font-size: 0.95rem;
+  }
+
+  .error-state button {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+  }
+}
