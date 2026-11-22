@@ -15,9 +15,21 @@ function generateGameId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
+// Case-insensitive key used for matching player names on reconnection
+function nameKey(name) {
+  return (name || '').trim().toLowerCase();
+}
+
+// Display form of a player name: trimmed, first letter upper-cased
+function displayName(name) {
+  const trimmed = (name || '').trim();
+  return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : trimmed;
+}
+
 // Get or create player ID for a socket. When joining a specific game, a
-// matching player name reconnects that player — but only within that game,
-// so the same name in another game never hijacks someone else's identity.
+// matching player name (case-insensitive) reconnects that player — but only
+// within that game, so the same name in another game never hijacks someone
+// else's identity.
 function getOrCreatePlayerID(socket, playerName, gameId = null) {
   // Check if this socket already has a player ID
   for (const [playerID, playerData] of playerRegistry.entries()) {
@@ -30,7 +42,7 @@ function getOrCreatePlayerID(socket, playerName, gameId = null) {
   // Check if this player name already exists in the game being joined
   if (gameId) {
     for (const [playerID, playerData] of playerRegistry.entries()) {
-      if (playerData.playerName === playerName && playerData.gameId === gameId) {
+      if (nameKey(playerData.playerName) === nameKey(playerName) && playerData.gameId === gameId) {
         // Found existing player with same name in this game, update socket ID
         playerData.socketID = socket.id;
         playerData.lastSeen = Date.now();
@@ -39,11 +51,11 @@ function getOrCreatePlayerID(socket, playerName, gameId = null) {
     }
   }
 
-  // Create new player
+  // Create new player (the display name keeps the first joiner's casing)
   const playerID = generatePlayerID();
   playerRegistry.set(playerID, {
     socketID: socket.id,
-    playerName: playerName,
+    playerName: displayName(playerName),
     gameId: null,
     lastSeen: Date.now()
   });
@@ -90,43 +102,9 @@ function createInitialWagerState() {
   };
 }
 
-// Cleanup abandoned games (all players disconnected for more than 30 minutes)
-function cleanupAbandonedGames() {
-  const now = Date.now();
-  const thirtyMinutes = 30 * 60 * 1000;
-
-  for (const [gameId, game] of gameSessions.entries()) {
-    let allPlayersDisconnected = true;
-    let lastActivity = 0;
-
-    // Check if any players are still connected
-    for (const playerID of game.players) {
-      const playerData = playerRegistry.get(playerID);
-      if (playerData && playerData.socketID) {
-        allPlayersDisconnected = false;
-        break;
-      }
-      // Track the most recent activity
-      if (playerData && playerData.lastSeen > lastActivity) {
-        lastActivity = playerData.lastSeen;
-      }
-    }
-
-    // If all players are disconnected and it's been more than 30 minutes
-    if (allPlayersDisconnected && (now - lastActivity) > thirtyMinutes) {
-      console.log(`Game ${gameId} abandoned for ${Math.round((now - lastActivity) / 60000)} minutes - cleaning up`);
-      gameSessions.delete(gameId);
-      wagerStates.delete(gameId);
-
-      // Clean up player registry entries for this game
-      for (const [playerID, playerData] of playerRegistry.entries()) {
-        if (playerData.gameId === gameId) {
-          playerRegistry.delete(playerID);
-        }
-      }
-    }
-  }
-}
+// Note: there is deliberately no abandoned-game cleanup. Games live in
+// memory until the server restarts, so hosts can create games well in
+// advance. Revisit expiry/TTL when the database layer lands (see TODO.md).
 
 module.exports = {
   gameSessions,
@@ -135,9 +113,9 @@ module.exports = {
   generateGameId,
   getOrCreatePlayerID,
   getPlayerID,
+  displayName,
   addPoints,
   getPlayerPoints,
   getWagerState,
-  createInitialWagerState,
-  cleanupAbandonedGames
+  createInitialWagerState
 };

@@ -8,6 +8,7 @@ const {
   generateGameId,
   getOrCreatePlayerID,
   getPlayerID,
+  displayName,
   createInitialWagerState
 } = require('./store');
 const { processGameAction } = require('./gameActions');
@@ -73,7 +74,7 @@ function registerSocketHandlers(io) {
           // New player joining - add them to the game
           game.players.push(playerID);
           game.playerPoints[playerID] = game.startingPoints || 100;
-          game.playerNames[playerID] = playerName || `Player${game.players.length}`;
+          game.playerNames[playerID] = displayName(playerName) || `Player${game.players.length}`;
 
           socket.join(gameId);
           socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID });
@@ -120,7 +121,7 @@ function registerSocketHandlers(io) {
           [playerID]: startingPoints
         },
         playerNames: {
-          [playerID]: gameConfig.playerName || `Player${playerID.slice(1)}`
+          [playerID]: displayName(gameConfig.playerName) || `Player${playerID.slice(1)}`
         },
         categories: gameConfig.categories || [],
         challengesPerCategory: gameConfig.challengesPerCategory || [],

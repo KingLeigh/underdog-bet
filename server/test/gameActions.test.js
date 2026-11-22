@@ -9,16 +9,17 @@ const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { processGameAction } = require('../lib/gameActions');
-const { wagerStates } = require('../lib/store');
+const { wagerStates, playerRegistry } = require('../lib/store');
 
 // ---- Test helpers -----------------------------------------------------------
 
-// Fake io capturing room emits as [event, payload] pairs
+// Fake io capturing emits as [event, payload, target] triples
 function fakeIo(events) {
   return {
-    to: () => ({
-      emit: (event, payload) => events.push([event, payload])
-    })
+    to: (target) => ({
+      emit: (event, payload) => events.push([event, payload, target])
+    }),
+    in: () => ({ socketsLeave: () => {} })
   };
 }
 
@@ -69,6 +70,7 @@ beforeEach(() => {
   events = [];
   io = fakeIo(events);
   wagerStates.clear();
+  playerRegistry.clear();
 });
 
 // ---- startGame --------------------------------------------------------------
@@ -84,6 +86,82 @@ test('startGame with two or more players starts the game', () => {
   const result = processGameAction(io, game, 'startGame', {}, 'p1');
   assert.equal(result.status, 'playing');
   assert.ok(result.gameStartedAt);
+});
+
+test('startGame is host-only', () => {
+  const game = makeGame({ status: 'waiting' });
+  const result = processGameAction(io, game, 'startGame', {}, 'p2');
+  assert.equal(result.status, 'waiting');
+});
+
+test('startGame drops players who have not submitted rankings', () => {
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } } // p3 never ranked
+  });
+  const result = processGameAction(io, game, 'startGame', {}, 'p1');
+
+  assert.equal(result.status, 'playing');
+  assert.deepEqual(result.players, ['p1', 'p2']);
+  assert.equal(result.playerPoints.p3, undefined);
+  assert.equal(result.playerNames.p3, undefined);
+  assert.equal(result.rankingsComplete, true, 'all remaining players are ranked');
+});
+
+test('startGame refuses when fewer than 2 players have rankings', () => {
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 } } // only the host ranked
+  });
+  const result = processGameAction(io, game, 'startGame', {}, 'p1');
+
+  assert.equal(result.status, 'waiting');
+  assert.deepEqual(result.players, ['p1', 'p2', 'p3'], 'nobody is dropped on a refused start');
+});
+
+// ---- removePlayer (host kick) -----------------------------------------------
+
+test('the host can remove a player from a waiting game', () => {
+  const game = makeGame({ status: 'waiting' });
+  playerRegistry.set('p3', { socketID: 'sock3', playerName: 'Carol', gameId: 'TEST01', lastSeen: 0 });
+
+  processGameAction(io, game, 'removePlayer', { playerId: 'p3' }, 'p1');
+
+  assert.deepEqual(game.players, ['p1', 'p2']);
+  assert.equal(game.playerPoints.p3, undefined);
+  assert.equal(game.playerNames.p3, undefined);
+  assert.equal(playerRegistry.get('p3').gameId, null, 'kicked player is detached from the game');
+
+  // The kicked player's socket is notified directly
+  const notice = events.find(([event, , target]) => event === 'removedFromGame' && target === 'sock3');
+  assert.ok(notice, 'removedFromGame sent to the kicked socket');
+});
+
+test('removePlayer recomputes rankingsComplete for the remaining players', () => {
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } },
+    rankingsComplete: false
+  });
+
+  processGameAction(io, game, 'removePlayer', { playerId: 'p3' }, 'p1');
+  assert.equal(game.rankingsComplete, true);
+});
+
+test('removePlayer is host-only, waiting-only, and cannot remove the host', () => {
+  const playing = makeGame(); // status 'playing'
+  processGameAction(io, playing, 'removePlayer', { playerId: 'p3' }, 'p1');
+  assert.deepEqual(playing.players, ['p1', 'p2', 'p3'], 'no kicks after the game starts');
+
+  const game = makeGame({ status: 'waiting' });
+  processGameAction(io, game, 'removePlayer', { playerId: 'p3' }, 'p2'); // not host
+  assert.deepEqual(game.players, ['p1', 'p2', 'p3']);
+
+  processGameAction(io, game, 'removePlayer', { playerId: 'p1' }, 'p1'); // host removing self
+  assert.deepEqual(game.players, ['p1', 'p2', 'p3']);
 });
 
 // ---- proposeWager -----------------------------------------------------------

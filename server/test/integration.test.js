@@ -177,22 +177,24 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   const points2 = await fetch(`${URL}/api/games/${gameId}/points`).then(r => r.json());
   assert.equal(points2.playerPoints[aliceId], 170);
 
-  // 10. Identity isolation: creating a different game with the name "Alice"
-  //     must NOT hijack game 1's Alice.
+  // 10. Identity isolation: creating a different game with the name "alice"
+  //     must NOT hijack game 1's Alice (and display names are capitalized).
   const mallory = connect();
-  mallory.emit('createGame', { playerName: 'Alice' });
+  mallory.emit('createGame', { playerName: 'alice' });
   const g2 = await once(mallory, 'gameCreated');
   assert.notEqual(g2.playerID, aliceId, 'same name in another game gets a new identity');
+  assert.equal(g2.playerNames[g2.playerID], 'Alice', 'display names get a capital first letter');
 
-  // 11. Same-game name reconnection still works: joining game 1 by name
-  //     "Alice" from a fresh socket returns her original ID.
+  // 11. Same-game name reconnection is case-insensitive: joining game 1 as
+  //     "ALICE" from a fresh socket returns her original ID.
   alice2.disconnect();
   const alice3 = connect();
   await once(alice3, 'connect');
-  alice3.emit('joinGame', { gameId, playerName: 'Alice' });
+  alice3.emit('joinGame', { gameId, playerName: 'ALICE' });
   const rejoinByName = await once(alice3, 'gameJoined');
-  assert.equal(rejoinByName.playerID, aliceId, 'same-game name rejoin keeps the ID');
+  assert.equal(rejoinByName.playerID, aliceId, 'case-insensitive name rejoin keeps the ID');
   assert.equal(rejoinByName.wasReconnection, true);
+  assert.equal(rejoinByName.gameState.playerNames[aliceId], 'Alice', 'display name keeps first-join form');
 
   // 12. Error paths
   const err = once(alice3, 'error');

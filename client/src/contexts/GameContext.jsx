@@ -211,6 +211,14 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'RANKINGS_COMPLETE', payload })
     }
 
+    const handleRemovedFromGame = ({ reason }) => {
+      dispatch({ type: 'GAME_NOT_FOUND' })
+      if (reason) {
+        window.alert(reason)
+      }
+      window.location.href = '/'
+    }
+
     const handleError = ({ message }) => {
       console.error('Server error:', message)
 
@@ -233,6 +241,7 @@ export function GameProvider({ children, socket }) {
     socket.on('wagerResolved', handleWagerResolved)
     socket.on('wagerCancelled', handleWagerCancelled)
     socket.on('rankingsComplete', handleRankingsComplete)
+    socket.on('removedFromGame', handleRemovedFromGame)
     socket.on('error', handleError)
 
     return () => {
@@ -245,6 +254,7 @@ export function GameProvider({ children, socket }) {
       socket.off('wagerResolved', handleWagerResolved)
       socket.off('wagerCancelled', handleWagerCancelled)
       socket.off('rankingsComplete', handleRankingsComplete)
+      socket.off('removedFromGame', handleRemovedFromGame)
       socket.off('error', handleError)
     }
   }, [socket])
@@ -308,6 +318,10 @@ export function GameProvider({ children, socket }) {
     sendGameAction('submitRankings', { rankings })
   }
 
+  const removePlayer = (playerId) => {
+    sendGameAction('removePlayer', { playerId })
+  }
+
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' })
   }
@@ -325,6 +339,7 @@ export function GameProvider({ children, socket }) {
     resetWagerState,
     cancelWager,
     submitRankings,
+    removePlayer,
     clearError
   }
 

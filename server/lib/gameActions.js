@@ -1,6 +1,41 @@
 // Game rules: processing of gameAction events (start, wagers, rankings).
 
-const { wagerStates, addPoints } = require('./store');
+const { wagerStates, addPoints, playerRegistry } = require('./store');
+
+// Remove a player from a game entirely (host kick, or dropped at game start
+// for not submitting rankings). Notifies the removed player and detaches
+// them from the game so a later join with the same name starts fresh.
+function removePlayerFromGame(io, game, playerId, reason) {
+  game.players = game.players.filter(id => id !== playerId);
+  delete game.playerPoints[playerId];
+  delete game.playerNames[playerId];
+  delete game.playerRankings[playerId];
+  if (game.playerWagerCount) {
+    delete game.playerWagerCount[playerId];
+  }
+
+  const wagerState = wagerStates.get(game.id);
+  if (wagerState) {
+    delete wagerState.playerChoices[playerId];
+  }
+
+  const playerData = playerRegistry.get(playerId);
+  if (playerData) {
+    if (playerData.socketID) {
+      io.to(playerData.socketID).emit('removedFromGame', { gameId: game.id, reason });
+      io.in(playerData.socketID).socketsLeave(game.id);
+    }
+    playerData.gameId = null;
+  }
+}
+
+// Recompute whether every (remaining) player has submitted rankings
+function recomputeRankingsComplete(game) {
+  if (game.categories && game.categories.length > 0) {
+    game.rankingsComplete = game.players.length > 0 &&
+      game.players.every(pid => game.playerRankings[pid]);
+  }
+}
 
 // Bounty calculation
 function calculateBountyAmount(game, wagerState) {
@@ -36,15 +71,51 @@ function calculateBountyAmount(game, wagerState) {
 // Process a gameAction and return the (possibly new) game state
 function processGameAction(io, game, action, payload, playerID) {
   switch (action) {
-    case 'startGame':
-      if (game.players.length >= 2) {
-        return {
-          ...game,
-          status: 'playing',
-          gameStartedAt: new Date().toISOString()
-        };
+    case 'startGame': {
+      // Host-only. In a game with categories, starting drops any player who
+      // hasn't submitted rankings — a half-signed-up player can never block
+      // the start. At least 2 ready players are required.
+      if (game.host !== playerID || game.status !== 'waiting') {
+        return game;
       }
+
+      if (game.categories && game.categories.length > 0) {
+        const unranked = game.players.filter(pid => !game.playerRankings[pid]);
+        if (game.players.length - unranked.length < 2) {
+          return game;
+        }
+        for (const pid of unranked) {
+          console.log(`Game ${game.id}: dropping ${game.playerNames[pid]} (${pid}) at start - no rankings submitted`);
+          removePlayerFromGame(io, game, pid, 'The game started without you because your rankings were not submitted');
+        }
+        recomputeRankingsComplete(game);
+      } else if (game.players.length < 2) {
+        return game;
+      }
+
+      return {
+        ...game,
+        status: 'playing',
+        gameStartedAt: new Date().toISOString()
+      };
+    }
+
+    case 'removePlayer': {
+      // Host removes a player from a waiting game (no-shows, typo ghosts).
+      // The host cannot remove themselves.
+      const targetId = payload && payload.playerId;
+      if (game.host !== playerID || game.status !== 'waiting') {
+        return game;
+      }
+      if (!targetId || targetId === game.host || !game.players.includes(targetId)) {
+        return game;
+      }
+
+      console.log(`Game ${game.id}: host removed ${game.playerNames[targetId]} (${targetId})`);
+      removePlayerFromGame(io, game, targetId, 'You were removed from the game by the host');
+      recomputeRankingsComplete(game);
       return game;
+    }
 
     case 'proposeWager': {
       // Host proposes a wager between two players (by playerID) with odds

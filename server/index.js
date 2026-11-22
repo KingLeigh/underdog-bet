@@ -9,7 +9,6 @@ const path = require('path');
 
 const { registerRoutes } = require('./lib/routes');
 const { registerSocketHandlers } = require('./lib/sockets');
-const { cleanupAbandonedGames } = require('./lib/store');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,9 +44,6 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
 }
-
-// Clean up abandoned games every 10 minutes
-setInterval(cleanupAbandonedGames, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
 

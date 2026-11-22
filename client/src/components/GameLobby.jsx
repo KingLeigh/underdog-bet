@@ -20,7 +20,8 @@ function GameLobby() {
     categories,
     playerRankings,
     rankingsComplete,
-    submitRankings
+    submitRankings,
+    removePlayer
   } = useGame()
 
   // CategoryRanking state
@@ -167,19 +168,33 @@ function GameLobby() {
         <div className="players-section panel-spacing">
           <h2>Players ({players.length})</h2>
           <div className="players-list">
-            {players.map((playerId) => (
-              <div key={playerId} className="player-item">
+            {players.map((pid) => (
+              <div key={pid} className="player-item">
                 <div className="player-avatar">👤</div>
                 <div className="player-info">
                   <div className="player-name">
-                    {playerNames[playerId] || 'Unknown Player'}
+                    {playerNames[pid] || 'Unknown Player'}
                   </div>
                   <div className="player-points">
-                    Points: <span className="points-value">{playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}</span>
+                    Points: <span className="points-value">{playerPoints[pid] !== undefined ? playerPoints[pid] : 0}</span>
                   </div>
                 </div>
-                {playerId === gameState.host && (
+                {categories && categories.length > 0 && (
+                  <div className={`ranking-status-badge ${playerRankings[pid] ? 'ranked' : 'unranked'}`}>
+                    {playerRankings[pid] ? '✓ Ranked' : 'Not ranked'}
+                  </div>
+                )}
+                {pid === gameState.host && (
                   <div className="host-badge">Host</div>
+                )}
+                {isHost && pid !== gameState.host && (
+                  <button
+                    className="kick-btn"
+                    title={`Remove ${playerNames[pid] || 'player'} from the game`}
+                    onClick={() => removePlayer(pid)}
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
             ))}
@@ -273,32 +288,45 @@ function GameLobby() {
           />
         </div>
 
-        {isHost && players.length >= 2 && (
-          <div className="host-controls">
-            <button 
-              onClick={startGame} 
-              className="btn btn-primary start-game-btn"
-              disabled={players.length < 2 || (categories && categories.length > 0 && players.some(pid => !playerRankings[pid]))}
-            >
-              Start Game
-            </button>
-            {categories && categories.length > 0 && players.some(pid => !playerRankings[pid]) && (
-              <p className="start-game-note">
-                Waiting for all players to complete category rankings...
-              </p>
-            )}
-            {categories && categories.length > 0 && !players.some(pid => !playerRankings[pid]) && (
-              <p className="start-game-note">
-                All players have submitted rankings! Ready to start.
-              </p>
-            )}
-            {(!categories || categories.length === 0) && (
-              <p className="start-game-note">
-                Share the Game ID with other players so they can join!
-              </p>
-            )}
-          </div>
-        )}
+        {isHost && players.length >= 2 && (() => {
+          const hasCategories = categories && categories.length > 0
+          const rankedCount = hasCategories
+            ? players.filter(pid => playerRankings[pid]).length
+            : players.length
+          const unrankedCount = players.length - rankedCount
+
+          return (
+            <div className="host-controls">
+              <button
+                onClick={startGame}
+                className="btn btn-primary start-game-btn"
+                disabled={rankedCount < 2}
+              >
+                Start Game
+              </button>
+              {hasCategories && rankedCount < 2 && (
+                <p className="start-game-note">
+                  Waiting for at least 2 players to complete category rankings...
+                </p>
+              )}
+              {hasCategories && rankedCount >= 2 && unrankedCount > 0 && (
+                <p className="start-game-note">
+                  Starting now will drop {unrankedCount} player{unrankedCount === 1 ? '' : 's'} who {unrankedCount === 1 ? "hasn't" : "haven't"} submitted rankings.
+                </p>
+              )}
+              {hasCategories && unrankedCount === 0 && (
+                <p className="start-game-note">
+                  All players have submitted rankings! Ready to start.
+                </p>
+              )}
+              {!hasCategories && (
+                <p className="start-game-note">
+                  Share the Game ID with other players so they can join!
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         {!isHost && (
           <div className="waiting-message">
