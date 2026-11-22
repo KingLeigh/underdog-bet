@@ -59,6 +59,17 @@ The game now includes a complete wager system where:
 
 2. **Open your browser** and navigate to `http://localhost:5173`
 
+### Running the Tests
+
+```bash
+npm test
+```
+
+Runs both suites: server game-rule unit tests and a full-game Socket.IO
+integration test (Node's built-in test runner), and client invariant tests
+for the matchmaker solver and share-URL encoding (vitest). Tests are kept at
+the protocol/pure-logic layers only, so they should survive UI iteration.
+
 ### Running Server and Client Separately
 
 1. **Start the server:**

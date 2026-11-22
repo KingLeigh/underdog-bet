@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -15,7 +16,8 @@
     "socket.io": "^4.7.4"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "socket.io-client": "^4.8.4"
   },
   "keywords": [
     "game-server",

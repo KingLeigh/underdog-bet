@@ -12,6 +12,7 @@
     "server:start": "cd server && npm start",
     "client:build": "cd client && npm run build",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "test": "npm test --prefix server && npm test --prefix client",
     "heroku-postbuild": "cd server && npm install && cd ../client && npm install && npm run build"
   },
   "engines": {
