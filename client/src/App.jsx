@@ -30,12 +30,10 @@ function App() {
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true)
-      console.log('Connected to server')
     })
 
     socket.on('disconnect', () => {
       setIsConnected(false)
-      console.log('Disconnected from server')
     })
 
     return () => {

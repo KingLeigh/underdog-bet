@@ -15,7 +15,7 @@
     "heroku-postbuild": "cd server && npm install && cd ../client && npm install && npm run build"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18"
   },
   "keywords": [
     "board-game",

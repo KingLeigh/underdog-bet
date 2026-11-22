@@ -43,13 +43,9 @@ function GameBoard() {
   } = useGame()
 
   useEffect(() => {
-    console.log('GameBoard: gameState updated', gameState)
     // If game is not playing, redirect to lobby
     if (gameState && gameState.status !== 'playing') {
-      console.log(`GameBoard: Game not playing (status: ${gameState.status}), redirecting to lobby`)
       navigate(`/lobby/${gameId}`)
-    } else if (gameState && gameState.status === 'playing') {
-      console.log('GameBoard: Game is playing, staying on game board')
     }
   }, [gameState, gameId, navigate])
 
@@ -134,14 +130,6 @@ function GameBoard() {
       const numChallenges = challengesPerCategory && challengesPerCategory.length > 0 
         ? challengesPerCategory 
         : categories.map(() => 1) // Fallback to 1 challenge per category
-
-      console.log('🎯 generateMatchmakerUrl data:', {
-        categories,
-        challengesPerCategory,
-        numChallenges,
-        playerNamesArray,
-        ranks
-      })
 
       const baseUrl = `${window.location.origin}/matchmaker`
       return window.generateMatchmakerFullUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)

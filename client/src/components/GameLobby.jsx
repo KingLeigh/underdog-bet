@@ -20,7 +20,6 @@ function GameLobby() {
     categories,
     playerRankings,
     rankingsComplete,
-    showRankingForm,
     submitRankings
   } = useGame()
 
@@ -44,13 +43,7 @@ function GameLobby() {
   }, [categories])
 
   useEffect(() => {
-    console.log('GameLobby: gameState updated', gameState)
-    // If we have a game state, we're in the lobby
-    if (gameState && gameState.status === 'waiting') {
-      console.log('GameLobby: Staying in lobby, status is waiting')
-      // Stay in lobby
-    } else if (gameState && gameState.status === 'playing') {
-      console.log(`GameLobby: Game started, navigating to game board: /game/${gameId}/player/${playerId}`)
+    if (gameState && gameState.status === 'playing') {
       // Navigate to game board with player ID for seamless reconnections
       navigate(`/game/${gameId}/player/${playerId}`)
     }
@@ -109,19 +102,6 @@ function GameLobby() {
     
     handleRankingsSubmit(rankings)
   }
-
-  // Debug logging for category ranking
-  useEffect(() => {
-    console.log('GameLobby category ranking debug:', {
-      categories,
-      playerRankings,
-      rankingsComplete,
-      showRankingForm,
-      playerId,
-      hasSubmittedRankings: playerRankings[playerId],
-      shouldShowForm: categories && categories.length > 0 && !playerRankings[playerId]
-    })
-  }, [categories, playerRankings, rankingsComplete, showRankingForm, playerId])
 
   const copyGameId = () => {
     const fullUrl = `${window.location.origin}?game=${gameId}`

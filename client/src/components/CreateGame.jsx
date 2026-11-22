@@ -134,17 +134,7 @@ function CreateGame() {
       ? challengesPerCategory.split(',').map(challenge => parseInt(challenge.trim())).filter(num => !isNaN(num))
       : []
     
-    console.log('🎮 Sending createGame with:', { 
-      playerName: createPlayerName,
-      categories: categoriesList,
-      challengesPerCategory: challengesList,
-      startingPoints: startingPoints === '' ? 100 : startingPoints,
-      maxBetSize: maxBetValue,
-      bounty: bounty,
-      bountyAmount: bountyAmountValue
-    })
-    
-    createGame({ 
+    createGame({
       playerName: createPlayerName,
       categories: categoriesList,
       challengesPerCategory: challengesList,
