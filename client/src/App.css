@@ -1,7 +1,10 @@
 .App {
   text-align: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 30%, rgba(124, 58, 237, 0.45), transparent 65%),
+    radial-gradient(ellipse 100% 40% at 50% 110%, rgba(236, 72, 153, 0.25), transparent 60%),
+    #0b0d16;
   color: white;
 }
 
@@ -24,14 +27,13 @@ main {
 
 /* Shared Heading Styles */
 h1 {
-  font-size: 2.5rem;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 2.8rem;
   margin-bottom: 1rem;
-  background: linear-gradient(135deg, #fff, #e0e7ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: 0.02em;
+  font-weight: 400;
   text-align: center;
-  font-weight: 700;
+  text-shadow: 0 6px 30px rgba(236, 72, 153, 0.4);
 }
 
 h2 {
@@ -118,13 +120,13 @@ h4 {
 
 /* Button styles */
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.85rem 1.75rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   text-decoration: none;
   display: inline-block;
 }
@@ -135,14 +137,18 @@ h4 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: white;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+  background: linear-gradient(180deg, #34d399, #059669);
+  color: #06281c;
+  box-shadow: 0 5px 0 #065f46, 0 12px 24px rgba(0, 0, 0, 0.35);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
+  filter: brightness(1.08);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #065f46;
 }
 
 .btn-secondary {

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Underdogs — Layout Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  html, body { height: 100%; }
+  body { font-family: 'Space Grotesk', system-ui, sans-serif; background: #0b0d16; color: #fff; }
+  button { font: inherit; border: none; cursor: pointer; background: none; color: inherit; }
+
+  /* ---------- direction switcher ---------- */
+  .switcher {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 100;
+    background: rgba(10,10,14,0.75); backdrop-filter: blur(12px);
+    padding: 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
+  }
+  .switcher button {
+    padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 13px;
+    color: rgba(255,255,255,0.6); letter-spacing: 0.02em;
+  }
+  .switcher button.active { background: #fff; color: #111; }
+
+  .direction { display: none; min-height: 100vh; }
+  .direction.active { display: block; }
+
+  .dir-label {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: rgba(255,255,255,0.45); z-index: 100;
+    background: rgba(10,10,14,0.75); padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1); white-space: nowrap;
+  }
+
+  /* ============================================================
+     DIRECTION A — CENTER STAGE
+     One spotlight moment per screen. The two contestants ARE the
+     buttons. Everything else shrinks to a strip.
+     ============================================================ */
+  .stage {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 80% 55% at 50% 38%, rgba(124, 58, 237, 0.45), transparent 65%),
+      radial-gradient(ellipse 100% 40% at 50% 110%, rgba(236, 72, 153, 0.25), transparent 60%),
+      #0b0d16;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 104px 24px 20px;
+  }
+  .stage .round-strip {
+    font-weight: 700; letter-spacing: 0.35em; font-size: 13px;
+    color: rgba(255,255,255,0.55); text-transform: uppercase;
+  }
+  .stage .category {
+    font-family: 'Lilita One', sans-serif; font-size: clamp(34px, 5vw, 56px);
+    margin-top: 6px; letter-spacing: 0.02em;
+    text-shadow: 0 6px 30px rgba(236,72,153,0.4);
+  }
+  .stage .duel {
+    display: flex; align-items: stretch; gap: 0; margin-top: 36px;
+    width: min(880px, 100%);
+  }
+  .stage .fighter {
+    flex: 1; border-radius: 28px; padding: 40px 20px 30px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: transform .15s ease, box-shadow .15s ease;
+    border: 4px solid transparent;
+  }
+  .stage .fighter .avatar { font-size: 64px; line-height: 1; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
+  .stage .fighter .name { font-family: 'Lilita One', sans-serif; font-size: clamp(28px, 4vw, 44px); letter-spacing: 0.03em; }
+  .stage .fighter .odds { font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; opacity: 0.9; }
+  .stage .fighter .tag { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; }
+  .stage .fighter.left  { background: linear-gradient(160deg, #7c3aed, #4f46e5); transform: perspective(900px) rotateY(7deg); }
+  .stage .fighter.right { background: linear-gradient(200deg, #ec4899, #f43f5e); transform: perspective(900px) rotateY(-7deg); }
+  .stage .fighter:hover { transform: perspective(900px) rotateY(0deg) scale(1.03); }
+  .stage .fighter.picked { border-color: #fde047; box-shadow: 0 0 0 6px rgba(253,224,71,0.25), 0 20px 60px rgba(0,0,0,0.5); transform: scale(1.04); }
+  .stage .vs {
+    align-self: center; z-index: 2; margin: 0 -26px;
+    width: 84px; height: 84px; border-radius: 50%;
+    background: #fde047; color: #111;
+    font-family: 'Lilita One', sans-serif; font-size: 34px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 30px rgba(253, 224, 71, 0.4);
+    transform: rotate(-8deg);
+  }
+  .stage .bet-row { display: flex; gap: 14px; margin-top: 40px; align-items: center; }
+  .stage .chip {
+    width: 72px; height: 72px; border-radius: 50%;
+    border: 5px dashed rgba(255,255,255,0.35);
+    background: #1f2433; font-family: 'Lilita One', sans-serif; font-size: 22px;
+    transition: transform .1s ease;
+  }
+  .stage .chip:hover { transform: translateY(-4px) scale(1.06); }
+  .stage .chip.sel { background: #fde047; color: #111; border-color: #fff; transform: translateY(-6px) scale(1.1); }
+  .stage .go {
+    margin-top: 28px; padding: 20px 64px; border-radius: 999px;
+    font-family: 'Lilita One', sans-serif; font-size: 28px; letter-spacing: 0.04em;
+    background: linear-gradient(180deg, #34d399, #059669); color: #06281c;
+    box-shadow: 0 10px 0 #065f46, 0 20px 40px rgba(0,0,0,0.5);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .stage .go:active { transform: translateY(8px); box-shadow: 0 2px 0 #065f46; }
+  .stage .ticker {
+    margin-top: auto; padding: 36px 0 48px; width: 100%; text-align: center; line-height: 1.9;
+    font-family: 'Space Mono', monospace; font-size: 15px; color: rgba(255,255,255,0.65);
+    letter-spacing: 0.02em;
+  }
+  .stage .ticker b { color: #fde047; }
+  .stage .ticker .me { color: #fff; background: rgba(255,255,255,0.12); padding: 2px 8px; border-radius: 6px; }
+
+  /* ============================================================
+     DIRECTION B — JUMBOTRON
+     TV scoreboard: scores are the headline, matchup is the main
+     act in giant type, one full-width action bar. Zero boxes.
+     ============================================================ */
+  .jumbo { min-height: 100vh; background: #08090d; display: flex; flex-direction: column; }
+  .jumbo .scorebar {
+    display: flex; justify-content: center; gap: clamp(20px, 6vw, 80px);
+    padding: 108px 20px 24px; border-bottom: 2px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+  }
+  .jumbo .scol { text-align: center; }
+  .jumbo .scol .nm { font-size: 13px; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .jumbo .scol .pt { font-family: 'Space Mono', monospace; font-size: clamp(34px, 5vw, 58px); font-weight: 700; color: #f8fafc; line-height: 1.1; }
+  .jumbo .scol.lead .pt { color: #fde047; }
+  .jumbo .scol.me .nm { color: #34d399; }
+  .jumbo .scol.me .pt { text-shadow: 0 0 24px rgba(52, 211, 153, 0.5); }
+  .jumbo .main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+  .jumbo .cat { font-weight: 700; letter-spacing: 0.4em; text-transform: uppercase; font-size: 14px; color: #ec4899; }
+  .jumbo .matchline { display: flex; align-items: baseline; gap: clamp(16px, 4vw, 48px); margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+  .jumbo .pick {
+    font-family: 'Lilita One', sans-serif; font-size: clamp(44px, 9vw, 110px); line-height: 1;
+    color: rgba(255,255,255,0.85); padding: 6px 10px 14px; border-bottom: 10px solid transparent;
+    transition: color .12s ease, border-color .12s ease, transform .12s ease;
+  }
+  .jumbo .pick small { display: block; font-family: 'Space Mono', monospace; font-size: clamp(16px, 2vw, 24px); color: rgba(255,255,255,0.45); text-align: center; margin-top: 10px; }
+  .jumbo .pick:hover { color: #fff; transform: translateY(-4px); }
+  .jumbo .pick.picked { color: #fde047; border-bottom-color: #fde047; }
+  .jumbo .vsword { font-family: 'Lilita One', sans-serif; font-size: clamp(20px, 3vw, 36px); color: rgba(255,255,255,0.3); }
+  .jumbo .betsin { margin-top: 34px; font-family: 'Space Mono', monospace; font-size: 15px; color: rgba(255,255,255,0.5); }
+  .jumbo .betsin .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #34d399; margin-right: 8px; animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  .jumbo .actionbar {
+    display: flex; align-items: stretch; border-top: 2px solid rgba(255,255,255,0.08);
+  }
+  .jumbo .step { width: 110px; font-family: 'Lilita One', sans-serif; font-size: 44px; background: #11131c; color: rgba(255,255,255,0.7); }
+  .jumbo .step:hover { background: #181b28; color: #fff; }
+  .jumbo .amount { flex: 0 0 auto; min-width: 200px; display:flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 30px; background: #0d0f16; }
+  .jumbo .amount .num { font-family: 'Space Mono', monospace; font-size: 54px; font-weight: 700; color: #fde047; line-height: 1; }
+  .jumbo .amount .lbl { font-size: 11px; letter-spacing: 0.3em; color: rgba(255,255,255,0.4); text-transform: uppercase; margin-top: 6px; }
+  .jumbo .lock {
+    flex: 1; font-family: 'Lilita One', sans-serif; font-size: clamp(24px, 3.5vw, 36px); letter-spacing: 0.05em;
+    background: linear-gradient(90deg, #7c3aed, #ec4899); color: #fff;
+  }
+  .jumbo .lock:hover { filter: brightness(1.15); }
+
+  /* ============================================================
+     DIRECTION C — POCKET ARCADE
+     A phone app even on desktop: one narrow column, giant stacked
+     tap targets, bet sheet pinned to the bottom. Light + candy.
+     ============================================================ */
+  .pocket { min-height: 100vh; background: #f5f1e8; color: #262033; display: flex; justify-content: center; }
+  .pocket .phone { width: min(440px, 100%); display: flex; flex-direction: column; min-height: 100vh; padding: 108px 18px 16px; }
+  .pocket .toprow { display: flex; justify-content: space-between; align-items: center; }
+  .pocket .roundpill { background: #262033; color: #f5f1e8; font-weight: 700; font-size: 13px; letter-spacing: 0.1em; padding: 8px 16px; border-radius: 999px; }
+  .pocket .mypts { font-family: 'Lilita One', sans-serif; font-size: 22px; color: #7c3aed; }
+  .pocket h1.cat { font-family: 'Lilita One', sans-serif; font-size: 40px; margin: 22px 0 4px; letter-spacing: 0.01em; }
+  .pocket .sub { color: #8b8498; font-weight: 600; margin-bottom: 18px; }
+  .pocket .bigpick {
+    width: 100%; border-radius: 24px; padding: 24px 22px; margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'Lilita One', sans-serif; font-size: 32px; color: #fff; text-align: left;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.25);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .pocket .bigpick small { display: block; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 14px; font-weight: 600; opacity: 0.85; letter-spacing: 0.05em; }
+  .pocket .bigpick .mult { font-family: 'Space Mono', monospace; font-size: 30px; background: rgba(0,0,0,0.22); padding: 10px 16px; border-radius: 16px; }
+  .pocket .bigpick.one { background: linear-gradient(135deg, #7c3aed, #6366f1); }
+  .pocket .bigpick.two { background: linear-gradient(135deg, #f43f5e, #fb923c); }
+  .pocket .bigpick:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.25); }
+  .pocket .bigpick.picked { outline: 5px solid #262033; outline-offset: 3px; }
+  .pocket .others { margin: 8px 2px 14px; color: #8b8498; font-weight: 600; font-size: 14px; }
+  .pocket .scores { margin-top: auto; }
+  .pocket .scores .row { display: flex; gap: 10px; overflow-x: auto; padding: 6px 2px 10px; }
+  .pocket .bubble { flex: 0 0 auto; text-align: center; }
+  .pocket .bubble .face { width: 54px; height: 54px; border-radius: 50%; background: #fff; border: 3px solid #262033; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .pocket .bubble.lead .face { border-color: #f59e0b; background: #fef3c7; }
+  .pocket .bubble .p { font-family: 'Space Mono', monospace; font-weight: 700; font-size: 13px; margin-top: 4px; }
+  .pocket .bubble .n { font-size: 11px; font-weight: 600; color: #8b8498; }
+  .pocket .sheet {
+    background: #262033; color: #f5f1e8; border-radius: 26px; padding: 18px;
+    box-shadow: 0 -10px 40px rgba(38,32,51,0.25);
+  }
+  .pocket .sheet .chips { display: flex; gap: 10px; justify-content: center; }
+  .pocket .sheet .pchip {
+    flex: 1; padding: 16px 0; border-radius: 16px; background: rgba(255,255,255,0.1);
+    font-family: 'Lilita One', sans-serif; font-size: 20px; color: #f5f1e8;
+  }
+  .pocket .sheet .pchip.sel { background: #fde047; color: #262033; }
+  .pocket .sheet .betgo {
+    width: 100%; margin-top: 12px; padding: 20px; border-radius: 18px;
+    font-family: 'Lilita One', sans-serif; font-size: 26px;
+    background: #34d399; color: #06281c; box-shadow: 0 6px 0 #059669;
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .pocket .sheet .betgo:active { transform: translateY(6px); box-shadow: 0 0 0 #059669; }
+  .pocket .sheet .riskline { text-align: center; font-size: 13px; color: rgba(245,241,232,0.6); margin-top: 10px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <button data-dir="a" class="active">A · Center Stage</button>
+  <button data-dir="b">B · Jumbotron</button>
+  <button data-dir="c">C · Pocket Arcade</button>
+</div>
+
+<!-- =================== DIRECTION A =================== -->
+<section class="direction active" id="dir-a">
+  <div class="stage">
+    <div class="round-strip">Round 3 of 8</div>
+    <div class="category">Punctuality</div>
+
+    <div class="duel">
+      <button class="fighter left" data-pick-group="a" data-name="KIRSTEN">
+        <span class="avatar">🦊</span>
+        <span class="name">KIRSTEN</span>
+        <span class="odds">2×</span>
+        <span class="tag">Underdog</span>
+      </button>
+      <div class="vs">VS</div>
+      <button class="fighter right" data-pick-group="a" data-name="LEIGH">
+        <span class="avatar">🦁</span>
+        <span class="name">LEIGH</span>
+        <span class="odds">1×</span>
+        <span class="tag">Favorite</span>
+      </button>
+    </div>
+
+    <div class="bet-row" data-chip-group="a">
+      <button class="chip">5</button>
+      <button class="chip">10</button>
+      <button class="chip sel">25</button>
+      <button class="chip">50</button>
+      <button class="chip">ALL</button>
+    </div>
+    <button class="go" data-go="a">BET 25 ★</button>
+
+    <div class="ticker">
+      🏆 <b>LEIGH 170</b> &nbsp;·&nbsp; <span class="me">ANDY 85</span> &nbsp;·&nbsp; KIRSTEN 70 &nbsp;·&nbsp; STEFF 60 &nbsp;·&nbsp; BRETT 10 &nbsp;&nbsp;|&nbsp;&nbsp; 2 of 5 bets in
+    </div>
+  </div>
+</section>
+
+<!-- =================== DIRECTION B =================== -->
+<section class="direction" id="dir-b">
+  <div class="jumbo">
+    <div class="scorebar">
+      <div class="scol lead"><div class="nm">Leigh</div><div class="pt">170</div></div>
+      <div class="scol me"><div class="nm">Andy · You</div><div class="pt">85</div></div>
+      <div class="scol"><div class="nm">Kirsten</div><div class="pt">70</div></div>
+      <div class="scol"><div class="nm">Steff</div><div class="pt">60</div></div>
+      <div class="scol"><div class="nm">Brett</div><div class="pt">10</div></div>
+    </div>
+
+    <div class="main">
+      <div class="cat">Round 3 · Punctuality</div>
+      <div class="matchline">
+        <button class="pick" data-pick-group="b" data-name="KIRSTEN">KIRSTEN<small>pays 2×</small></button>
+        <span class="vsword">vs</span>
+        <button class="pick picked" data-pick-group="b" data-name="LEIGH">LEIGH<small>pays 1×</small></button>
+      </div>
+      <div class="betsin"><span class="dot"></span>2 OF 5 BETS IN — STEFF BET 25</div>
+    </div>
+
+    <div class="actionbar">
+      <button class="step" data-step="-1">−</button>
+      <div class="amount"><div class="num" id="jumbo-amount">25</div><div class="lbl">Your bet</div></div>
+      <button class="step" data-step="1">+</button>
+      <button class="lock" data-go="b">LOCK IT IN → LEIGH</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== DIRECTION C =================== -->
+<section class="direction" id="dir-c">
+  <div class="pocket">
+    <div class="phone">
+      <div class="toprow">
+        <div class="roundpill">ROUND 3 / 8</div>
+        <div class="mypts">★ 85</div>
+      </div>
+
+      <h1 class="cat">Punctuality</h1>
+      <div class="sub">Who wins this one? Tap to pick.</div>
+
+      <button class="bigpick one" data-pick-group="c" data-name="KIRSTEN">
+        <span>🦊 KIRSTEN<small>the underdog</small></span>
+        <span class="mult">2×</span>
+      </button>
+      <button class="bigpick two picked" data-pick-group="c" data-name="LEIGH">
+        <span>🦁 LEIGH<small>the favorite</small></span>
+        <span class="mult">1×</span>
+      </button>
+
+      <div class="others">💰 Steff bet 25 · Brett is thinking…</div>
+
+      <div class="scores">
+        <div class="row">
+          <div class="bubble lead"><div class="face">🦁</div><div class="p">170</div><div class="n">Leigh</div></div>
+          <div class="bubble"><div class="face">🐻</div><div class="p">85</div><div class="n">You</div></div>
+          <div class="bubble"><div class="face">🦊</div><div class="p">70</div><div class="n">Kirsten</div></div>
+          <div class="bubble"><div class="face">🐸</div><div class="p">60</div><div class="n">Steff</div></div>
+          <div class="bubble"><div class="face">🐙</div><div class="p">10</div><div class="n">Brett</div></div>
+        </div>
+
+        <div class="sheet">
+          <div class="chips" data-chip-group="c">
+            <button class="pchip">5</button>
+            <button class="pchip">10</button>
+            <button class="pchip sel">25</button>
+            <button class="pchip">50</button>
+            <button class="pchip">ALL</button>
+          </div>
+          <button class="betgo" data-go="c">BET 25 ON LEIGH</button>
+          <div class="riskline">At risk: 25 of 85 · floor is 10</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="dir-label" id="dir-label">A — one spotlight per screen: the contestants are the buttons, scores shrink to a ticker</div>
+
+<script>
+  // Direction switching
+  const labels = {
+    a: 'A — one spotlight per screen: the contestants are the buttons, scores shrink to a ticker',
+    b: 'B — TV scoreboard: scores headline the top band, giant type, one full-width action bar',
+    c: 'C — phone-app column: giant stacked tap targets, bet sheet pinned to the bottom'
+  };
+  document.querySelectorAll('.switcher button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.switcher button').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.direction').forEach(d => d.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('dir-' + btn.dataset.dir).classList.add('active');
+      document.getElementById('dir-label').textContent = labels[btn.dataset.dir];
+    });
+  });
+
+  // Pick a contestant (per direction)
+  document.querySelectorAll('[data-pick-group]').forEach(el => {
+    el.addEventListener('click', () => {
+      const group = el.dataset.pickGroup;
+      document.querySelectorAll(`[data-pick-group="${group}"]`).forEach(p => p.classList.remove('picked'));
+      el.classList.add('picked');
+      updateCta(group);
+    });
+  });
+
+  // Chip selection (A and C)
+  document.querySelectorAll('[data-chip-group]').forEach(row => {
+    row.querySelectorAll('button').forEach(chip => {
+      chip.addEventListener('click', () => {
+        row.querySelectorAll('button').forEach(c => c.classList.remove('sel'));
+        chip.classList.add('sel');
+        updateCta(row.dataset.chipGroup);
+      });
+    });
+  });
+
+  // Stepper (B)
+  let jumboAmount = 25;
+  document.querySelectorAll('[data-step]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      jumboAmount = Math.max(5, jumboAmount + 5 * Number(btn.dataset.step));
+      document.getElementById('jumbo-amount').textContent = jumboAmount;
+      updateCta('b');
+    });
+  });
+
+  function updateCta(group) {
+    const picked = document.querySelector(`[data-pick-group="${group}"].picked`);
+    const name = picked ? picked.dataset.name : null;
+    if (group === 'a') {
+      const amt = document.querySelector('[data-chip-group="a"] .sel').textContent;
+      document.querySelector('[data-go="a"]').textContent = name ? `BET ${amt} ON ${name} ★` : `BET ${amt} ★`;
+    }
+    if (group === 'b') {
+      document.querySelector('[data-go="b"]').textContent = name ? `LOCK IT IN → ${name}` : 'PICK A SIDE';
+    }
+    if (group === 'c') {
+      const amt = document.querySelector('[data-chip-group="c"] .sel').textContent;
+      document.querySelector('[data-go="c"]').textContent = name ? `BET ${amt} ON ${name}` : `PICK A SIDE FIRST`;
+    }
+  }
+</script>
+</body>
+</html>
