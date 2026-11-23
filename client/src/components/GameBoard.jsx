@@ -497,10 +497,36 @@ function WagerProposalForm({ onSubmit }) {
     })
   }
 
+  const rankOf = (pid) =>
+    (selectedCategory && playerRankings[pid] && playerRankings[pid][selectedCategory]) || null
+
+  // Preview order: favorite on the left. With differing category ranks the
+  // better rank IS the favorite; otherwise shorter odds make the favorite
+  // (and the sides reorder live as the odds change).
+  const orderedPick = (() => {
+    if (picked.length < 2) return picked
+    const [a, b] = picked
+    const ra = rankOf(a), rb = rankOf(b)
+    if (ra && rb && ra !== rb) return ra < rb ? [a, b] : [b, a]
+    const oa = odds[a] || 1, ob = odds[b] || 1
+    if (oa !== ob) return oa < ob ? [a, b] : [b, a]
+    return [a, b]
+  })()
+
+  const [favId, dogId] = orderedPick
+  const rankBasedRoles = picked.length === 2 &&
+    rankOf(favId) && rankOf(dogId) && rankOf(favId) !== rankOf(dogId)
+
   const stepOdds = (pid, delta) => {
     setOdds(prev => {
       const current = prev[pid] || 1
-      const next = Math.min(10, Math.max(1, Math.round((current + delta) * 2) / 2))
+      let next = Math.min(10, Math.max(1, Math.round((current + delta) * 2) / 2))
+      // With rank-defined roles, the favorite can never pay more than the
+      // underdog: clamp each side at the other's odds.
+      if (rankBasedRoles) {
+        if (pid === favId) next = Math.min(next, prev[dogId] || 1)
+        if (pid === dogId) next = Math.max(next, prev[favId] || 1)
+      }
       return { ...prev, [pid]: next }
     })
   }
@@ -532,7 +558,8 @@ function WagerProposalForm({ onSubmit }) {
 
   const handleStart = () => {
     if (!ready) return
-    onSubmit(picked[0], picked[1], odds[picked[0]] || 1, odds[picked[1]] || 1, selectedCategory)
+    // Submit favorite-first so the contestant order matches the preview
+    onSubmit(favId, dogId, odds[favId] || 1, odds[dogId] || 1, selectedCategory)
     setPicked([])
     setOdds({})
     setSelectedCategory('')
@@ -583,23 +610,41 @@ function WagerProposalForm({ onSubmit }) {
         ))}
       </div>
 
-      {ready && (
-        <div className="setup-preview">
-          {picked.map((pid, i) => (
-            <React.Fragment key={pid}>
-              {i === 1 && <div className="vs-mini">VS</div>}
-              <div className="preview-side">
-                <div className="preview-name">{avatarFor(pid)} {playerNames[pid]}</div>
-                <div className="odds-stepper">
-                  <button type="button" onClick={() => stepOdds(pid, -0.5)} disabled={(odds[pid] || 1) <= 1}>−</button>
-                  <span>{odds[pid] || 1}×</span>
-                  <button type="button" onClick={() => stepOdds(pid, 0.5)}>+</button>
-                </div>
+      {ready && (() => {
+        const favOdds = odds[favId] || 1
+        const dogOdds = odds[dogId] || 1
+        const even = !rankBasedRoles && favOdds === dogOdds
+
+        const side = (pid, role) => {
+          const value = odds[pid] || 1
+          const minusDisabled = value <= 1 ||
+            (rankBasedRoles && pid === dogId && value <= favOdds)
+          const plusDisabled = value >= 10 ||
+            (rankBasedRoles && pid === favId && value >= dogOdds)
+          return (
+            <div className="preview-side" key={pid}>
+              <div className="preview-tag">{role}</div>
+              <div className="preview-name">
+                {avatarFor(pid)} {playerNames[pid]}
+                {rankOf(pid) && <span className="preview-rank">Rank {rankOf(pid)}</span>}
               </div>
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+              <div className="odds-stepper">
+                <button type="button" onClick={() => stepOdds(pid, -0.5)} disabled={minusDisabled}>−</button>
+                <span>{value}×</span>
+                <button type="button" onClick={() => stepOdds(pid, 0.5)} disabled={plusDisabled}>+</button>
+              </div>
+            </div>
+          )
+        }
+
+        return (
+          <div className="setup-preview">
+            {side(favId, even ? 'Even' : 'Favorite')}
+            <div className="vs-mini">VS</div>
+            {side(dogId, even ? 'Even' : 'Underdog')}
+          </div>
+        )
+      })()}
 
       <button className="place-bet propose" disabled={!ready} onClick={handleStart}>
         {ready ? 'START THE CONTEST ★' : 'PICK TWO PLAYERS'}

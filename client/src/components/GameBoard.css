@@ -583,10 +583,29 @@
   gap: 0.45rem;
 }
 
+.preview-tag {
+  font-size: 0.66rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #fde047;
+}
+
 .preview-name {
   text-transform: uppercase;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
   font-size: 1.2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.preview-rank {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .vs-mini {
