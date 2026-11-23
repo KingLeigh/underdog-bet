@@ -129,12 +129,47 @@
   opacity: 0.9;
 }
 
+.fighter .fighter-odds .odds-word {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+/* Role badge: the dramatic label on each card */
 .fighter .fighter-tag {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 800;
+  padding: 0.3rem 0.95rem;
+  border-radius: 999px;
+  margin: 0.15rem 0 0.1rem;
+}
+
+.fighter .fighter-tag.favorite {
+  background: linear-gradient(180deg, #fde047, #facc15);
+  color: #1c1917;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 6px 18px rgba(253, 224, 71, 0.35);
+}
+
+.fighter .fighter-tag.underdog {
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+}
+
+.fighter .fighter-tag.even {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.fighter .fighter-rank {
+  font-family: 'Space Mono', monospace;
   font-size: 0.72rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   opacity: 0.65;
-  font-weight: 700;
 }
 
 .vs-badge {
@@ -271,13 +306,53 @@
   color: #fde047;
 }
 
-.bets-line {
-  margin-top: 1.3rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.8;
+/* ---- bet chips: one per player, lit once their bet is in ---- */
+.bet-chips {
+  margin-top: 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
   max-width: 640px;
+}
+
+.bet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  transition: all 0.25s ease;
+}
+
+.bet-chip.waiting {
+  opacity: 0.35;
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  background: transparent;
+}
+
+.bet-chip.placed {
+  border: 2px solid rgba(253, 224, 71, 0.75);
+  background: rgba(253, 224, 71, 0.12);
+  box-shadow: 0 0 14px rgba(253, 224, 71, 0.25);
+}
+
+.bet-chip-avatar {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.bet-chip-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bet-chip-amount {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: #fde047;
 }
 
 /* ---- host resolve ---- */
@@ -816,13 +891,6 @@
   .setup-preview {
     gap: 0.9rem;
   }
-}
-
-/* Player names display in caps everywhere (stored data keeps its casing) */
-.bets-line .pname {
-  text-transform: uppercase;
-  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
-  letter-spacing: 0.06em;
 }
 
 .score-ticker .tick {

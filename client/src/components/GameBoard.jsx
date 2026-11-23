@@ -201,10 +201,11 @@ function GameBoard() {
             >
               <span className="avatar">{avatarFor(wagerContestants[f.idx] || f.name)}</span>
               <span className="fighter-name">{f.name}</span>
-              <span className="fighter-odds">{f.odds}×</span>
-              <span className="fighter-tag">
-                {tagFor(f, other)}{rankFor(f.idx) ? ` · Rank ${rankFor(f.idx)}` : ''}
+              <span className={`fighter-tag ${f.odds === other.odds ? 'even' : (f.odds < other.odds ? 'favorite' : 'underdog')}`}>
+                {tagFor(f, other)}
               </span>
+              <span className="fighter-odds">{f.odds}× <span className="odds-word">payout</span></span>
+              {rankFor(f.idx) ? <span className="fighter-rank">Rank {rankFor(f.idx)}</span> : null}
             </button>
           )
 
@@ -249,19 +250,18 @@ function GameBoard() {
                 <div className="bounty-line">💰 Bounty for the winner: <b>{bountyPreview}</b> points</div>
               ) : null}
 
-              <div className="bets-line">
-                {betsIn} of {players.length} bets in
-                {betsIn > 0 && (
-                  <>
-                    {' — '}
-                    {Object.entries(playerChoices).map(([pid, c], i) => (
-                      <span key={pid}>
-                        {i > 0 && ' · '}
-                        <span className="pname">{c.playerName || 'Unknown'}</span> bet {wagerContestants.includes(pid) ? '??' : (c.points || 0)}
-                      </span>
-                    ))}
-                  </>
-                )}
+              <div className="bet-chips">
+                {players.map(pid => {
+                  const c = playerChoices[pid]
+                  const secret = wagerContestants.includes(pid)
+                  return (
+                    <span key={pid} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
+                      <span className="bet-chip-avatar">{avatarFor(pid)}</span>
+                      <span className="bet-chip-name">{playerNames[pid] || 'Unknown'}</span>
+                      {c ? <span className="bet-chip-amount">{secret ? '??' : (c.points || 0)}</span> : null}
+                    </span>
+                  )
+                })}
               </div>
 
               {isHost && betsIn > 0 && (
