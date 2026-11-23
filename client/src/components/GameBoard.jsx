@@ -36,6 +36,7 @@ function GameBoard() {
     nextMatchup,
     finishGame,
     skipMatchup,
+    deferMatchup,
     resetWagerState,
     error,
     socket,
@@ -135,11 +136,16 @@ function GameBoard() {
     : 2
   const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
   const [skipConfirm, setSkipConfirm] = useState(false)
+  // Reset against the matchup's identity, not just the index: a defer
+  // changes the upcoming matchup without moving the index
+  const nextKey = nextScheduled
+    ? `${nextScheduled.category}|${nextScheduled.highId}|${nextScheduled.lowId}`
+    : 'none'
   useEffect(() => {
     setNextDogOdds(defaultDogOdds)
     setSkipConfirm(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleIdx, schedule.length])
+  }, [scheduleIdx, schedule.length, nextKey])
   useEffect(() => {
     if (!skipConfirm) return
     const t = setTimeout(() => setSkipConfirm(false), 4000)
@@ -280,15 +286,22 @@ function GameBoard() {
                   <button className="mega-btn" onClick={() => nextMatchup(nextDogOdds)}>
                     START THE CONTEST ★
                   </button>
-                  <button
-                    onClick={() => {
-                      if (skipConfirm) { setSkipConfirm(false); skipMatchup() }
-                      else setSkipConfirm(true)
-                    }}
-                    className={`cancel-btn ${skipConfirm ? 'danger' : ''}`}
-                  >
-                    {skipConfirm ? 'Skip this matchup — sure?' : 'Declare no contest'}
-                  </button>
+                  <div className="pre-contest-tools">
+                    {scheduleIdx < schedule.length - 1 && (
+                      <button onClick={deferMatchup} className="defer-btn">
+                        ↻ Defer — run later
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (skipConfirm) { setSkipConfirm(false); skipMatchup() }
+                        else setSkipConfirm(true)
+                      }}
+                      className={`cancel-btn ${skipConfirm ? 'danger' : ''}`}
+                    >
+                      {skipConfirm ? 'Skip this matchup — sure?' : 'Declare no contest'}
+                    </button>
+                  </div>
                 </>
               ) : schedule.length > 0 ? (
                 <>

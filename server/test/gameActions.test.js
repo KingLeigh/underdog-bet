@@ -662,6 +662,32 @@ test('skipMatchup advances the schedule without touching points', () => {
   assert.equal(game.matchupIndex, 2);
 });
 
+test('deferMatchup rotates the remaining queue, reversibly', () => {
+  const game = makeMatchmadeGame();
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+  const original = game.matchups.map(m => m.category);
+
+  processGameAction(io, game, 'deferMatchup', {}, 'p2');
+  assert.deepEqual(game.matchups.map(m => m.category), original, 'host-only');
+
+  processGameAction(io, game, 'deferMatchup', {}, 'p1');
+  assert.deepEqual(game.matchups.map(m => m.category), ['B', 'A'], 'current rotates to the back');
+  assert.deepEqual(game.matchups.map(m => m.number), [1, 2], 'renumbered positionally');
+  assert.equal(game.matchupIndex, 0, 'index stays — the next matchup surfaces');
+
+  // A full cycle of defers returns to the original order
+  processGameAction(io, game, 'deferMatchup', {}, 'p1');
+  assert.deepEqual(game.matchups.map(m => m.category), original);
+
+  // Not mid-wager, and a lone remaining matchup has nothing to rotate with
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  processGameAction(io, game, 'deferMatchup', {}, 'p1');
+  assert.deepEqual(game.matchups.map(m => m.category), original, 'refused mid-wager');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  processGameAction(io, game, 'deferMatchup', {}, 'p1');
+  assert.deepEqual(game.matchups.map(m => m.category), original, 'last matchup cannot defer');
+});
+
 test('nextMatchup refuses, without skipping, when a contestant is missing', () => {
   // Unreachable through real play (nothing removes a player mid-game; a
   // locked phone never leaves the roster) — but if it ever happens, the

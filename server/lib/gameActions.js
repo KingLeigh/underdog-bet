@@ -368,6 +368,30 @@ function processGameAction(io, game, action, payload, playerID) {
       return game;
     }
 
+    case 'deferMatchup': {
+      // Host defers the upcoming matchup: it rotates to the back of the
+      // remaining queue and the next one surfaces. Fully reversible —
+      // repeated defers cycle through every remaining matchup — and safe,
+      // because nothing in resolution or stats depends on schedule order.
+      if (game.host !== playerID || game.status !== 'playing') {
+        return game;
+      }
+      const pending = wagerStates.get(game.id);
+      if (pending && pending.isActive && !pending.resolved) {
+        return game;
+      }
+      const sched = game.matchups || [];
+      const pos = game.matchupIndex || 0;
+      if (pos >= sched.length - 1) {
+        return game; // nothing to rotate with
+      }
+      const [deferred] = sched.splice(pos, 1);
+      sched.push(deferred);
+      sched.forEach((mu, i) => { mu.number = i + 1; });
+      console.log(`Game ${game.id}: matchup deferred - "${game.playerNames[deferred.highId]}" vs "${game.playerNames[deferred.lowId]}" moves to the end`);
+      return game;
+    }
+
     case 'lockBets': {
       // Host locks betting: a 10-second countdown starts, after which no
       // further bets are accepted (enforced in makeChoice by the deadline)

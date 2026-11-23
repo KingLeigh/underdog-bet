@@ -628,6 +628,32 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+.pre-contest-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0.9rem;
+}
+
+.pre-contest-tools .cancel-btn {
+  margin-top: 0;
+}
+
+.defer-btn {
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.defer-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ---- bet locking ---- */
 .lock-countdown {
   margin-top: 1.6rem;
