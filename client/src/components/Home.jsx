@@ -6,6 +6,7 @@ import './Home.css'
 function Home() {
   const [gameId, setGameId] = useState('')
   const [playerName, setPlayerName] = useState('')
+  const [codeError, setCodeError] = useState('')
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -15,6 +16,24 @@ function Home() {
     e.preventDefault()
     if (gameId.trim() && playerName.trim()) {
       joinGame(gameId.trim().toUpperCase(), playerName.trim())
+    }
+  }
+
+  // Step one of joining: check the code exists, then show the invite card
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault()
+    const code = gameId.trim().toUpperCase()
+    if (!code) return
+    try {
+      const res = await fetch(`/api/games/${code}`)
+      if (!res.ok) {
+        setCodeError(`No game found with code ${code}`)
+        return
+      }
+      setCodeError('')
+      navigate(`/?game=${code}`)
+    } catch {
+      setCodeError('Could not reach the game server')
     }
   }
 
@@ -75,25 +94,18 @@ function Home() {
 
           <div className="home-divider">or join one</div>
 
-          <form onSubmit={handleJoinGame} className="join-form">
-            <input
-              type="text"
-              placeholder="Your name"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              className="stage-input"
-              required
-            />
+          <form onSubmit={handleCodeSubmit} className="join-form">
             <input
               type="text"
               placeholder="GAME CODE"
               value={gameId}
-              onChange={(e) => setGameId(e.target.value.toUpperCase())}
+              onChange={(e) => { setGameId(e.target.value.toUpperCase()); setCodeError('') }}
               className="stage-input code-input"
               maxLength="6"
               required
             />
             <button type="submit" className="mega-btn violet">JOIN GAME</button>
+            {codeError && <div className="code-error">{codeError}</div>}
           </form>
 
           <div className="tool-links">

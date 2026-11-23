@@ -71,6 +71,12 @@
   letter-spacing: 0.15em;
 }
 
+.code-error {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fda4af;
+}
+
 .tool-links {
   margin-top: 1.2rem;
   display: flex;
