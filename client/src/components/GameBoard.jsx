@@ -277,7 +277,7 @@ function GameBoard() {
                     {Object.entries(playerChoices).map(([pid, c], i) => (
                       <span key={pid}>
                         {i > 0 && ' · '}
-                        {c.playerName || 'Unknown'} bet {wagerContestants.includes(pid) ? '??' : (c.points || 0)}
+                        <span className="pname">{c.playerName || 'Unknown'}</span> bet {wagerContestants.includes(pid) ? '??' : (c.points || 0)}
                       </span>
                     ))}
                   </>

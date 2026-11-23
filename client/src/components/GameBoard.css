@@ -246,6 +246,7 @@
 }
 
 .bet-locked b {
+  text-transform: uppercase;
   color: #fde047;
 }
 
@@ -346,6 +347,7 @@
 
 /* ---- results ---- */
 .winner-title {
+  text-transform: uppercase;
   color: #fde047;
   text-shadow: 0 6px 30px rgba(253, 224, 71, 0.35);
 }
@@ -396,6 +398,7 @@
 }
 
 .board-name {
+  text-transform: uppercase;
   flex: 1;
   text-align: left;
 }
@@ -536,6 +539,7 @@
 }
 
 .mini-name {
+  text-transform: uppercase;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
   font-size: 1.05rem;
   letter-spacing: 0.02em;
@@ -580,6 +584,7 @@
 }
 
 .preview-name {
+  text-transform: uppercase;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
   font-size: 1.2rem;
 }
@@ -760,4 +765,17 @@
   .setup-preview {
     gap: 0.9rem;
   }
+}
+
+/* Player names display in caps everywhere (stored data keeps its casing) */
+.bets-line .pname {
+  text-transform: uppercase;
+}
+
+.score-ticker .tick {
+  text-transform: uppercase;
+}
+
+.player-ranking-card h4 {
+  text-transform: uppercase;
 }

@@ -92,6 +92,10 @@
   font-size: 1.4rem;
 }
 
+.player-chip .chip-name {
+  text-transform: uppercase;
+}
+
 .player-chip .chip-state {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
