@@ -540,9 +540,24 @@
 .night-summary .sum-delta.even { color: rgba(255, 255, 255, 0.6); }
 .night-summary .sum-delta.none { color: rgba(255, 255, 255, 0.3); }
 
-/* Inside a collapsible, the table sits tighter */
-.game-details .night-summary {
-  margin-top: 0.8rem;
+/* Always-open standings section below the stage */
+.standings-section {
+  margin-top: 2.4rem;
+  width: min(640px, 100%);
+}
+
+.standings-section .standings-title {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.standings-section .night-summary {
+  margin-top: 0.6rem;
 }
 
 .night-summary tr.me td {

@@ -482,13 +482,13 @@ function GameBoard() {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* ---- Standings & stats, always a tap away (results and the finale
-             show the same table in the open, so no dropdown there) ---- */}
+        {/* ---- Standings, open below the fold: game state, not reference
+             material (results and the finale show it in the stage) ---- */}
         {!finished && !(wagerResolved && wagerResults) && (
-          <details className="game-details">
-            <summary>📊 Standings & stats</summary>
+          <div className="standings-section">
+            <div className="standings-title">Standings</div>
             <StandingsTable standings={standings} stats={gameState?.stats} />
-          </details>
+          </div>
         )}
 
         {/* ---- Collapsed game info ---- */}
