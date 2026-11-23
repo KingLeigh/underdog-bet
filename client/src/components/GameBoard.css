@@ -313,7 +313,7 @@
 
 /* ---- bet chips: one per player, lit once their bet is in ---- */
 .bet-chips {
-  margin-top: 1.4rem;
+  margin: 0.1rem 0 1.5rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;

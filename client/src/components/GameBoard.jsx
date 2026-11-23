@@ -395,6 +395,24 @@ function GameBoard() {
               <div className="round-strip">{contestLabel}</div>
               <div className="category-title">{wagerCategory || 'Who Wins?'}</div>
 
+              {/* One chip per player, leader first: who's bet, who's still
+                  deciding — betting progress at the top of the stage */}
+              <div className="bet-chips">
+                {standings.map((p, i) => {
+                  const c = playerChoices[p.id]
+                  const secret = wagerContestants.includes(p.id)
+                  return (
+                    <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
+                      {i === 0 ? <span className="bet-chip-crown">🏆</span> : null}
+                      <span className="bet-chip-avatar">{avatarFor(p.id)}</span>
+                      <span className="bet-chip-name">{p.name}</span>
+                      <span className="bet-chip-points">{p.points}</span>
+                      {c ? <span className="bet-chip-amount">▸ {secret ? '??' : (c.points || 0)}</span> : null}
+                    </span>
+                  )
+                })}
+              </div>
+
               <div className="duel">
                 {fighter(sorted[0], sorted[1], 'left')}
                 <div className="vs-badge">VS</div>
@@ -442,23 +460,6 @@ function GameBoard() {
               {bountyPreview ? (
                 <div className="bounty-line">💰 Bounty for the winner: <b>{bountyPreview}</b> points</div>
               ) : null}
-
-              {/* One chip per player, leader first: stack in dim mono, bet in gold */}
-              <div className="bet-chips">
-                {standings.map((p, i) => {
-                  const c = playerChoices[p.id]
-                  const secret = wagerContestants.includes(p.id)
-                  return (
-                    <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
-                      {i === 0 ? <span className="bet-chip-crown">🏆</span> : null}
-                      <span className="bet-chip-avatar">{avatarFor(p.id)}</span>
-                      <span className="bet-chip-name">{p.name}</span>
-                      <span className="bet-chip-points">{p.points}</span>
-                      {c ? <span className="bet-chip-amount">▸ {secret ? '??' : (c.points || 0)}</span> : null}
-                    </span>
-                  )
-                })}
-              </div>
 
               {/* Status line for everyone who isn't facing the big countdown */}
               {betsLockAt && !betsLocked && (!amPlayer || !!myBet) && (
