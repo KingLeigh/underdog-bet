@@ -149,6 +149,17 @@ function GameBoard() {
   const schedule = Array.isArray(gameState?.matchups) ? gameState.matchups : []
   const scheduleIdx = gameState?.matchupIndex || 0
   const nextScheduled = schedule[scheduleIdx] || null
+
+  // Host sets the underdog's odds before each scheduled contest goes live;
+  // the rank gap provides the starting suggestion (favorite stays 1x)
+  const defaultDogOdds = nextScheduled
+    ? Math.min(4, 1 + 0.5 * Math.max(1, nextScheduled.gap || 1))
+    : 2
+  const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
+  useEffect(() => {
+    setNextDogOdds(defaultDogOdds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleIdx, schedule.length])
   const contestLabel = schedule.length > 0
     ? `Contest ${Math.min(scheduleIdx + 1, schedule.length)} of ${schedule.length}`
     : `Contest ${Math.floor(
@@ -185,8 +196,29 @@ function GameBoard() {
                   <p className="next-teaser">
                     <b>{playerNames[nextScheduled.highId] || '?'}</b> vs <b>{playerNames[nextScheduled.lowId] || '?'}</b>
                   </p>
-                  <button className="mega-btn" onClick={nextMatchup}>
-                    NEXT MATCHUP ★
+                  <div className="pre-odds">
+                    <span className="pre-odds-label">
+                      {playerNames[nextScheduled.lowId] || 'Underdog'} pays
+                    </span>
+                    <div className="odds-stepper">
+                      <button
+                        type="button"
+                        onClick={() => setNextDogOdds(o => Math.max(1, +(o - 0.5).toFixed(1)))}
+                        disabled={nextDogOdds <= 1}
+                      >−</button>
+                      <span>{nextDogOdds}×</span>
+                      <button
+                        type="button"
+                        onClick={() => setNextDogOdds(o => Math.min(10, +(o + 0.5).toFixed(1)))}
+                        disabled={nextDogOdds >= 10}
+                      >+</button>
+                    </div>
+                    <span className="pre-odds-hint">
+                      Rank gap suggests {defaultDogOdds}× · {playerNames[nextScheduled.highId] || 'Favorite'} pays 1×
+                    </span>
+                  </div>
+                  <button className="mega-btn" onClick={() => nextMatchup(nextDogOdds)}>
+                    START THE CONTEST ★
                   </button>
                 </>
               ) : schedule.length > 0 ? (
@@ -403,16 +435,12 @@ function GameBoard() {
               })}
             </div>
 
+            {/* Both paths lead to the host's pre-contest screen: scheduled
+                games get the teaser + odds stepper, bonus rounds the form */}
             {isHost && (
-              nextScheduled ? (
-                <button onClick={nextMatchup} className="btn btn-primary next-contest-btn">
-                  NEXT MATCHUP ★
-                </button>
-              ) : (
-                <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
-                  {schedule.length > 0 ? 'BONUS ROUND ★' : 'NEXT CONTEST ★'}
-                </button>
-              )
+              <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
+                {nextScheduled ? 'NEXT MATCHUP ★' : schedule.length > 0 ? 'BONUS ROUND ★' : 'NEXT CONTEST ★'}
+              </button>
             )}
           </div>
         )}

@@ -560,6 +560,14 @@ test('nextMatchup proposes the scheduled wager with gap-derived odds', () => {
   assert.deepEqual(wager.odds, [1, 1.5], 'gap 1 -> 1.5x underdog');
   assert.deepEqual(lastEvent(events, 'wagerProposed').options, ['Bob', 'Alice']);
 
+  // The host's own odds override the gap default; junk odds fall back to it
+  processGameAction(io, game, 'cancelWager', {}, 'p1');
+  processGameAction(io, game, 'nextMatchup', { dogOdds: 3.5 }, 'p1');
+  assert.deepEqual(wagerStates.get('TEST01').odds, [1, 3.5], 'host-set odds win');
+  processGameAction(io, game, 'cancelWager', {}, 'p1');
+  processGameAction(io, game, 'nextMatchup', { dogOdds: 0.25 }, 'p1');
+  assert.deepEqual(wagerStates.get('TEST01').odds, [1, 1.5], 'invalid odds fall back to gap');
+
   // A second nextMatchup while the wager is live is a no-op
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   assert.equal(game.matchupIndex, 0);

@@ -329,8 +329,8 @@ export function GameProvider({ children, socket }) {
     sendGameAction('lockBets', {})
   }
 
-  const nextMatchup = () => {
-    sendGameAction('nextMatchup', {})
+  const nextMatchup = (dogOdds) => {
+    sendGameAction('nextMatchup', Number.isFinite(dogOdds) ? { dogOdds } : {})
   }
 
   const submitRankings = (rankings) => {

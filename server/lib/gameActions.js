@@ -287,7 +287,15 @@ function processGameAction(io, game, action, payload, playerID) {
       }
       const m = list[idx];
       const options = [game.playerNames[m.highId], game.playerNames[m.lowId]];
-      const dogOdds = Math.min(4, 1 + 0.5 * Math.max(1, m.gap || 1));
+      // Underdog odds: the host's choice when sent (0.5 steps, 1x-10x),
+      // else derived from the rank gap (1 + 0.5 per rank, capped at 4x)
+      const requested = payload && payload.dogOdds;
+      const validOdds = Number.isFinite(requested) &&
+        requested >= 1 && requested <= 10 &&
+        Math.round(requested * 2) === requested * 2;
+      const dogOdds = validOdds
+        ? requested
+        : Math.min(4, 1 + 0.5 * Math.max(1, m.gap || 1));
       wagerStates.set(game.id, {
         isActive: true,
         options: options,
