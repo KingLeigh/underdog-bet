@@ -637,15 +637,18 @@ test('resolution accumulates night stats; finishGame ends an exhausted schedule'
   assert.ok(done.finishedAt);
 });
 
-test('nextMatchup skips a matchup whose contestant has left', () => {
+test('nextMatchup refuses, without skipping, when a contestant is missing', () => {
+  // Unreachable through real play (nothing removes a player mid-game; a
+  // locked phone never leaves the roster) — but if it ever happens, the
+  // schedule must not silently rearrange itself.
   const game = makeMatchmadeGame();
   Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
-  game.players = game.players.filter(pid => pid !== 'p2'); // defensive path
+  game.players = game.players.filter(pid => pid !== 'p2'); // force the impossible
 
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   const wager = wagerStates.get('TEST01');
   assert.ok(!wager || !wager.isActive, 'no matchup without both contestants');
-  assert.equal(game.matchupIndex, 2, 'both p2 matchups skipped');
+  assert.equal(game.matchupIndex, 0, 'the schedule does not advance');
 });
 
 // ---- lockBets ---------------------------------------------------------------

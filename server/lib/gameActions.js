@@ -300,17 +300,19 @@ function processGameAction(io, game, action, payload, playerID) {
         return game;
       }
       const list = game.matchups || [];
-      let idx = game.matchupIndex || 0;
-      while (idx < list.length &&
-             (!game.players.includes(list[idx].highId) || !game.players.includes(list[idx].lowId))) {
-        console.log(`Game ${game.id}: skipping matchup ${idx + 1} - a contestant left the game`);
-        idx++;
-      }
-      game.matchupIndex = idx;
+      const idx = game.matchupIndex || 0;
       if (idx >= list.length) {
         return game;
       }
       const m = list[idx];
+      // Defensive only — mid-game roster removal has no path today. If it
+      // ever happens, refuse loudly rather than silently skipping the
+      // matchup: the host should see the problem, not a rearranged show.
+      // (A locked or disconnected phone never leaves the roster at all.)
+      if (!game.players.includes(m.highId) || !game.players.includes(m.lowId)) {
+        console.error(`Game ${game.id}: matchup ${idx + 1} refers to a player no longer in the game - not proposing`);
+        return game;
+      }
       const options = [game.playerNames[m.highId], game.playerNames[m.lowId]];
       // Underdog odds: the host's choice when sent (0.5 steps, 1x-10x),
       // else derived from the rank gap (1 + 0.5 per rank, capped at 4x)
