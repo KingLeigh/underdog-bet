@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
+import MatchupSafetyMeter from './MatchupSafetyMeter'
 import './CreateGame.css'
 
 // Chunky -/+ control used for all the numeric game settings.
@@ -268,6 +269,10 @@ function CreateGame() {
                 ))}
               </div>
             </>
+          )}
+
+          {dupes.isValid && catList.length > 0 && (
+            <MatchupSafetyMeter cats={catList.map(name => ({ name, count: countFor(name) }))} />
           )}
         </section>
 

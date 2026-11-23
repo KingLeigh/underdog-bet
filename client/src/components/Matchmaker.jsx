@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   rng,
   generateSeed,
@@ -18,12 +18,8 @@ function Matchmaker() {
     { name: 'Trivia', count: 4 },
     { name: 'Cardio', count: 4 }
   ])
-  const [numTrials, setNumTrials] = useState(25)
   const [targetGap, setTargetGap] = useState(2)
   const [playerGrid, setPlayerGrid] = useState([])
-  const [simStatus, setSimStatus] = useState('')
-  const [simResult, setSimResult] = useState('')
-  const [simRunning, setSimRunning] = useState(false)
   const [solveStatus, setSolveStatus] = useState('')
   const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup }]
   const [solveError, setSolveError] = useState('')
@@ -32,7 +28,6 @@ function Matchmaker() {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [isViewOnlyMode, setIsViewOnlyMode] = useState(false)
   const [gapMode, setGapMode] = useState('loose') // 'loose' or 'strict'
-  const cancelSimRef = useRef(false)
 
   // Sample category names
   const sampleCategories = ['Trivia', 'Cardio', 'Brain Games', 'Hand Eye Coordination', 'Luck', 'Memory', 'Strength', 'Drinking', 'Spelling', 'Balance', 'Counting', 'Agility', 'Timing', 'Estimation', 'Observation', 'Throwing', 'Catching', 'Accuracy', 'Precision']
@@ -126,50 +121,6 @@ function Matchmaker() {
     })
 
     setPlayerGrid(updatedGrid)
-  }
-
-  // Simulation and solving functions
-  const runSimulation = async () => {
-    const challenges = buildChallenges(categories)
-    const total = challenges.length
-    if (total < numPlayers) {
-      alert(`Not enough challenges! You have ${total} challenges but need at least ${numPlayers} for ${numPlayers} players.`)
-      return
-    }
-    const M = categories.length
-    if (M < 1) { alert('Add at least one category.'); return }
-
-    const trials = Math.max(10, numTrials || 1000)
-    const rand = rng()
-    cancelSimRef.current = false
-    setSimRunning(true)
-    setSimStatus('Running…')
-    setSimResult('')
-
-    let infeasible = 0
-    let cancelled = false
-    for (let t=0; t<trials; t++) {
-      if (cancelSimRef.current) { cancelled = true; break }
-      const players = Array.from({length:numPlayers}, (_,i)=>({
-        name: `P${i+1}`,
-        ranks: (()=>{
-          const perm = shuffle([...Array(M).keys()], rand)
-          const obj = {}
-          for (let k=0;k<M;k++) obj[categories[perm[k]].name] = k+1
-          return obj
-        })()
-      }))
-      if (!checkFeasible(players, categories.map(c=>c.name), challenges, { selectN: numPlayers, requireCoverAll: false })) infeasible++
-      if ((t+1) % Math.ceil(trials/10) === 0) {
-        setSimStatus(`Progress: ${t+1}/${trials}`)
-        await new Promise(r=>setTimeout(r))
-      }
-    }
-    setSimRunning(false)
-    const ran = cancelled ? ' (cancelled early)' : ''
-    const pct = (infeasible / trials) * 100
-    setSimResult(`Infeasible: ${infeasible} / ${trials}${ran} → ${pct.toFixed(2)}%`)
-    setSimStatus('Done')
   }
 
   const readPlayersFromGrid = () => {
@@ -625,46 +576,6 @@ function Matchmaker() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-        )}
-
-        {/* Simulation Section */}
-        {!isViewOnlyMode && !isUrlLoaded && (
-        <div className="simulation-section panel-spacing">
-          <div className="simulation-panel standard-panel">
-            <h2>Simulation</h2>
-
-            <div className="simulation-controls">
-              <div className="form-group">
-                <label>Trials</label>
-                <input
-                  type="number"
-                  min="10"
-                  value={numTrials}
-                  onChange={(e) => setNumTrials(parseInt(e.target.value) || 25)}
-                />
-              </div>
-
-              <div className="simulation-actions">
-                <button className="btn btn-primary" disabled={simRunning} onClick={runSimulation}>
-                  Run Simulation
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  disabled={!simRunning}
-                  onClick={() => { cancelSimRef.current = true }}
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {simStatus && <div className="status-message">{simStatus}</div>}
-            </div>
-
-            {simResult && (
-              <div className="simulation-result">{simResult}</div>
-            )}
           </div>
         </div>
         )}
