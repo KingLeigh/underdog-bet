@@ -261,7 +261,11 @@ function GameBoard() {
                 <>
                   <div className="category-title">{nextScheduled.category}</div>
                   <p className="next-teaser">
-                    <b>{playerNames[nextScheduled.highId] || '?'}</b> vs <b>{playerNames[nextScheduled.lowId] || '?'}</b>
+                    <b>{playerNames[nextScheduled.highId] || '?'}</b>
+                    <span className="teaser-rank">rank {nextScheduled.highRank}</span>
+                    {' vs '}
+                    <b>{playerNames[nextScheduled.lowId] || '?'}</b>
+                    <span className="teaser-rank">rank {nextScheduled.lowRank}</span>
                   </p>
                   <div className="pre-odds">
                     <span className="pre-odds-label">

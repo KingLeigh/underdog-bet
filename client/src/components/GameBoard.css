@@ -568,6 +568,15 @@
   color: #fde047;
 }
 
+.next-teaser .teaser-rank {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 0.35rem;
+}
+
 .show-matchups-link {
   margin-top: 1.4rem;
   display: inline-block;
