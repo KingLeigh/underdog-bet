@@ -33,6 +33,7 @@ function GameBoard() {
     cancelWager,
     lockBets,
     betsLockAt,
+    wagerMatchupNumber,
     nextMatchup,
     finishGame,
     skipMatchup,
@@ -122,30 +123,35 @@ function GameBoard() {
     }
   }, [socket])
 
-  // Scheduled games count contests from the saved matchups; ad-hoc play
-  // falls back to counting resolved wagers. (Derived before the loading
-  // return below so the odds hooks always run — hooks must be unconditional.)
+  // The schedule's order never changes; per-matchup played/skipped flags
+  // track progress, and the host browses unresolved matchups with ‹ ›,
+  // starting whichever one is in view. (Derived before the loading return
+  // below so the hooks always run — hooks must be unconditional.)
   const schedule = Array.isArray(gameState?.matchups) ? gameState.matchups : []
-  const scheduleIdx = gameState?.matchupIndex || 0
-  const nextScheduled = schedule[scheduleIdx] || null
+  const openMatchups = schedule.filter(m => !m.played && !m.skipped)
+  const [viewPos, setViewPos] = useState(0)
+  const safePos = Math.min(viewPos, Math.max(0, openMatchups.length - 1))
+  const viewed = openMatchups[safePos] || null
 
-  // Host sets the underdog's odds before each scheduled contest goes live;
-  // the rank gap provides the starting suggestion (favorite stays 1x)
-  const defaultDogOdds = nextScheduled
-    ? Math.min(4, 1 + 0.5 * Math.max(1, nextScheduled.gap || 1))
+  // Whenever the set of unresolved matchups changes (a resolution or a
+  // skip), return to the earliest unresolved one
+  useEffect(() => {
+    setViewPos(0)
+  }, [openMatchups.length])
+
+  // Host sets the underdog's odds before the contest goes live; the rank
+  // gap provides the starting suggestion (favorite stays 1x)
+  const defaultDogOdds = viewed
+    ? Math.min(4, 1 + 0.5 * Math.max(1, viewed.gap || 1))
     : 2
   const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
   const [skipConfirm, setSkipConfirm] = useState(false)
-  // Reset against the matchup's identity, not just the index: a defer
-  // changes the upcoming matchup without moving the index
-  const nextKey = nextScheduled
-    ? `${nextScheduled.category}|${nextScheduled.highId}|${nextScheduled.lowId}`
-    : 'none'
+  const viewedKey = viewed ? viewed.number : 'none'
   useEffect(() => {
     setNextDogOdds(defaultDogOdds)
     setSkipConfirm(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleIdx, schedule.length, nextKey])
+  }, [viewedKey, schedule.length])
   useEffect(() => {
     if (!skipConfirm) return
     const t = setTimeout(() => setSkipConfirm(false), 4000)
@@ -179,7 +185,11 @@ function GameBoard() {
   }
 
   const contestLabel = schedule.length > 0
-    ? `Contest ${Math.min(scheduleIdx + 1, schedule.length)} of ${schedule.length}`
+    ? `Matchup ${wagerActive && wagerMatchupNumber
+        ? wagerMatchupNumber
+        : viewed
+          ? viewed.number
+          : schedule.length} of ${schedule.length}`
     : `Contest ${Math.floor(
         Object.values(playerWagerCount || {}).reduce((s, c) => s + c, 0) / 2
       ) + 1}`
@@ -250,21 +260,37 @@ function GameBoard() {
         {/* ---- No active wager: the host advances the show ---- */}
         {!finished && !wagerActive && !wagerResolved && (
           <div className="contest-area">
-            <div className="round-strip">{schedule.length > 0 && !nextScheduled ? 'Bonus Round' : contestLabel}</div>
+            <div className="round-strip">{schedule.length > 0 && !viewed ? 'Bonus Round' : contestLabel}</div>
             {isHost ? (
-              nextScheduled ? (
+              viewed ? (
                 <>
-                  <div className="category-title">{nextScheduled.category}</div>
-                  <p className="next-teaser">
-                    <b>{playerNames[nextScheduled.highId] || '?'}</b>
-                    <span className="teaser-rank">rank {nextScheduled.highRank}</span>
-                    {' vs '}
-                    <b>{playerNames[nextScheduled.lowId] || '?'}</b>
-                    <span className="teaser-rank">rank {nextScheduled.lowRank}</span>
-                  </p>
+                  <div className="matchup-nav">
+                    <button
+                      className="nav-arrow"
+                      onClick={() => setViewPos(p => Math.max(0, p - 1))}
+                      disabled={safePos === 0}
+                      aria-label="Previous matchup"
+                    >‹</button>
+                    <div className="matchup-nav-body">
+                      <div className="category-title">{viewed.category}</div>
+                      <p className="next-teaser">
+                        <b>{playerNames[viewed.highId] || '?'}</b>
+                        <span className="teaser-rank">rank {viewed.highRank}</span>
+                        {' vs '}
+                        <b>{playerNames[viewed.lowId] || '?'}</b>
+                        <span className="teaser-rank">rank {viewed.lowRank}</span>
+                      </p>
+                    </div>
+                    <button
+                      className="nav-arrow"
+                      onClick={() => setViewPos(p => Math.min(openMatchups.length - 1, p + 1))}
+                      disabled={safePos >= openMatchups.length - 1}
+                      aria-label="Next matchup"
+                    >›</button>
+                  </div>
                   <div className="pre-odds">
                     <span className="pre-odds-label">
-                      {playerNames[nextScheduled.lowId] || 'Underdog'} pays
+                      {playerNames[viewed.lowId] || 'Underdog'} pays
                     </span>
                     <div className="odds-stepper">
                       <button
@@ -280,21 +306,16 @@ function GameBoard() {
                       >+</button>
                     </div>
                     <span className="pre-odds-hint">
-                      Rank gap suggests {defaultDogOdds}× · {playerNames[nextScheduled.highId] || 'Favorite'} pays 1×
+                      Rank gap suggests {defaultDogOdds}× · {playerNames[viewed.highId] || 'Favorite'} pays 1×
                     </span>
                   </div>
-                  <button className="mega-btn" onClick={() => nextMatchup(nextDogOdds)}>
+                  <button className="mega-btn" onClick={() => nextMatchup(viewed.number, nextDogOdds)}>
                     START THE CONTEST ★
                   </button>
                   <div className="pre-contest-tools">
-                    {scheduleIdx < schedule.length - 1 && (
-                      <button onClick={deferMatchup} className="defer-btn">
-                        ↻ Defer — run later
-                      </button>
-                    )}
                     <button
                       onClick={() => {
-                        if (skipConfirm) { setSkipConfirm(false); skipMatchup() }
+                        if (skipConfirm) { setSkipConfirm(false); skipMatchup(viewed.number) }
                         else setSkipConfirm(true)
                       }}
                       className={`cancel-btn ${skipConfirm ? 'danger' : ''}`}
@@ -497,9 +518,9 @@ function GameBoard() {
             {/* Next scheduled matchup goes via the pre-contest odds screen;
                 an exhausted schedule ends the night with the Winner screen */}
             {isHost && (
-              nextScheduled || schedule.length === 0 ? (
+              openMatchups.length > 0 || schedule.length === 0 ? (
                 <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
-                  {nextScheduled ? 'NEXT MATCHUP ★' : 'NEXT CONTEST ★'}
+                  {openMatchups.length > 0 ? 'NEXT MATCHUP ★' : 'NEXT CONTEST ★'}
                 </button>
               ) : (
                 <button onClick={finishGame} className="btn btn-primary next-contest-btn">

@@ -500,9 +500,9 @@ function makeMatchmadeGame() {
 test('saveMatchups stores the schedule with its roster snapshot', () => {
   const game = makeMatchmadeGame();
   assert.equal(game.matchups.length, 2);
-  assert.equal(game.matchupIndex, 0);
   assert.deepEqual(game.matchupsFor, ['p1', 'p2']);
   assert.equal(game.matchups[0].number, 1);
+  assert.ok(game.matchups.every(m => !m.played && !m.skipped));
 });
 
 test('saveMatchups is host-only and rejects unranked contestants', () => {
@@ -570,32 +570,36 @@ test('nextMatchup proposes the scheduled wager with gap-derived odds', () => {
 
   // A second nextMatchup while the wager is live is a no-op
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(game.matchupIndex, 0);
   assert.equal(wagerStates.get('TEST01').category, 'A');
+  assert.ok(!game.matchups[0].played);
 });
 
-test('resolving a scheduled matchup advances the show; cancelling does not', () => {
+test('matchups can run in any order; cancel leaves them startable', () => {
   const game = makeMatchmadeGame();
   Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
 
-  // Cancel: index stays, the same matchup re-proposes
+  // Start matchup 2 out of order and resolve it: only #2 is marked played
+  processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
+  assert.equal(wagerStates.get('TEST01').category, 'B');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  assert.deepEqual(game.matchups.map(m => !!m.played), [false, true]);
+
+  // The earliest unresolved is now #1; cancelling leaves it startable
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  assert.equal(wagerStates.get('TEST01').category, 'A');
   processGameAction(io, game, 'cancelWager', {}, 'p1');
-  assert.equal(game.matchupIndex, 0);
+  assert.ok(!game.matchups[0].played, 'cancel never marks played');
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   assert.equal(wagerStates.get('TEST01').category, 'A');
 
-  // Resolve: index advances, next matchup is the B contest
-  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
-  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
-  assert.equal(game.matchupIndex, 1);
-  processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').category, 'B');
-  assert.deepEqual(wagerStates.get('TEST01').contestants, ['p2', 'p1']);
+  // A played matchup cannot start again
+  processGameAction(io, game, 'cancelWager', {}, 'p1');
+  processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
+  assert.equal(wagerStates.get('TEST01'), undefined, 'played matchup refused');
 
-  // Exhausted: no further wager proposes
+  // Exhausted: resolve the last one, nothing further proposes
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
-  assert.equal(game.matchupIndex, 2);
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   assert.equal(wagerStates.get('TEST01').isActive, false, 'schedule exhausted');
 });
@@ -637,55 +641,31 @@ test('resolution accumulates night stats; finishGame ends an exhausted schedule'
   assert.ok(done.finishedAt);
 });
 
-test('skipMatchup advances the schedule without touching points', () => {
+test('skipMatchup marks a matchup skipped without touching points', () => {
   const game = makeMatchmadeGame();
   Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
 
-  processGameAction(io, game, 'skipMatchup', {}, 'p2');
-  assert.equal(game.matchupIndex, 0, 'host-only');
+  processGameAction(io, game, 'skipMatchup', { number: 2 }, 'p2');
+  assert.ok(!game.matchups[1].skipped, 'host-only');
 
-  processGameAction(io, game, 'skipMatchup', {}, 'p1');
-  assert.equal(game.matchupIndex, 1);
+  processGameAction(io, game, 'skipMatchup', { number: 2 }, 'p1');
+  assert.ok(game.matchups[1].skipped, 'skipped by number');
   assert.deepEqual(game.playerPoints, { p1: 100, p2: 100 }, 'nobody pays');
   assert.equal(game.stats, undefined, 'no stats recorded');
+  processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
+  assert.equal(wagerStates.get('TEST01'), undefined, 'skipped matchup cannot start');
 
   // Not while a wager is live — that path is cancelWager
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   processGameAction(io, game, 'skipMatchup', {}, 'p1');
-  assert.equal(game.matchupIndex, 1, 'refused mid-wager');
+  assert.ok(!game.matchups[0].skipped, 'refused mid-wager');
   processGameAction(io, game, 'cancelWager', {}, 'p1');
 
-  // Skipping the last matchup exhausts the schedule; further skips no-op
+  // Skipping the last open matchup exhausts the schedule; further skips no-op
   processGameAction(io, game, 'skipMatchup', {}, 'p1');
-  assert.equal(game.matchupIndex, 2);
+  assert.ok(game.matchups[0].skipped);
   processGameAction(io, game, 'skipMatchup', {}, 'p1');
-  assert.equal(game.matchupIndex, 2);
-});
-
-test('deferMatchup rotates the remaining queue, reversibly', () => {
-  const game = makeMatchmadeGame();
-  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
-  const original = game.matchups.map(m => m.category);
-
-  processGameAction(io, game, 'deferMatchup', {}, 'p2');
-  assert.deepEqual(game.matchups.map(m => m.category), original, 'host-only');
-
-  processGameAction(io, game, 'deferMatchup', {}, 'p1');
-  assert.deepEqual(game.matchups.map(m => m.category), ['B', 'A'], 'current rotates to the back');
-  assert.deepEqual(game.matchups.map(m => m.number), [1, 2], 'renumbered positionally');
-  assert.equal(game.matchupIndex, 0, 'index stays — the next matchup surfaces');
-
-  // A full cycle of defers returns to the original order
-  processGameAction(io, game, 'deferMatchup', {}, 'p1');
-  assert.deepEqual(game.matchups.map(m => m.category), original);
-
-  // Not mid-wager, and a lone remaining matchup has nothing to rotate with
-  processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  processGameAction(io, game, 'deferMatchup', {}, 'p1');
-  assert.deepEqual(game.matchups.map(m => m.category), original, 'refused mid-wager');
-  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
-  processGameAction(io, game, 'deferMatchup', {}, 'p1');
-  assert.deepEqual(game.matchups.map(m => m.category), original, 'last matchup cannot defer');
+  assert.deepEqual(game.matchups.map(m => m.skipped), [true, true]);
 });
 
 test('nextMatchup refuses, without skipping, when a contestant is missing', () => {
@@ -699,7 +679,7 @@ test('nextMatchup refuses, without skipping, when a contestant is missing', () =
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   const wager = wagerStates.get('TEST01');
   assert.ok(!wager || !wager.isActive, 'no matchup without both contestants');
-  assert.equal(game.matchupIndex, 0, 'the schedule does not advance');
+  assert.ok(game.matchups.every(m => !m.played && !m.skipped), 'nothing marked');
 });
 
 // ---- lockBets ---------------------------------------------------------------

@@ -639,19 +639,39 @@
   margin-top: 0;
 }
 
-.defer-btn {
-  padding: 0.5rem 1.4rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: none;
-  color: rgba(255, 255, 255, 0.75);
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
+/* ‹ › browsing through unresolved matchups */
+.matchup-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(560px, 100%);
 }
 
-.defer-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.matchup-nav-body {
+  flex: 1;
+}
+
+.nav-arrow {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.nav-arrow:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.nav-arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
 }
 
 /* ---- bet locking ---- */

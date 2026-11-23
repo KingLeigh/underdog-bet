@@ -237,7 +237,7 @@ function processGameAction(io, game, action, payload, playerID) {
       if (activeWager && activeWager.isActive && !activeWager.resolved) {
         return game;
       }
-      if (Array.isArray(game.matchups) && (game.matchupIndex || 0) < game.matchups.length) {
+      if (Array.isArray(game.matchups) && game.matchups.some(x => !x.played && !x.skipped)) {
         return game; // the show isn't over yet
       }
       const standings = [...game.players]
@@ -279,19 +279,20 @@ function processGameAction(io, game, action, payload, playerID) {
         lowId: m.lowId,
         highRank: m.highRank,
         lowRank: m.lowRank,
-        gap: m.gap
+        gap: m.gap,
+        played: false,
+        skipped: false
       }));
-      game.matchupIndex = 0;
       game.matchupsFor = [...ranked].sort();
       console.log(`Game ${game.id}: ${game.matchups.length} matchups saved`);
       return game;
     }
 
     case 'nextMatchup': {
-      // Host advances the show: propose the next scheduled matchup as a
-      // wager. Favorite is pegged at 1x; underdog odds come from the rank
-      // gap (1 + 0.5 per rank, capped at 4x). Scheduled players who have
-      // left the game are skipped.
+      // Host starts a scheduled matchup as a wager: by its number when
+      // given (the host can run any unresolved matchup, in any order), else
+      // the earliest unresolved one. Favorite is pegged at 1x; underdog
+      // odds are the host's choice or derived from the rank gap.
       if (game.host !== playerID || game.status !== 'playing') {
         return game;
       }
@@ -300,17 +301,22 @@ function processGameAction(io, game, action, payload, playerID) {
         return game;
       }
       const list = game.matchups || [];
-      const idx = game.matchupIndex || 0;
-      if (idx >= list.length) {
+      const unresolved = list.filter(x => !x.played && !x.skipped);
+      if (unresolved.length === 0) {
         return game;
       }
-      const m = list[idx];
+      const m = payload && payload.number
+        ? unresolved.find(x => x.number === payload.number)
+        : unresolved[0];
+      if (!m) {
+        return game;
+      }
       // Defensive only — mid-game roster removal has no path today. If it
       // ever happens, refuse loudly rather than silently skipping the
       // matchup: the host should see the problem, not a rearranged show.
       // (A locked or disconnected phone never leaves the roster at all.)
       if (!game.players.includes(m.highId) || !game.players.includes(m.lowId)) {
-        console.error(`Game ${game.id}: matchup ${idx + 1} refers to a player no longer in the game - not proposing`);
+        console.error(`Game ${game.id}: matchup ${m.number} refers to a player no longer in the game - not proposing`);
         return game;
       }
       const options = [game.playerNames[m.highId], game.playerNames[m.lowId]];
@@ -333,24 +339,26 @@ function processGameAction(io, game, action, payload, playerID) {
         resolved: false,
         correctOption: null,
         betsLockAt: null,
-        fromSchedule: true
+        fromSchedule: true,
+        matchupNumber: m.number
       });
-      console.log(`Game ${game.id}: matchup ${idx + 1}/${list.length} proposed - "${options[0]}" vs "${options[1]}" (${m.category}, ${dogOdds}x)`);
+      console.log(`Game ${game.id}: matchup ${m.number}/${list.length} proposed - "${options[0]}" vs "${options[1]}" (${m.category}, ${dogOdds}x)`);
       io.to(game.id).emit('wagerProposed', {
         options: options,
         contestants: [m.highId, m.lowId],
         odds: [1, dogOdds],
         category: m.category,
-        betsLockAt: null
+        betsLockAt: null,
+        matchupNumber: m.number
       });
       return game;
     }
 
     case 'skipMatchup': {
-      // Host declares no contest on the upcoming scheduled matchup (prop
-      // broke, contestant indisposed, room moved on): the schedule advances
-      // and nobody's points are touched. Only between contests — a live
-      // wager is voided with cancelWager instead.
+      // Host declares no contest on an unresolved matchup (prop broke,
+      // contestant indisposed, room moved on): it is marked skipped and
+      // nobody's points are touched. Only between contests — a live wager
+      // is voided with cancelWager instead.
       if (game.host !== playerID || game.status !== 'playing') {
         return game;
       }
@@ -359,36 +367,15 @@ function processGameAction(io, game, action, payload, playerID) {
         return game;
       }
       const all = game.matchups || [];
-      const at = game.matchupIndex || 0;
-      if (at >= all.length) {
+      const open = all.filter(x => !x.played && !x.skipped);
+      const target = payload && payload.number
+        ? open.find(x => x.number === payload.number)
+        : open[0];
+      if (!target) {
         return game;
       }
-      game.matchupIndex = at + 1;
-      console.log(`Game ${game.id}: matchup ${at + 1}/${all.length} declared no contest`);
-      return game;
-    }
-
-    case 'deferMatchup': {
-      // Host defers the upcoming matchup: it rotates to the back of the
-      // remaining queue and the next one surfaces. Fully reversible —
-      // repeated defers cycle through every remaining matchup — and safe,
-      // because nothing in resolution or stats depends on schedule order.
-      if (game.host !== playerID || game.status !== 'playing') {
-        return game;
-      }
-      const pending = wagerStates.get(game.id);
-      if (pending && pending.isActive && !pending.resolved) {
-        return game;
-      }
-      const sched = game.matchups || [];
-      const pos = game.matchupIndex || 0;
-      if (pos >= sched.length - 1) {
-        return game; // nothing to rotate with
-      }
-      const [deferred] = sched.splice(pos, 1);
-      sched.push(deferred);
-      sched.forEach((mu, i) => { mu.number = i + 1; });
-      console.log(`Game ${game.id}: matchup deferred - "${game.playerNames[deferred.highId]}" vs "${game.playerNames[deferred.lowId]}" moves to the end`);
+      target.skipped = true;
+      console.log(`Game ${game.id}: matchup ${target.number}/${all.length} declared no contest`);
       return game;
     }
 
@@ -540,11 +527,11 @@ function processGameAction(io, game, action, payload, playerID) {
             results
           });
 
-          // A resolved scheduled matchup advances the show to the next one.
-          // (A cancelled contest deliberately does not: Next Matchup
-          // re-proposes the same pairing.)
+          // A resolved scheduled matchup is marked played. (A cancelled
+          // contest deliberately is not: it stays startable.)
           if (wagerState.fromSchedule && Array.isArray(game.matchups)) {
-            game.matchupIndex = Math.min((game.matchupIndex || 0) + 1, game.matchups.length);
+            const played = game.matchups.find(x => x.number === wagerState.matchupNumber);
+            if (played) played.played = true;
           }
 
           // Reset wager state for next round
@@ -555,6 +542,7 @@ function processGameAction(io, game, action, payload, playerID) {
           wagerState.playerChoices = {};
           wagerState.correctOption = null;
           wagerState.fromSchedule = false;
+          wagerState.matchupNumber = null;
           wagerState.resolved = false;
         } else {
           console.error(`Cannot resolve wager for game ${game.id}:`, {

@@ -121,6 +121,15 @@ function restoreGame(snapshot) {
   gameSessions.set(game.id, game);
   wagerStates.set(game.id, snapshot.wager || createInitialWagerState());
 
+  // Migration: older snapshots tracked schedule progress with a cursor
+  // (matchupIndex) instead of per-matchup played flags
+  if (Array.isArray(game.matchups) && typeof game.matchupIndex === 'number') {
+    game.matchups.forEach((m, i) => {
+      if (i < game.matchupIndex && !m.skipped) m.played = true;
+    });
+    delete game.matchupIndex;
+  }
+
   for (const [pid, name] of Object.entries(game.playerNames || {})) {
     ensurePlayerCounterAbove(pid);
     if (!playerRegistry.has(pid)) {

@@ -53,7 +53,8 @@ const clearedWagerFields = {
   wagerResolved: false,
   wagerResults: null,
   wagerCategory: '',
-  betsLockAt: null
+  betsLockAt: null,
+  wagerMatchupNumber: null
 }
 
 function gameReducer(state, action) {
@@ -94,7 +95,7 @@ function gameReducer(state, action) {
     }
 
     case 'WAGER_PROPOSED': {
-      const { options, contestants, odds, category, betsLockAt } = action.payload
+      const { options, contestants, odds, category, betsLockAt, matchupNumber } = action.payload
       return {
         ...state,
         ...clearedWagerFields,
@@ -102,7 +103,8 @@ function gameReducer(state, action) {
         wagerContestants: contestants || [],
         wagerActive: true,
         wagerCategory: category || '',
-        betsLockAt: betsLockAt || null
+        betsLockAt: betsLockAt || null,
+        wagerMatchupNumber: matchupNumber || null
       }
     }
 
@@ -329,20 +331,19 @@ export function GameProvider({ children, socket }) {
     sendGameAction('lockBets', {})
   }
 
-  const nextMatchup = (dogOdds) => {
-    sendGameAction('nextMatchup', Number.isFinite(dogOdds) ? { dogOdds } : {})
+  const nextMatchup = (number, dogOdds) => {
+    const payload = {}
+    if (Number.isFinite(number)) payload.number = number
+    if (Number.isFinite(dogOdds)) payload.dogOdds = dogOdds
+    sendGameAction('nextMatchup', payload)
   }
 
   const finishGame = () => {
     sendGameAction('finishGame', {})
   }
 
-  const skipMatchup = () => {
-    sendGameAction('skipMatchup', {})
-  }
-
-  const deferMatchup = () => {
-    sendGameAction('deferMatchup', {})
+  const skipMatchup = (number) => {
+    sendGameAction('skipMatchup', Number.isFinite(number) ? { number } : {})
   }
 
   const submitRankings = (rankings) => {
@@ -373,7 +374,6 @@ export function GameProvider({ children, socket }) {
     nextMatchup,
     finishGame,
     skipMatchup,
-    deferMatchup,
     submitRankings,
     removePlayer,
     clearError

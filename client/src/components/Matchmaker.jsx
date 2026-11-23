@@ -17,7 +17,7 @@ function Matchmaker() {
   const gameCode = (params.get('game') || '').toUpperCase()
   const saveParam = params.get('save')
 
-  const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats, status, matchupIndex }
+  const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats, status }
   const [loadError, setLoadError] = useState('')
   const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup, highRank, lowRank, gap }]
   const [isViewOnly, setIsViewOnly] = useState(false)
@@ -83,8 +83,7 @@ function Matchmaker() {
           players,
           categories: game.categories,
           cats,
-          status: game.status,
-          matchupIndex: game.matchupIndex || 0
+          status: game.status
         })
 
         // A schedule already saved into the game is the starting display
@@ -97,7 +96,9 @@ function Matchmaker() {
             matchup: `${m.highRank} vs ${m.lowRank}`,
             highRank: m.highRank,
             lowRank: m.lowRank,
-            gap: m.gap
+            gap: m.gap,
+            played: !!m.played,
+            skipped: !!m.skipped
           })))
           setSaved(true)
         }
@@ -316,10 +317,12 @@ function Matchmaker() {
     )
   })()
 
-  // In a running game, the table shows progress: played rows dim, the next
-  // one gets the ▶ marker
+  // In a running game, the table shows progress: played rows dim (✕ for a
+  // no-contest), the earliest unresolved one gets the ▶ marker
   const playing = gameInfo && gameInfo.status === 'playing'
-  const currentIdx = playing ? gameInfo.matchupIndex : -1
+  const nextNumber = playing && matchups
+    ? (matchups.find(m => !m.played && !m.skipped) || {}).number
+    : null
 
   const matchupsTable = matchups && matchups.length > 0 && (
     <table className="mm-table">
@@ -327,11 +330,12 @@ function Matchmaker() {
         <tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr>
       </thead>
       <tbody>
-        {matchups.map((m, i) => {
-          const cls = playing ? (i < currentIdx ? 'mm-done' : i === currentIdx ? 'mm-next' : '') : ''
+        {matchups.map((m) => {
+          const done = playing && (m.played || m.skipped)
+          const next = playing && m.number === nextNumber
           return (
-            <tr key={m.number} className={cls}>
-              <td>{playing && i === currentIdx ? '▶' : m.number}</td>
+            <tr key={m.number} className={done ? 'mm-done' : next ? 'mm-next' : ''}>
+              <td>{m.skipped ? '✕' : next ? '▶' : m.number}</td>
               <td>{m.category}</td>
               <td className="mm-fav">{m.high}</td>
               <td>{m.low}</td>
@@ -378,7 +382,7 @@ function Matchmaker() {
             <h1 className="mm-title">{playing ? "Tonight's Matchups" : `Game ${gameInfo.gameId}`}</h1>
             <p className="mm-note">
               {playing
-                ? `Game ${gameInfo.gameId} · contest ${Math.min(currentIdx + 1, matchups ? matchups.length : 0)} of ${matchups ? matchups.length : 0} · reload to see progress`
+                ? `Game ${gameInfo.gameId} · ${matchups ? matchups.filter(m => m.played || m.skipped).length : 0} of ${matchups ? matchups.length : 0} played · reload to see progress`
                 : `${gameInfo.players.length} ranked player${gameInfo.players.length === 1 ? '' : 's'} · ${gameInfo.cats.reduce((s, c) => s + c.count, 0)} challenges · reload to pick up new rankings`}
             </p>
 
