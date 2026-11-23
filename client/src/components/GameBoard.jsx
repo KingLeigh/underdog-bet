@@ -250,15 +250,18 @@ function GameBoard() {
                 <div className="bounty-line">💰 Bounty for the winner: <b>{bountyPreview}</b> points</div>
               ) : null}
 
+              {/* One chip per player, leader first: stack in dim mono, bet in gold */}
               <div className="bet-chips">
-                {players.map(pid => {
-                  const c = playerChoices[pid]
-                  const secret = wagerContestants.includes(pid)
+                {standings.map((p, i) => {
+                  const c = playerChoices[p.id]
+                  const secret = wagerContestants.includes(p.id)
                   return (
-                    <span key={pid} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
-                      <span className="bet-chip-avatar">{avatarFor(pid)}</span>
-                      <span className="bet-chip-name">{playerNames[pid] || 'Unknown'}</span>
-                      {c ? <span className="bet-chip-amount">{secret ? '??' : (c.points || 0)}</span> : null}
+                    <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
+                      {i === 0 ? <span className="bet-chip-crown">🏆</span> : null}
+                      <span className="bet-chip-avatar">{avatarFor(p.id)}</span>
+                      <span className="bet-chip-name">{p.name}</span>
+                      <span className="bet-chip-points">{p.points}</span>
+                      {c ? <span className="bet-chip-amount">▸ {secret ? '??' : (c.points || 0)}</span> : null}
                     </span>
                   )
                 })}
@@ -334,8 +337,9 @@ function GameBoard() {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* ---- Score ticker (hidden on results, which show the full board) ---- */}
-        {!(wagerResolved && wagerResults) && (
+        {/* ---- Score ticker (hidden during contests, where the bet chips carry
+             the standings, and on results, which show the full board) ---- */}
+        {!wagerActive && !(wagerResolved && wagerResults) && (
           <div className="score-ticker">
             {standings.map((p, i) => (
               <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>

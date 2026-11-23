@@ -327,7 +327,7 @@
 }
 
 .bet-chip.waiting {
-  opacity: 0.35;
+  opacity: 0.55;
   border: 2px dashed rgba(255, 255, 255, 0.4);
   background: transparent;
 }
@@ -347,6 +347,17 @@
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.bet-chip-crown {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.bet-chip-points {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .bet-chip-amount {
