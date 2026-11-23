@@ -291,6 +291,18 @@ function GameLobby() {
 
         {error && <div className="error-message">{error}</div>}
 
+        {/* Same quick-view link the host has on the game board */}
+        {isHost && hasMatchups && (
+          <a
+            className="show-matchups-link"
+            href={`/matchmaker?game=${gameId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🎲 Tonight's matchups
+          </a>
+        )}
+
         <details className="game-details">
           <summary>Game rules</summary>
           <RulesPanel
