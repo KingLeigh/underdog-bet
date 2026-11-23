@@ -215,27 +215,20 @@ function Matchmaker() {
 
     const counts = {}
     for (const m of entries) counts[m.gap] = (counts[m.gap] || 0) + 1
-    const gapsSorted = Object.keys(counts).map(Number).sort((a, b) => a - b)
-
-    const distinct = gapsSorted.length
-    const maxDistinct = Math.min(maxGap, entries.length)
 
     const ranksUsed = new Set(entries.flatMap(m => [m.highRank, m.lowRank]))
 
     return (
       <div className="mm-mix">
-        {gapsSorted.map(g => (
+        {Array.from({ length: maxGap }, (_, i) => i + 1).map(g => (
           <span
             key={g}
-            className="mm-cat-badge"
-            title={`${counts[g]} matchup${counts[g] === 1 ? '' : 's'} where the favorite outranks the underdog by ${g}${g === maxGap ? ' (the maximum possible)' : ''}`}
+            className={`mm-cat-badge ${counts[g] ? '' : 'unused'}`}
+            title={`${counts[g] || 0} matchup${counts[g] === 1 ? '' : 's'} where the favorite outranks the underdog by ${g}${g === maxGap ? ' (the maximum possible)' : ''}`}
           >
-            Gap {g} <b>×{counts[g]}</b>
+            Gap {g} <b>×{counts[g] || 0}</b>
           </span>
         ))}
-        <span className="mm-cat-badge" title={`${distinct} different gap sizes out of ${maxDistinct} possible`}>
-          Variety <b>{distinct}/{maxDistinct}</b>
-        </span>
         <span className="mm-cat-badge" title="Which ranks appear somewhere in the schedule — touching both #1 and the bottom makes a more interesting night">
           Ranks
           <span className="mm-rank-pips">
