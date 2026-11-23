@@ -517,16 +517,6 @@ function GameBoard() {
                   </div>
                 </div>
               ))}
-              {isHost && (
-                <a
-                  href={`/matchmaker?game=${gameId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary"
-                >
-                  Matchmaker
-                </a>
-              )}
             </div>
           )}
         </details>
