@@ -110,22 +110,6 @@ function ChallengeSelector() {
     navigate(`/challenge-list?challenges=${challengeIdsParam}`)
   }
 
-  const testMatchmaker = () => {
-    // Calculate categories and their counts
-    const categoryCounts = {}
-    availableChallenges.forEach(challenge => {
-      categoryCounts[challenge.category] = (categoryCounts[challenge.category] || 0) + 1
-    })
-    
-    // Create URL parameters
-    const categoriesParam = Object.keys(categoryCounts).join(',')
-    const countsParam = Object.values(categoryCounts).join(',')
-    
-    // Open in new tab with unlocked fields
-    const matchmakerUrl = `/matchmaker?categories=${categoriesParam}&counts=${countsParam}&unlocked=true`
-    window.open(matchmakerUrl, '_blank')
-  }
-
   // Filter challenges based on selected categories AND requirements
   const filteredChallenges = challenges.filter(challenge => {
     // Check category filter
@@ -293,19 +277,12 @@ function ChallengeSelector() {
           <div className="save-panel standard-panel">
             <div className="save-content">
               <div className="save-buttons">
-                <button 
+                <button
                   className="btn btn-primary btn-large"
                   onClick={saveChallenges}
                   disabled={availableChallenges.length === 0}
                 >
                   Save Challenges
-                </button>
-                <button 
-                  className="btn btn-secondary btn-large"
-                  onClick={testMatchmaker}
-                  disabled={availableChallenges.length === 0}
-                >
-                  Test Matchmaker
                 </button>
               </div>
             </div>

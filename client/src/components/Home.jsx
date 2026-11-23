@@ -109,7 +109,6 @@ function Home() {
           </form>
 
           <div className="tool-links">
-            <button onClick={() => navigate('/matchmaker')}>🎲 Matchmaker</button>
             <button onClick={() => navigate('/challenge-selector')}>📋 Challenge Selector</button>
           </div>
         </>

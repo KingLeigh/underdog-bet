@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
-import { buildMatchmakerConfigUrl } from '../lib/matchmakerUrl'
 import { avatarFor } from '../lib/avatars'
 import './GameBoard.css'
 
@@ -99,27 +98,6 @@ function GameBoard() {
       socket.off('disconnect', handleDisconnect)
     }
   }, [socket])
-
-  // Generate matchmaker URL for the current game
-  const generateMatchmakerUrl = () => {
-    if (!categories || categories.length === 0 || !players || players.length === 0 || !playerRankings) {
-      return null
-    }
-
-    try {
-      const ranks = players.map(pid => categories.map(category => playerRankings[pid]?.[category] || 999))
-      const playerNamesArray = players.map(pid => playerNames[pid] || 'Unknown Player')
-      const numChallenges = challengesPerCategory && challengesPerCategory.length > 0
-        ? challengesPerCategory
-        : categories.map(() => 1)
-
-      const baseUrl = `${window.location.origin}/matchmaker`
-      return buildMatchmakerConfigUrl(baseUrl, categories, numChallenges, playerNamesArray, ranks)
-    } catch (error) {
-      console.error('Error generating matchmaker URL:', error)
-      return null
-    }
-  }
 
   // Bounty preview shown to contestants while a wager is active.
   // (After resolution, the authoritative amount arrives in wagerResults.)
@@ -395,7 +373,7 @@ function GameBoard() {
               ))}
               {isHost && (
                 <a
-                  href={generateMatchmakerUrl()}
+                  href={`/matchmaker?game=${gameId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-secondary"

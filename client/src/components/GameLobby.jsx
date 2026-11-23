@@ -223,6 +223,17 @@ function GameLobby() {
           </div>
         )}
 
+        {isHost && hasCategories && rankedCount >= 2 && (
+          <a
+            className="copy-link"
+            href={`/matchmaker?game=${gameId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🎲 Preview matchups
+          </a>
+        )}
+
         {/* Start / waiting */}
         {isHost && players.length >= 2 && (
           <div className="start-area">
