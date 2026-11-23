@@ -165,6 +165,36 @@ describe('solveMatchmaking', () => {
   })
 })
 
+describe('category coverage preference', () => {
+  test('a schedule covers every category when possible, even with zero gap preference', () => {
+    // 4 players, 3 categories x2 challenges: only 4 of 6 challenges get
+    // used, so the solver could double up on two categories and skip one —
+    // the coverage penalty must prevent that whenever full coverage exists.
+    const categories = ['A', 'B', 'C']
+    const challenges = buildChallenges(categories.map(name => ({ name, count: 2 })))
+    const rand = rng(11)
+    const players = Array.from({ length: 4 }, (_, i) => {
+      const perm = shuffle([1, 2, 3], rand)
+      const ranks = {}
+      categories.forEach((c, j) => { ranks[c] = perm[j] })
+      return { name: `P${i + 1}`, ranks }
+    })
+
+    for (const seed of [1, 42, 777, 31337]) {
+      const res = solveMatchmaking(players, categories, challenges, {
+        costFn: () => 0, // no gap preference, like the live matchmaker
+        selectN: players.length,
+        coverPenaltyPerMissing: 10,
+        requireCoverAll: false,
+        randomSeed: seed
+      })
+      if (!res.ok) continue // a draw can be infeasible; that's not this test
+      const usedCategories = new Set(res.assignments.map(a => a.category))
+      expect(usedCategories.size).toBe(categories.length)
+    }
+  })
+})
+
 describe('checkFeasible', () => {
   test('agrees with the solver on feasibility', () => {
     const feasible = feasibleSetup()

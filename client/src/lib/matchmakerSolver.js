@@ -181,6 +181,9 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
 
   let foundPerfectSolution = false
   let bestSolutionSoFar = { best: Infinity, picks: null }
+  // Current decision path, so the best-so-far fallback (used on timeout)
+  // can record the actual schedule, not just its score
+  const path = []
 
   function dfs(k, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost = 0) {
     // Early termination: if we already found a perfect solution, stop searching
@@ -203,9 +206,9 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
       const coverPenalty = coverPenaltyPerMissing * missing
       const totalPenalty = totalGapCost + coverPenalty
 
-      // Track the best solution found so far
+      // Track the best solution found so far (with its actual picks)
       if (totalPenalty < bestSolutionSoFar.best) {
-        bestSolutionSoFar = { best: totalPenalty, picks: [] }
+        bestSolutionSoFar = { best: totalPenalty, picks: path.slice() }
       }
 
       // Early termination: if we found a perfect solution (cost=0), return immediately
@@ -252,7 +255,9 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
       }
       newPlayerCategoryMask.get(pr.loIdx).push(categoryIndex)
 
+      path.push({ use: true, chIndex: ch.idx, pr })
       const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit, newPlayerCategoryMask, totalGapCost + pr.cost)
+      path.pop()
       const total = sub.best === Infinity ? Infinity : sub.best
 
       // Early termination: if we found a perfect solution, return immediately
@@ -274,7 +279,9 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
     }
 
     if (remaining - 1 >= needMore) {
+      path.push({ use: false, chIndex: ch.idx })
       const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost)
+      path.pop()
 
       // Early termination: if we found a perfect solution in skip path, return immediately
       if (subSkip.perfectSolution && subSkip.best === 0) {
