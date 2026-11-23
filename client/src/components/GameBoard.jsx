@@ -229,7 +229,7 @@ function GameBoard() {
               </div>
             )}
 
-            <StandingsTable standings={standings} stats={gameState?.stats} mode="stats" />
+            <StandingsTable standings={standings} stats={gameState?.stats} />
           </div>
         )}
 
@@ -462,7 +462,7 @@ function GameBoard() {
               {wagerResults.bountyAmount > 0 && <> &nbsp;+{wagerResults.bountyAmount} bounty 💰</>}
             </div>
 
-            <StandingsTable standings={standings} roundResults={wagerResults} mode="round" />
+            <StandingsTable standings={standings} stats={gameState?.stats} roundResults={wagerResults} />
 
             {/* Next scheduled matchup goes via the pre-contest odds screen;
                 an exhausted schedule ends the night with the Winner screen */}
@@ -482,12 +482,12 @@ function GameBoard() {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* ---- Standings & stats, always a tap away (the finale shows the
-             same table in the open) ---- */}
-        {!finished && (
+        {/* ---- Standings & stats, always a tap away (results and the finale
+             show the same table in the open, so no dropdown there) ---- */}
+        {!finished && !(wagerResolved && wagerResults) && (
           <details className="game-details">
             <summary>📊 Standings & stats</summary>
-            <StandingsTable standings={standings} stats={gameState?.stats} mode="stats" />
+            <StandingsTable standings={standings} stats={gameState?.stats} />
           </details>
         )}
 
@@ -543,63 +543,50 @@ function GameBoard() {
   )
 }
 
-// One leaderboard, two faces: 'round' shows the swing after a contest
-// (Round ± and Total), 'stats' the night's full record (contest W-L,
-// bet W-L, total wagered, score). Same table, same visual language.
-function StandingsTable({ standings, stats, roundResults, mode }) {
+// The one leaderboard: contest W-L, bet W-L, total wagered, score —
+// and, when roundResults is given (the Results screen), a Round ± column
+// leading the numbers. Same table, same visual language, everywhere.
+function StandingsTable({ standings, stats, roundResults }) {
   return (
     <table className="night-summary">
       <thead>
         <tr>
           <th></th>
-          {mode === 'round' ? (
-            <>
-              <th>Round</th>
-              <th>Total</th>
-            </>
-          ) : (
-            <>
-              <th>Contests</th>
-              <th>Bets</th>
-              <th>Wagered</th>
-              <th>Score</th>
-            </>
-          )}
+          <th>Contests</th>
+          <th>Bets</th>
+          <th>Wagered</th>
+          {roundResults && <th>Round</th>}
+          <th>Score</th>
         </tr>
       </thead>
       <tbody>
         {standings.map((p, i) => {
-          const nameCell = (
-            <td className="sum-name">
-              <span className="sum-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
-              {' '}{avatarFor(p.id)} {p.name}
-            </td>
-          )
-          if (mode === 'round') {
+          const s = (stats && stats[p.id]) ||
+            { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
+          let roundCell = null
+          if (roundResults) {
             const r = roundResults.results.find(x => x.playerId === p.id)
             const gotBounty = p.id === roundResults.winnerPlayerId && roundResults.bountyAmount > 0
             let delta = r ? parseInt(r.pointsChange) : 0
             if (gotBounty) delta += roundResults.bountyAmount
             const active = !!r || gotBounty
             const cls = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
-            return (
-              <tr key={p.id} className={p.isMe ? 'me' : ''}>
-                {nameCell}
-                <td className={`sum-delta ${cls}`}>
-                  {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
-                </td>
-                <td className="sum-score">{p.points}</td>
-              </tr>
+            roundCell = (
+              <td className={`sum-delta ${cls}`}>
+                {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
+              </td>
             )
           }
-          const s = (stats && stats[p.id]) ||
-            { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
           return (
             <tr key={p.id} className={p.isMe ? 'me' : ''}>
-              {nameCell}
+              <td className="sum-name">
+                <span className="sum-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
+                {' '}{avatarFor(p.id)} {p.name}
+              </td>
               <td>{s.contestWins}–{s.contestLosses}</td>
               <td>{s.betWins}–{s.betLosses}</td>
               <td>{s.totalBet}</td>
+              {roundCell}
               <td className="sum-score">{p.points}</td>
             </tr>
           )
