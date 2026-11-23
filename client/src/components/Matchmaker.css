@@ -15,6 +15,15 @@
   gap: 1.1rem;
 }
 
+/* breathing room around the big action button */
+.mm-content .mega-btn {
+  margin: 0.6rem 0 1rem;
+}
+
+.mm-content .game-details {
+  margin-top: 0.8rem;
+}
+
 .mm-title {
   margin-bottom: 0;
 }
@@ -130,7 +139,7 @@
 }
 
 .mm-share {
-  margin-top: 0.4rem;
+  margin-top: 0.2rem;
 }
 
 /* ---- schedule report card ---- */
