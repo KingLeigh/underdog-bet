@@ -34,6 +34,7 @@ function GameBoard() {
     lockBets,
     betsLockAt,
     nextMatchup,
+    finishGame,
     resetWagerState,
     error,
     socket,
@@ -61,8 +62,9 @@ function GameBoard() {
     : null
 
   useEffect(() => {
-    // If game is not playing, redirect to lobby
-    if (gameState && gameState.status !== 'playing') {
+    // A waiting game belongs in the lobby; a finished one stays here to
+    // show the Winner screen
+    if (gameState && gameState.status === 'waiting') {
       navigate(`/lobby/${gameId}`)
     }
   }, [gameState, gameId, navigate])
@@ -118,6 +120,24 @@ function GameBoard() {
     }
   }, [socket])
 
+  // Scheduled games count contests from the saved matchups; ad-hoc play
+  // falls back to counting resolved wagers. (Derived before the loading
+  // return below so the odds hooks always run — hooks must be unconditional.)
+  const schedule = Array.isArray(gameState?.matchups) ? gameState.matchups : []
+  const scheduleIdx = gameState?.matchupIndex || 0
+  const nextScheduled = schedule[scheduleIdx] || null
+
+  // Host sets the underdog's odds before each scheduled contest goes live;
+  // the rank gap provides the starting suggestion (favorite stays 1x)
+  const defaultDogOdds = nextScheduled
+    ? Math.min(4, 1 + 0.5 * Math.max(1, nextScheduled.gap || 1))
+    : 2
+  const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
+  useEffect(() => {
+    setNextDogOdds(defaultDogOdds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleIdx, schedule.length])
+
   // Bounty preview shown to contestants while a wager is active.
   // (After resolution, the authoritative amount arrives in wagerResults.)
   const bountyPreview = (() => {
@@ -134,7 +154,7 @@ function GameBoard() {
     }
   })()
 
-  if (!gameState || gameState.status !== 'playing') {
+  if (!gameState || (gameState.status !== 'playing' && gameState.status !== 'finished')) {
     return (
       <div className="game-board">
         <div className="stage-content">
@@ -144,28 +164,13 @@ function GameBoard() {
     )
   }
 
-  // Scheduled games count contests from the saved matchups; ad-hoc (bonus)
-  // play falls back to counting resolved wagers
-  const schedule = Array.isArray(gameState?.matchups) ? gameState.matchups : []
-  const scheduleIdx = gameState?.matchupIndex || 0
-  const nextScheduled = schedule[scheduleIdx] || null
-
-  // Host sets the underdog's odds before each scheduled contest goes live;
-  // the rank gap provides the starting suggestion (favorite stays 1x)
-  const defaultDogOdds = nextScheduled
-    ? Math.min(4, 1 + 0.5 * Math.max(1, nextScheduled.gap || 1))
-    : 2
-  const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
-  useEffect(() => {
-    setNextDogOdds(defaultDogOdds)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleIdx, schedule.length])
   const contestLabel = schedule.length > 0
     ? `Contest ${Math.min(scheduleIdx + 1, schedule.length)} of ${schedule.length}`
     : `Contest ${Math.floor(
         Object.values(playerWagerCount || {}).reduce((s, c) => s + c, 0) / 2
       ) + 1}`
 
+  const finished = gameState?.status === 'finished'
   const myBet = playerChoices[playerId]
   const betsIn = Object.keys(playerChoices).length
   // An emcee host runs the game without being a player: no betting UI
@@ -185,8 +190,70 @@ function GameBoard() {
     <div className="game-board">
       <div className="stage-content">
 
+        {/* ---- Finished: the Winner screen ---- */}
+        {finished && (
+          <div className="winner-screen">
+            <div className="round-strip">Final Result</div>
+
+            {standings[0] && (
+              <div className="champ-banner">
+                <span className="champ-avatar">{avatarFor(standings[0].id)}</span>
+                <div className="champ-label">Tonight's Champion</div>
+                <div className="champ-name">{standings[0].name}</div>
+                <div className="champ-points">{standings[0].points} points</div>
+              </div>
+            )}
+
+            {(standings[1] || standings[2]) && (
+              <div className="podium">
+                {standings[1] && (
+                  <div className="podium-step second">
+                    <span className="podium-avatar">{avatarFor(standings[1].id)}</span>
+                    <div className="podium-name">{standings[1].name}</div>
+                    <div className="podium-block">
+                      <span className="podium-medal">🥈</span>
+                      <span className="podium-points">{standings[1].points}</span>
+                    </div>
+                  </div>
+                )}
+                {standings[2] && (
+                  <div className="podium-step third">
+                    <span className="podium-avatar">{avatarFor(standings[2].id)}</span>
+                    <div className="podium-name">{standings[2].name}</div>
+                    <div className="podium-block">
+                      <span className="podium-medal">🥉</span>
+                      <span className="podium-points">{standings[2].points}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <table className="night-summary">
+              <thead>
+                <tr><th></th><th>Contests</th><th>Bets</th><th>Wagered</th><th>Score</th></tr>
+              </thead>
+              <tbody>
+                {standings.map(p => {
+                  const s = (gameState && gameState.stats && gameState.stats[p.id]) ||
+                    { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
+                  return (
+                    <tr key={p.id} className={p.isMe ? 'me' : ''}>
+                      <td className="sum-name">{avatarFor(p.id)} {p.name}</td>
+                      <td>{s.contestWins}–{s.contestLosses}</td>
+                      <td>{s.betWins}–{s.betLosses}</td>
+                      <td>{s.totalBet}</td>
+                      <td className="sum-score">{p.points}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* ---- No active wager: the host advances the show ---- */}
-        {!wagerActive && !wagerResolved && (
+        {!finished && !wagerActive && !wagerResolved && (
           <div className="contest-area">
             <div className="round-strip">{schedule.length > 0 && !nextScheduled ? 'Bonus Round' : contestLabel}</div>
             {isHost ? (
@@ -224,8 +291,10 @@ function GameBoard() {
               ) : schedule.length > 0 ? (
                 <>
                   <div className="category-title">That's the Show!</div>
-                  <p className="waiting-line">All scheduled matchups are played — set up a bonus contest if the night isn't done 🎁</p>
-                  <WagerProposalForm onSubmit={proposeWager} />
+                  <p className="waiting-line">All scheduled matchups are played 🎉</p>
+                  <button className="mega-btn" onClick={finishGame}>
+                    FINISH GAME ★
+                  </button>
                 </>
               ) : (
                 <>
@@ -397,7 +466,7 @@ function GameBoard() {
         })()}
 
         {/* ---- Resolved: results ---- */}
-        {wagerResolved && wagerResults && (
+        {!finished && wagerResolved && wagerResults && (
           <div className="contest-area">
             <div className="round-strip">Result</div>
             <div className="category-title winner-title">
@@ -435,12 +504,18 @@ function GameBoard() {
               })}
             </div>
 
-            {/* Both paths lead to the host's pre-contest screen: scheduled
-                games get the teaser + odds stepper, bonus rounds the form */}
+            {/* Next scheduled matchup goes via the pre-contest odds screen;
+                an exhausted schedule ends the night with the Winner screen */}
             {isHost && (
-              <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
-                {nextScheduled ? 'NEXT MATCHUP ★' : schedule.length > 0 ? 'BONUS ROUND ★' : 'NEXT CONTEST ★'}
-              </button>
+              nextScheduled || schedule.length === 0 ? (
+                <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
+                  {nextScheduled ? 'NEXT MATCHUP ★' : 'NEXT CONTEST ★'}
+                </button>
+              ) : (
+                <button onClick={finishGame} className="btn btn-primary next-contest-btn">
+                  FINISH GAME ★
+                </button>
+              )
             )}
           </div>
         )}
@@ -449,7 +524,7 @@ function GameBoard() {
 
         {/* ---- Score ticker (hidden during contests, where the bet chips carry
              the standings, and on results, which show the full board) ---- */}
-        {!wagerActive && !(wagerResolved && wagerResults) && (
+        {!finished && !wagerActive && !(wagerResolved && wagerResults) && (
           <div className="score-ticker">
             {standings.map((p, i) => (
               <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>

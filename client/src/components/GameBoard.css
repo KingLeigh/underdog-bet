@@ -371,6 +371,166 @@
   color: #fde047;
 }
 
+/* ---- winner screen ---- */
+.winner-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(640px, 100%);
+}
+
+.champ-banner {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 1.6rem 1rem 1.4rem;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.22), rgba(253, 224, 71, 0.06));
+  border: 3px solid rgba(253, 224, 71, 0.65);
+  box-shadow: 0 0 60px rgba(253, 224, 71, 0.25);
+}
+
+.champ-avatar {
+  font-size: 4rem;
+  line-height: 1;
+  display: block;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5));
+}
+
+.champ-label {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #fde047;
+}
+
+.champ-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: clamp(2.2rem, 7vw, 3.4rem);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  text-shadow: 0 6px 40px rgba(253, 224, 71, 0.4);
+}
+
+.champ-points {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.podium {
+  margin-top: 1.4rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 1.2rem;
+}
+
+.podium-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.podium-avatar {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.podium-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 1.05rem;
+}
+
+.podium-block {
+  width: 120px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+}
+
+.podium-step.second .podium-block {
+  height: 84px;
+  background: linear-gradient(180deg, rgba(203, 213, 225, 0.35), rgba(203, 213, 225, 0.12));
+  border: 2px solid rgba(203, 213, 225, 0.5);
+  border-bottom: none;
+}
+
+.podium-step.third .podium-block {
+  height: 58px;
+  background: linear-gradient(180deg, rgba(180, 120, 60, 0.4), rgba(180, 120, 60, 0.15));
+  border: 2px solid rgba(217, 160, 102, 0.5);
+  border-bottom: none;
+}
+
+.podium-medal {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.podium-points {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.night-summary {
+  margin-top: 2rem;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.night-summary th {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: right;
+}
+
+.night-summary th:first-child {
+  text-align: left;
+}
+
+.night-summary td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.night-summary .sum-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 1rem;
+  text-align: left;
+  color: #fff;
+}
+
+.night-summary .sum-score {
+  color: #fde047;
+  font-weight: 700;
+}
+
+.night-summary tr.me td {
+  background: rgba(253, 224, 71, 0.07);
+}
+
 /* ---- scheduled matchups ---- */
 .next-teaser {
   font-size: 1.2rem;

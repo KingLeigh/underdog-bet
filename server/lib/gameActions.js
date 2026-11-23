@@ -227,6 +227,31 @@ function processGameAction(io, game, action, payload, playerID) {
       }
       return game;
 
+    case 'finishGame': {
+      // Host ends the night once the schedule has played out: the Winner
+      // screen replaces the board for everyone.
+      if (game.host !== playerID || game.status !== 'playing') {
+        return game;
+      }
+      const activeWager = wagerStates.get(game.id);
+      if (activeWager && activeWager.isActive && !activeWager.resolved) {
+        return game;
+      }
+      if (Array.isArray(game.matchups) && (game.matchupIndex || 0) < game.matchups.length) {
+        return game; // the show isn't over yet
+      }
+      const standings = [...game.players]
+        .sort((a, b) => (game.playerPoints[b] || 0) - (game.playerPoints[a] || 0))
+        .map(pid => ({ playerId: pid, name: game.playerNames[pid], points: game.playerPoints[pid] || 0 }));
+      persistence.logEvent(game.id, 'gameFinished', { standings, stats: game.stats || {} });
+      console.log(`Game ${game.id}: finished - winner ${standings[0] ? standings[0].name : 'nobody'}`);
+      return {
+        ...game,
+        status: 'finished',
+        finishedAt: new Date().toISOString()
+      };
+    }
+
     case 'saveMatchups': {
       // Persist a matchmaker schedule into the game (host, lobby only).
       // matchupsFor records which ranked players the schedule covers, so a
@@ -372,6 +397,20 @@ function processGameAction(io, game, action, payload, playerID) {
           const winnerPlayerId = wagerState.contestants[payload.correctChoice] || null;
           const winningOption = wagerState.options[payload.correctChoice];
 
+          // Night-long stats, shown on the final Winner screen
+          if (!game.stats) game.stats = {};
+          const statFor = (pid) => {
+            if (!game.stats[pid]) {
+              game.stats[pid] = { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 };
+            }
+            return game.stats[pid];
+          };
+          for (const cid of wagerState.contestants) {
+            if (!game.players.includes(cid)) continue;
+            if (cid === winnerPlayerId) statFor(cid).contestWins++;
+            else statFor(cid).contestLosses++;
+          }
+
           for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
             const { choice, points } = choiceData;
 
@@ -383,7 +422,10 @@ function processGameAction(io, game, action, payload, playerID) {
               game.playerWagerCount[playerId] = (game.playerWagerCount[playerId] || 0) + 1;
             }
 
+            statFor(playerId).totalBet += points;
+
             if (choice === payload.correctChoice) {
+              statFor(playerId).betWins++;
               // Player was correct - they gain the points they wagered MULTIPLIED BY the odds
               const odds = wagerState.odds[choice];
               const pointsAwarded = Math.floor(points * odds);
@@ -401,6 +443,7 @@ function processGameAction(io, game, action, payload, playerID) {
                 isWinner: isPlayerInContest
               });
             } else {
+              statFor(playerId).betLosses++;
               // Player was incorrect - they lose their stake (unaffected by
               // odds), clamped so their balance never drops below the game's
               // minimum balance floor

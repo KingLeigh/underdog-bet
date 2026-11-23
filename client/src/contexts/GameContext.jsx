@@ -333,6 +333,10 @@ export function GameProvider({ children, socket }) {
     sendGameAction('nextMatchup', Number.isFinite(dogOdds) ? { dogOdds } : {})
   }
 
+  const finishGame = () => {
+    sendGameAction('finishGame', {})
+  }
+
   const submitRankings = (rankings) => {
     sendGameAction('submitRankings', { rankings })
   }
@@ -359,6 +363,7 @@ export function GameProvider({ children, socket }) {
     cancelWager,
     lockBets,
     nextMatchup,
+    finishGame,
     submitRankings,
     removePlayer,
     clearError

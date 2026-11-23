@@ -600,6 +600,43 @@ test('resolving a scheduled matchup advances the show; cancelling does not', () 
   assert.equal(wagerStates.get('TEST01').isActive, false, 'schedule exhausted');
 });
 
+test('resolution accumulates night stats; finishGame ends an exhausted schedule', () => {
+  // All three ranked so the bystander p3 survives the start
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 }, p3: { A: 1, B: 2 } }
+  });
+  processGameAction(io, game, 'saveMatchups', { matchups: [
+    { category: 'A', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 },
+    { category: 'B', highId: 'p2', lowId: 'p1', highRank: 1, lowRank: 2, gap: 1 }
+  ] }, 'p1');
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+
+  // Finishing early is refused: mid-schedule, and again mid-wager
+  assert.equal(processGameAction(io, game, 'finishGame', {}, 'p1').status, 'playing');
+
+  // Contest 1: p3 bets 10 on p1 (choice 0) and wins; p1 wins as contestant
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+
+  // Contest 2: p3 bets 20 on p2's side (choice 0: contestants [p2, p1]) and loses
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 20 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
+
+  assert.deepEqual(game.stats.p3, { contestWins: 0, contestLosses: 0, betWins: 1, betLosses: 1, totalBet: 30 });
+  assert.equal(game.stats.p1.contestWins, 2, 'p1 won both contests');
+  assert.equal(game.stats.p2.contestLosses, 2);
+
+  // Schedule exhausted: non-host refused, host finishes
+  assert.equal(processGameAction(io, game, 'finishGame', {}, 'p2').status, 'playing');
+  const done = processGameAction(io, game, 'finishGame', {}, 'p1');
+  assert.equal(done.status, 'finished');
+  assert.ok(done.finishedAt);
+});
+
 test('nextMatchup skips a matchup whose contestant has left', () => {
   const game = makeMatchmadeGame();
   Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
