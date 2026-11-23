@@ -19,8 +19,11 @@ function MatchupSafetyMeter({ cats }) {
 
     // Debounce typing, then assess each player count in turn
     const timer = setTimeout(async () => {
+      // Start at 3: a 2-player schedule is impossible by construction (each
+      // player must appear once as favorite and once as underdog, and the
+      // same pair can never meet twice), so a 2 pip would always be red.
       const maxN = Math.min(MAX_METER_PLAYERS, totalChallenges)
-      for (let n = 2; n <= maxN; n++) {
+      for (let n = 3; n <= maxN; n++) {
         const res = await assessPlayerCount(cats, n, {
           seed: configSeed(cats, n),
           isCancelled: () => cancelled
@@ -46,7 +49,7 @@ function MatchupSafetyMeter({ cats }) {
 
   const maxN = Math.min(MAX_METER_PLAYERS, totalChallenges)
   const counts = []
-  for (let n = 2; n <= maxN; n++) counts.push(n)
+  for (let n = 3; n <= maxN; n++) counts.push(n)
 
   const safeCounts = counts.filter(n => verdicts[n] === 'safe')
   const allDone = counts.every(n => verdicts[n])
