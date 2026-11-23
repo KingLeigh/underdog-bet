@@ -371,6 +371,39 @@
   color: #fde047;
 }
 
+/* ---- scheduled matchups ---- */
+.next-teaser {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0.2rem 0 1.4rem;
+}
+
+.next-teaser b {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #fde047;
+}
+
+.show-matchups-link {
+  margin-top: 1.4rem;
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.show-matchups-link:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 /* ---- bet locking ---- */
 .lock-countdown {
   margin-top: 1.6rem;

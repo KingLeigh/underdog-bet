@@ -329,6 +329,10 @@ export function GameProvider({ children, socket }) {
     sendGameAction('lockBets', {})
   }
 
+  const nextMatchup = () => {
+    sendGameAction('nextMatchup', {})
+  }
+
   const submitRankings = (rankings) => {
     sendGameAction('submitRankings', { rankings })
   }
@@ -354,6 +358,7 @@ export function GameProvider({ children, socket }) {
     resetWagerState,
     cancelWager,
     lockBets,
+    nextMatchup,
     submitRankings,
     removePlayer,
     clearError

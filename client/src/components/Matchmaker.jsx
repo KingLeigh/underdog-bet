@@ -17,13 +17,14 @@ function Matchmaker() {
   const gameCode = (params.get('game') || '').toUpperCase()
   const saveParam = params.get('save')
 
-  const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats }
+  const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats, status, matchupIndex }
   const [loadError, setLoadError] = useState('')
   const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup, highRank, lowRank, gap }]
   const [isViewOnly, setIsViewOnly] = useState(false)
   const [solveStatus, setSolveStatus] = useState('')
   const [solveError, setSolveError] = useState('')
   const [shareStatus, setShareStatus] = useState('')
+  const [saved, setSaved] = useState(false) // displayed matchups match the game's saved ones
 
   // Load either a shared schedule or live game state
   useEffect(() => {
@@ -77,7 +78,29 @@ function Matchmaker() {
           count: (game.challengesPerCategory && game.challengesPerCategory[i]) || 1
         }))
 
-        setGameInfo({ gameId: game.id, players, categories: game.categories, cats })
+        setGameInfo({
+          gameId: game.id,
+          players,
+          categories: game.categories,
+          cats,
+          status: game.status,
+          matchupIndex: game.matchupIndex || 0
+        })
+
+        // A schedule already saved into the game is the starting display
+        if (Array.isArray(game.matchups) && game.matchups.length > 0) {
+          setMatchups(game.matchups.map(m => ({
+            number: m.number,
+            category: m.category,
+            high: game.playerNames[m.highId] || 'Unknown',
+            low: game.playerNames[m.lowId] || 'Unknown',
+            matchup: `${m.highRank} vs ${m.lowRank}`,
+            highRank: m.highRank,
+            lowRank: m.lowRank,
+            gap: m.gap
+          })))
+          setSaved(true)
+        }
       } catch (e) {
         if (!cancelled) setLoadError(e.message)
       }
@@ -140,6 +163,7 @@ function Matchmaker() {
       }
 
       const ordered = optimizeMatchOrdering(res.assignments, seed)
+      setSaved(false)
       setMatchups(ordered.map((a, i) => ({
         number: i + 1,
         category: a.category,
@@ -153,17 +177,36 @@ function Matchmaker() {
     }, 30)
   }
 
-  // Save the schedule: copy the shareable link and open the saved view
-  const saveMatchups = () => {
-    if (!matchups || matchups.length === 0) return
-    const compact = matchups.map(m => `${m.number}:${m.category}:${m.high}:${m.low}:${m.matchup}`).join('|')
-    const url = `${window.location.origin}/matchmaker?save=${btoa(compact)}`
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).catch(() => {})
+  // Save the schedule into the game itself: it becomes the running order of
+  // the night, and unlocks Start Game in the lobby
+  const saveMatchups = async () => {
+    if (!matchups || matchups.length === 0 || !gameInfo) return
+    const nameToPid = {}
+    gameInfo.players.forEach(p => { nameToPid[p.name] = p.pid })
+    const payload = matchups.map(m => ({
+      category: m.category,
+      highId: nameToPid[m.high],
+      lowId: nameToPid[m.low],
+      highRank: m.highRank,
+      lowRank: m.lowRank,
+      gap: m.gap
+    }))
+    try {
+      const res = await fetch(`/api/games/${gameInfo.gameId}/matchups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchups: payload })
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `HTTP ${res.status}`)
+      }
+      setSaved(true)
+      setShareStatus('Saved — these matchups will run the game ✓')
+    } catch (err) {
+      setShareStatus(`Could not save: ${err.message}`)
     }
-    window.open(url, '_blank', 'noopener')
-    setShareStatus('Link copied to your clipboard — and opened in a new tab')
-    setTimeout(() => setShareStatus(''), 3500)
+    setTimeout(() => setShareStatus(''), 4000)
   }
 
   // Schedule report card: challenges used per category, gap spread as a
@@ -264,21 +307,29 @@ function Matchmaker() {
     )
   })()
 
+  // In a running game, the table shows progress: played rows dim, the next
+  // one gets the ▶ marker
+  const playing = gameInfo && gameInfo.status === 'playing'
+  const currentIdx = playing ? gameInfo.matchupIndex : -1
+
   const matchupsTable = matchups && matchups.length > 0 && (
     <table className="mm-table">
       <thead>
         <tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr>
       </thead>
       <tbody>
-        {matchups.map((m) => (
-          <tr key={m.number}>
-            <td>{m.number}</td>
-            <td>{m.category}</td>
-            <td className="mm-fav">{m.high}</td>
-            <td>{m.low}</td>
-            <td>{m.matchup}</td>
-          </tr>
-        ))}
+        {matchups.map((m, i) => {
+          const cls = playing ? (i < currentIdx ? 'mm-done' : i === currentIdx ? 'mm-next' : '') : ''
+          return (
+            <tr key={m.number} className={cls}>
+              <td>{playing && i === currentIdx ? '▶' : m.number}</td>
+              <td>{m.category}</td>
+              <td className="mm-fav">{m.high}</td>
+              <td>{m.low}</td>
+              <td>{m.matchup}</td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
@@ -315,26 +366,33 @@ function Matchmaker() {
         {/* Live game mode */}
         {gameInfo && (
           <>
-            <h1 className="mm-title">Game {gameInfo.gameId}</h1>
+            <h1 className="mm-title">{playing ? "Tonight's Matchups" : `Game ${gameInfo.gameId}`}</h1>
             <p className="mm-note">
-              {gameInfo.players.length} ranked player{gameInfo.players.length === 1 ? '' : 's'} · {gameInfo.cats.reduce((s, c) => s + c.count, 0)} challenges · reload to pick up new rankings
+              {playing
+                ? `Game ${gameInfo.gameId} · contest ${Math.min(currentIdx + 1, matchups ? matchups.length : 0)} of ${matchups ? matchups.length : 0} · reload to see progress`
+                : `${gameInfo.players.length} ranked player${gameInfo.players.length === 1 ? '' : 's'} · ${gameInfo.cats.reduce((s, c) => s + c.count, 0)} challenges · reload to pick up new rankings`}
             </p>
 
-            <button className="mega-btn violet" onClick={makeMatches} disabled={!!solveStatus}>
-              {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
-            </button>
+            {!playing && (
+              <button className="mega-btn violet" onClick={makeMatches} disabled={!!solveStatus}>
+                {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
+              </button>
+            )}
 
             {solveError && <div className="mm-error">{solveError}</div>}
 
             {reportCard}
             {matchupsTable}
 
-            {matchups && matchups.length > 0 && (
+            {!playing && matchups && matchups.length > 0 && (
               <div className="mm-share">
-                <button className="mega-btn" onClick={saveMatchups}>
-                  SAVE THESE MATCHUPS ★
+                <button className="mega-btn" onClick={saveMatchups} disabled={saved}>
+                  {saved ? 'MATCHUPS SAVED ✓' : 'SAVE MATCHUPS ★'}
                 </button>
                 {shareStatus && <div className="mm-share-status">{shareStatus}</div>}
+                {saved && !shareStatus && (
+                  <div className="mm-share-status">These matchups will run the game — reshuffle any time before the start</div>
+                )}
               </div>
             )}
 

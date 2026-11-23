@@ -33,6 +33,7 @@ function GameBoard() {
     cancelWager,
     lockBets,
     betsLockAt,
+    nextMatchup,
     resetWagerState,
     error,
     socket,
@@ -143,9 +144,16 @@ function GameBoard() {
     )
   }
 
-  const contestNumber = Math.floor(
-    Object.values(playerWagerCount || {}).reduce((s, c) => s + c, 0) / 2
-  ) + 1
+  // Scheduled games count contests from the saved matchups; ad-hoc (bonus)
+  // play falls back to counting resolved wagers
+  const schedule = Array.isArray(gameState?.matchups) ? gameState.matchups : []
+  const scheduleIdx = gameState?.matchupIndex || 0
+  const nextScheduled = schedule[scheduleIdx] || null
+  const contestLabel = schedule.length > 0
+    ? `Contest ${Math.min(scheduleIdx + 1, schedule.length)} of ${schedule.length}`
+    : `Contest ${Math.floor(
+        Object.values(playerWagerCount || {}).reduce((s, c) => s + c, 0) / 2
+      ) + 1}`
 
   const myBet = playerChoices[playerId]
   const betsIn = Object.keys(playerChoices).length
@@ -166,15 +174,33 @@ function GameBoard() {
     <div className="game-board">
       <div className="stage-content">
 
-        {/* ---- No active wager: host sets up the next contest ---- */}
+        {/* ---- No active wager: the host advances the show ---- */}
         {!wagerActive && !wagerResolved && (
           <div className="contest-area">
-            <div className="round-strip">Contest {contestNumber}</div>
+            <div className="round-strip">{schedule.length > 0 && !nextScheduled ? 'Bonus Round' : contestLabel}</div>
             {isHost ? (
-              <>
-                <div className="category-title">Set Up the Contest</div>
-                <WagerProposalForm onSubmit={proposeWager} />
-              </>
+              nextScheduled ? (
+                <>
+                  <div className="category-title">{nextScheduled.category}</div>
+                  <p className="next-teaser">
+                    <b>{playerNames[nextScheduled.highId] || '?'}</b> vs <b>{playerNames[nextScheduled.lowId] || '?'}</b>
+                  </p>
+                  <button className="mega-btn" onClick={nextMatchup}>
+                    NEXT MATCHUP ★
+                  </button>
+                </>
+              ) : schedule.length > 0 ? (
+                <>
+                  <div className="category-title">That's the Show!</div>
+                  <p className="waiting-line">All scheduled matchups are played — set up a bonus contest if the night isn't done 🎁</p>
+                  <WagerProposalForm onSubmit={proposeWager} />
+                </>
+              ) : (
+                <>
+                  <div className="category-title">Set Up the Contest</div>
+                  <WagerProposalForm onSubmit={proposeWager} />
+                </>
+              )
             ) : (
               <>
                 <div className="category-title">Get Ready…</div>
@@ -229,7 +255,7 @@ function GameBoard() {
 
           return (
             <div className="contest-area">
-              <div className="round-strip">Contest {contestNumber}</div>
+              <div className="round-strip">{contestLabel}</div>
               <div className="category-title">{wagerCategory || 'Who Wins?'}</div>
 
               <div className="duel">
@@ -378,9 +404,15 @@ function GameBoard() {
             </div>
 
             {isHost && (
-              <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
-                NEXT CONTEST ★
-              </button>
+              nextScheduled ? (
+                <button onClick={nextMatchup} className="btn btn-primary next-contest-btn">
+                  NEXT MATCHUP ★
+                </button>
+              ) : (
+                <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
+                  {schedule.length > 0 ? 'BONUS ROUND ★' : 'NEXT CONTEST ★'}
+                </button>
+              )
             )}
           </div>
         )}
@@ -438,6 +470,17 @@ function GameBoard() {
             </div>
           )}
         </details>
+
+        {isHost && schedule.length > 0 && (
+          <a
+            className="show-matchups-link"
+            href={`/matchmaker?game=${gameId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🎲 Tonight's matchups
+          </a>
+        )}
 
         <div className="stage-footer">
           <span>Game {gameId}</span>

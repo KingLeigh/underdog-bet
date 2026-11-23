@@ -85,6 +85,23 @@ function processGameAction(io, game, action, payload, playerID) {
         if (game.players.length - unranked.length < 2) {
           return game;
         }
+
+        // Matchmaking is mandatory (with 2+ categories): the saved schedule
+        // must cover exactly the ranked players who will start the game.
+        // A stale schedule (player removed, or newly ranked since the save)
+        // blocks the start until the host saves fresh matchups.
+        if (game.categories.length >= 2) {
+          const ranked = game.players.filter(pid => game.playerRankings[pid]).sort();
+          const savedFor = [...(game.matchupsFor || [])].sort();
+          const fresh = Array.isArray(game.matchups) && game.matchups.length > 0 &&
+            ranked.length === savedFor.length &&
+            ranked.every((pid, i) => pid === savedFor[i]);
+          if (!fresh) {
+            console.log(`Game ${game.id}: start blocked - matchups missing or stale`);
+            return game;
+          }
+        }
+
         for (const pid of unranked) {
           console.log(`Game ${game.id}: dropping ${game.playerNames[pid]} (${pid}) at start - no rankings submitted`);
           removePlayerFromGame(io, game, pid, 'The game started without you because your rankings were not submitted');
@@ -209,6 +226,90 @@ function processGameAction(io, game, action, payload, playerID) {
         }
       }
       return game;
+
+    case 'saveMatchups': {
+      // Persist a matchmaker schedule into the game (host, lobby only).
+      // matchupsFor records which ranked players the schedule covers, so a
+      // later roster change makes it stale and re-blocks the start.
+      if (game.host !== playerID || game.status !== 'waiting') {
+        return game;
+      }
+      const list = Array.isArray(payload.matchups) ? payload.matchups : null;
+      if (!list || list.length === 0) {
+        return game;
+      }
+      const ranked = game.players.filter(pid => game.playerRankings[pid]);
+      const rankedSet = new Set(ranked);
+      const valid = list.every(m => m &&
+        rankedSet.has(m.highId) && rankedSet.has(m.lowId) && m.highId !== m.lowId &&
+        (game.categories || []).includes(m.category));
+      if (!valid) {
+        console.error(`Game ${game.id}: saveMatchups rejected - invalid matchup entries`);
+        return game;
+      }
+      game.matchups = list.map((m, i) => ({
+        number: i + 1,
+        category: m.category,
+        highId: m.highId,
+        lowId: m.lowId,
+        highRank: m.highRank,
+        lowRank: m.lowRank,
+        gap: m.gap
+      }));
+      game.matchupIndex = 0;
+      game.matchupsFor = [...ranked].sort();
+      console.log(`Game ${game.id}: ${game.matchups.length} matchups saved`);
+      return game;
+    }
+
+    case 'nextMatchup': {
+      // Host advances the show: propose the next scheduled matchup as a
+      // wager. Favorite is pegged at 1x; underdog odds come from the rank
+      // gap (1 + 0.5 per rank, capped at 4x). Scheduled players who have
+      // left the game are skipped.
+      if (game.host !== playerID || game.status !== 'playing') {
+        return game;
+      }
+      const current = wagerStates.get(game.id);
+      if (current && current.isActive && !current.resolved) {
+        return game;
+      }
+      const list = game.matchups || [];
+      let idx = game.matchupIndex || 0;
+      while (idx < list.length &&
+             (!game.players.includes(list[idx].highId) || !game.players.includes(list[idx].lowId))) {
+        console.log(`Game ${game.id}: skipping matchup ${idx + 1} - a contestant left the game`);
+        idx++;
+      }
+      game.matchupIndex = idx;
+      if (idx >= list.length) {
+        return game;
+      }
+      const m = list[idx];
+      const options = [game.playerNames[m.highId], game.playerNames[m.lowId]];
+      const dogOdds = Math.min(4, 1 + 0.5 * Math.max(1, m.gap || 1));
+      wagerStates.set(game.id, {
+        isActive: true,
+        options: options,
+        contestants: [m.highId, m.lowId],
+        odds: [1, dogOdds],
+        category: m.category,
+        playerChoices: {},
+        resolved: false,
+        correctOption: null,
+        betsLockAt: null,
+        fromSchedule: true
+      });
+      console.log(`Game ${game.id}: matchup ${idx + 1}/${list.length} proposed - "${options[0]}" vs "${options[1]}" (${m.category}, ${dogOdds}x)`);
+      io.to(game.id).emit('wagerProposed', {
+        options: options,
+        contestants: [m.highId, m.lowId],
+        odds: [1, dogOdds],
+        category: m.category,
+        betsLockAt: null
+      });
+      return game;
+    }
 
     case 'lockBets': {
       // Host locks betting: a 10-second countdown starts, after which no
@@ -340,6 +441,13 @@ function processGameAction(io, game, action, payload, playerID) {
             results
           });
 
+          // A resolved scheduled matchup advances the show to the next one.
+          // (A cancelled contest deliberately does not: Next Matchup
+          // re-proposes the same pairing.)
+          if (wagerState.fromSchedule && Array.isArray(game.matchups)) {
+            game.matchupIndex = Math.min((game.matchupIndex || 0) + 1, game.matchups.length);
+          }
+
           // Reset wager state for next round
           wagerState.isActive = false;
           wagerState.options = [];
@@ -347,6 +455,7 @@ function processGameAction(io, game, action, payload, playerID) {
           wagerState.odds = [1, 1]; // Reset to default odds
           wagerState.playerChoices = {};
           wagerState.correctOption = null;
+          wagerState.fromSchedule = false;
           wagerState.resolved = false;
         } else {
           console.error(`Cannot resolve wager for game ${game.id}:`, {

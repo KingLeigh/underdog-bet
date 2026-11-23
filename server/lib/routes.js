@@ -2,6 +2,7 @@
 
 const { gameSessions, wagerStates, getPlayerPoints, getWagerState, deleteGame } = require('./store');
 const { getChallenges } = require('./challenges');
+const { processGameAction } = require('./gameActions');
 const persistence = require('./persistence');
 
 function registerRoutes(app, io) {
@@ -19,6 +20,25 @@ function registerRoutes(app, io) {
       };
     });
     res.json(games);
+  });
+
+  // Save a matchmaker schedule into a waiting game. The Matchmaker tab is
+  // fetch-based (no socket), so this is its write path; the lobby hears
+  // about it through the gameStateUpdate broadcast.
+  app.post('/api/games/:id/matchups', (req, res) => {
+    const game = gameSessions.get(req.params.id);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    const before = game.matchups;
+    processGameAction(io, game, 'saveMatchups', { matchups: req.body && req.body.matchups }, game.host);
+    if (game.matchups === before) {
+      return res.status(400).json({ error: 'Matchups rejected: game must be in the lobby and every matchup must pair two ranked players in a game category' });
+    }
+    if (io) io.to(game.id).emit('gameStateUpdate', game);
+    persistence.saveGame(game.id);
+    persistence.logEvent(game.id, 'saveMatchups', { count: game.matchups.length });
+    res.json({ ok: true, count: game.matchups.length });
   });
 
   // Delete a game entirely (game manager). Connected players are told and

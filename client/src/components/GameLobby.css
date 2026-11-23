@@ -264,6 +264,10 @@
   color: #fdba74;
 }
 
+.start-note.ready {
+  color: #6ee7b7;
+}
+
 .waiting-line {
   margin-top: 2rem;
   font-size: 1.1rem;

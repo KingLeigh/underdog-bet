@@ -99,8 +99,13 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   alice.emit('gameAction', { gameId, action: 'submitRankings', payload: { rankings: { Trivia: 2, Cardio: 1 } } });
   await rankingsDone;
 
-  // 4. Host starts the game (wait for the state update whose status is 'playing';
-  //    every gameAction broadcasts a gameStateUpdate, so earlier ones may still arrive)
+  // 4. Host saves matchups (mandatory with 2+ categories) and starts the game
+  //    (wait for the state update whose status is 'playing'; every gameAction
+  //    broadcasts a gameStateUpdate, so earlier ones may still arrive)
+  host.emit('gameAction', { gameId, action: 'saveMatchups', payload: { matchups: [
+    { category: 'Trivia', highId: hostId, lowId: aliceId, highRank: 1, lowRank: 2, gap: 1 },
+    { category: 'Cardio', highId: aliceId, lowId: hostId, highRank: 1, lowRank: 2, gap: 1 }
+  ] } });
   const playing = new Promise((resolve) => {
     const h = (gs) => { if (gs.status === 'playing') { alice.off('gameStateUpdate', h); resolve(gs); } };
     alice.on('gameStateUpdate', h);

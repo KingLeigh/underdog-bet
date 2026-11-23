@@ -100,6 +100,9 @@ test('startGame drops players who have not submitted rankings', () => {
     categories: ['A', 'B'],
     playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } } // p3 never ranked
   });
+  processGameAction(io, game, 'saveMatchups', { matchups: [
+    { category: 'A', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 }
+  ] }, 'p1');
   const result = processGameAction(io, game, 'startGame', {}, 'p1');
 
   assert.equal(result.status, 'playing');
@@ -476,6 +479,128 @@ test('cancelWager is host-only', () => {
   propose(io, game);
   processGameAction(io, game, 'cancelWager', {}, 'p2');
   assert.equal(wagerStates.get('TEST01').isActive, true);
+});
+
+// ---- matchmaking schedule ---------------------------------------------------
+
+// A waiting game with 2 categories where p1 and p2 are ranked (p3 is not)
+function makeMatchmadeGame() {
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } }
+  });
+  processGameAction(io, game, 'saveMatchups', { matchups: [
+    { category: 'A', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 },
+    { category: 'B', highId: 'p2', lowId: 'p1', highRank: 1, lowRank: 2, gap: 1 }
+  ] }, 'p1');
+  return game;
+}
+
+test('saveMatchups stores the schedule with its roster snapshot', () => {
+  const game = makeMatchmadeGame();
+  assert.equal(game.matchups.length, 2);
+  assert.equal(game.matchupIndex, 0);
+  assert.deepEqual(game.matchupsFor, ['p1', 'p2']);
+  assert.equal(game.matchups[0].number, 1);
+});
+
+test('saveMatchups is host-only and rejects unranked contestants', () => {
+  const game = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } }
+  });
+  const m = [{ category: 'A', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 }];
+  processGameAction(io, game, 'saveMatchups', { matchups: m }, 'p2');
+  assert.equal(game.matchups, undefined, 'non-host cannot save');
+
+  processGameAction(io, game, 'saveMatchups', { matchups: [
+    { category: 'A', highId: 'p1', lowId: 'p3', highRank: 1, lowRank: 2, gap: 1 } // p3 unranked
+  ] }, 'p1');
+  assert.equal(game.matchups, undefined, 'unranked contestant rejected');
+});
+
+test('startGame requires matchups, and a stale roster re-blocks it', () => {
+  // No matchups saved: blocked
+  const bare = makeGame({
+    status: 'waiting',
+    categories: ['A', 'B'],
+    playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } }
+  });
+  assert.equal(processGameAction(io, bare, 'startGame', {}, 'p1').status, 'waiting');
+
+  // Fresh matchups: starts
+  const fresh = makeMatchmadeGame();
+  assert.equal(processGameAction(io, fresh, 'startGame', {}, 'p1').status, 'playing');
+
+  // p3 ranks after the save: stale, blocked until a re-save
+  const stale = makeMatchmadeGame();
+  processGameAction(io, stale, 'submitRankings', { rankings: { A: 1, B: 2 } }, 'p3');
+  assert.equal(processGameAction(io, stale, 'startGame', {}, 'p1').status, 'waiting');
+  processGameAction(io, stale, 'saveMatchups', { matchups: [
+    { category: 'A', highId: 'p1', lowId: 'p3', highRank: 1, lowRank: 2, gap: 1 },
+    { category: 'B', highId: 'p2', lowId: 'p1', highRank: 1, lowRank: 2, gap: 1 }
+  ] }, 'p1');
+  assert.equal(processGameAction(io, stale, 'startGame', {}, 'p1').status, 'playing');
+});
+
+test('nextMatchup proposes the scheduled wager with gap-derived odds', () => {
+  const game = makeMatchmadeGame();
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+
+  processGameAction(io, game, 'nextMatchup', {}, 'p2');
+  assert.equal(wagerStates.get('TEST01'), undefined, 'host-only');
+
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  const wager = wagerStates.get('TEST01');
+  assert.equal(wager.isActive, true);
+  assert.deepEqual(wager.contestants, ['p1', 'p2']);
+  assert.equal(wager.category, 'A');
+  assert.deepEqual(wager.odds, [1, 1.5], 'gap 1 -> 1.5x underdog');
+  assert.deepEqual(lastEvent(events, 'wagerProposed').options, ['Bob', 'Alice']);
+
+  // A second nextMatchup while the wager is live is a no-op
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  assert.equal(game.matchupIndex, 0);
+  assert.equal(wagerStates.get('TEST01').category, 'A');
+});
+
+test('resolving a scheduled matchup advances the show; cancelling does not', () => {
+  const game = makeMatchmadeGame();
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+
+  // Cancel: index stays, the same matchup re-proposes
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  processGameAction(io, game, 'cancelWager', {}, 'p1');
+  assert.equal(game.matchupIndex, 0);
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  assert.equal(wagerStates.get('TEST01').category, 'A');
+
+  // Resolve: index advances, next matchup is the B contest
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  assert.equal(game.matchupIndex, 1);
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  assert.equal(wagerStates.get('TEST01').category, 'B');
+  assert.deepEqual(wagerStates.get('TEST01').contestants, ['p2', 'p1']);
+
+  // Exhausted: no further wager proposes
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  assert.equal(game.matchupIndex, 2);
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  assert.equal(wagerStates.get('TEST01').isActive, false, 'schedule exhausted');
+});
+
+test('nextMatchup skips a matchup whose contestant has left', () => {
+  const game = makeMatchmadeGame();
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+  game.players = game.players.filter(pid => pid !== 'p2'); // defensive path
+
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  const wager = wagerStates.get('TEST01');
+  assert.ok(!wager || !wager.isActive, 'no matchup without both contestants');
+  assert.equal(game.matchupIndex, 2, 'both p2 matchups skipped');
 });
 
 // ---- lockBets ---------------------------------------------------------------

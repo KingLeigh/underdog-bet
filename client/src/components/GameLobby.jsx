@@ -121,6 +121,19 @@ function GameLobby() {
   const unrankedCount = players.length - rankedCount
   const amPlayer = players.includes(playerId)
 
+  // Matchmaking is mandatory: Start unlocks only once saved matchups cover
+  // exactly the current set of ranked players. A roster change (player
+  // removed, or someone newly ranked) makes a saved schedule stale.
+  const rankedIds = hasCategories
+    ? players.filter(pid => playerRankings[pid]).sort()
+    : []
+  const savedFor = [...(gameState?.matchupsFor || [])].sort()
+  const hasMatchups = Array.isArray(gameState?.matchups) && gameState.matchups.length > 0
+  const matchupsFresh = hasMatchups &&
+    rankedIds.length === savedFor.length &&
+    rankedIds.every((pid, i) => pid === savedFor[i])
+  const matchupsStale = hasMatchups && !matchupsFresh
+
   return (
     <div className="lobby">
       <div className="lobby-content">
@@ -240,12 +253,25 @@ function GameLobby() {
             <button
               onClick={startGame}
               className="mega-btn start-btn"
-              disabled={rankedCount < 2}
+              disabled={rankedCount < 2 || (hasCategories && !matchupsFresh)}
             >
               START THE GAME ★
             </button>
             {hasCategories && rankedCount < 2 && (
               <p className="start-note">Waiting for at least 2 players to rank…</p>
+            )}
+            {hasCategories && rankedCount >= 2 && !hasMatchups && (
+              <p className="start-note">Open the Matchmaker and save matchups to unlock the start</p>
+            )}
+            {hasCategories && rankedCount >= 2 && matchupsStale && (
+              <p className="start-note warn">
+                The roster changed since matchups were saved — reshuffle and save again
+              </p>
+            )}
+            {hasCategories && matchupsFresh && (
+              <p className="start-note ready">
+                🎲 {gameState.matchups.length} matchups saved and ready
+              </p>
             )}
             {hasCategories && rankedCount >= 2 && unrankedCount > 0 && (
               <p className="start-note warn">

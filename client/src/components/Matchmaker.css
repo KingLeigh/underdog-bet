@@ -125,6 +125,19 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Progress marks while a game is running */
+.mm-table tr.mm-done td {
+  opacity: 0.4;
+}
+
+.mm-table tr.mm-next td {
+  background: rgba(253, 224, 71, 0.08);
+}
+
+.mm-table tr.mm-next td:first-child {
+  color: #fde047;
+}
+
 .mm-fav {
   color: #fde047;
   text-transform: uppercase;
