@@ -3,15 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
 import { buildMatchmakerConfigUrl } from '../lib/matchmakerUrl'
+import { avatarFor } from '../lib/avatars'
 import './GameBoard.css'
-
-// Stable playful avatar per player
-const AVATARS = ['🦁', '🦊', '🐻', '🐸', '🐙', '🦉', '🐯', '🐨', '🦄', '🐺', '🦅', '🐷']
-function avatarFor(pid) {
-  let h = 0
-  for (const c of String(pid)) h = (h * 31 + c.charCodeAt(0)) >>> 0
-  return AVATARS[h % AVATARS.length]
-}
 
 function GameBoard() {
   const { gameId, playerId: urlPlayerId } = useParams()

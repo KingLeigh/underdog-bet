@@ -6,11 +6,10 @@ import './Home.css'
 function Home() {
   const [gameId, setGameId] = useState('')
   const [playerName, setPlayerName] = useState('')
-  
+
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { joinGame, currentGame, gameState, error, clearError } = useGame()
-
 
   const handleJoinGame = (e) => {
     e.preventDefault()
@@ -26,7 +25,7 @@ function Home() {
     }
   }, [currentGame, gameState, navigate])
 
-  // Listen for game creation/joining success and navigate
+  // Listen for errors and clear them
   useEffect(() => {
     if (error) {
       clearError()
@@ -41,69 +40,68 @@ function Home() {
     }
   }, [searchParams])
 
-  // Check if we have a game parameter in the URL
   const hasGameParam = searchParams.get('game')
 
   return (
     <div className="home">
-      <div className="home-content">
-        <h1>Underdogs</h1>
-        
-        <div className="action-buttons">
-          {!hasGameParam && (
-            <>
-              <button 
-                className="btn btn-primary"
-                onClick={() => navigate('/create-game')}
-              >
-                Host New Game
-              </button>
-              
-              <button 
-                className="btn btn-secondary"
-                onClick={() => navigate('/matchmaker')}
-              >
-                Matchmaker
-              </button>
-              
-              <button 
-                className="btn btn-secondary"
-                onClick={() => navigate('/challenge-selector')}
-              >
-                Challenge Selector
-              </button>
-              
-              <div className="divider">or</div>
-            </>
-          )}
-          
+      <div className="home-hero">
+        <div className="round-strip">A Gambling Party Game</div>
+        <h1 className="home-title">UNDERDOGS</h1>
+      </div>
+
+      {hasGameParam ? (
+        <div className="join-card">
+          <div className="invite-line">
+            🎉 You're invited to game <b>{gameId}</b>
+          </div>
           <form onSubmit={handleJoinGame} className="join-form">
             <input
               type="text"
-              placeholder="Your Name"
+              placeholder="Your name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
-              className="player-name-input"
+              className="stage-input"
               required
+              autoFocus
             />
-            {!hasGameParam && (
-              <input
-                type="text"
-                placeholder="Enter Game ID"
-                value={gameId}
-                onChange={(e) => setGameId(e.target.value)}
-                className="game-id-input"
-                maxLength="6"
-                required
-              />
-            )}
-            <button type="submit" className={`btn ${hasGameParam ? 'btn-primary' : 'btn-secondary'}`}>
-              Join Game
-            </button>
+            <button type="submit" className="mega-btn">JOIN THE GAME ★</button>
           </form>
         </div>
+      ) : (
+        <>
+          <button className="mega-btn host-btn" onClick={() => navigate('/create-game')}>
+            HOST A NEW GAME ★
+          </button>
 
-      </div>
+          <div className="home-divider">or join one</div>
+
+          <form onSubmit={handleJoinGame} className="join-form">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="stage-input"
+              required
+            />
+            <input
+              type="text"
+              placeholder="GAME CODE"
+              value={gameId}
+              onChange={(e) => setGameId(e.target.value.toUpperCase())}
+              className="stage-input code-input"
+              maxLength="6"
+              required
+            />
+            <button type="submit" className="mega-btn violet">JOIN GAME</button>
+          </form>
+
+          <div className="tool-links">
+            <button onClick={() => navigate('/matchmaker')}>🎲 Matchmaker</button>
+            <button onClick={() => navigate('/challenge-selector')}>📋 Challenge Selector</button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

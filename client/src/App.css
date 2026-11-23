@@ -151,6 +151,64 @@ h4 {
   box-shadow: 0 1px 0 #065f46;
 }
 
+/* Big spring-loaded CTA shared by Home / Lobby */
+.mega-btn {
+  padding: 1.1rem 2.8rem;
+  border-radius: 999px;
+  border: none;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #34d399, #059669);
+  color: #06281c;
+  cursor: pointer;
+  box-shadow: 0 8px 0 #065f46, 0 16px 32px rgba(0, 0, 0, 0.5);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.1s ease;
+}
+
+.mega-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.mega-btn:active:not(:disabled) {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 #065f46;
+}
+
+.mega-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mega-btn.violet {
+  background: linear-gradient(180deg, #a78bfa, #7c3aed);
+  color: #ede9fe;
+  box-shadow: 0 8px 0 #5b21b6, 0 16px 32px rgba(0, 0, 0, 0.5);
+}
+
+.mega-btn.violet:active:not(:disabled) {
+  box-shadow: 0 2px 0 #5b21b6;
+}
+
+/* Big pill text inputs shared by Home / forms */
+.stage-input {
+  width: 100%;
+  padding: 1rem 1.4rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.stage-input:focus {
+  border-color: #fde047;
+  outline: none;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .btn-secondary {
   background: rgba(255, 255, 255, 0.15);
   color: white;

@@ -2,19 +2,18 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
+import { avatarFor } from '../lib/avatars'
 import './GameLobby.css'
-import './CategoryRanking.css'
 
 function GameLobby() {
   const { gameId } = useParams()
   const navigate = useNavigate()
-  const { 
-    gameState, 
-    players, 
-    playerPoints,
+  const {
+    gameState,
+    players,
     playerNames,
-    isHost, 
-    playerId, 
+    isHost,
+    playerId,
     sendGameAction,
     error,
     categories,
@@ -24,22 +23,22 @@ function GameLobby() {
     removePlayer
   } = useGame()
 
-  // CategoryRanking state
+  // Category ranking state
   const [rankedCategories, setRankedCategories] = useState([])
   const [nextRank, setNextRank] = useState(1)
+  const [copied, setCopied] = useState(false)
 
   // Initialize categories with random order
   useEffect(() => {
     if (categories && categories.length > 0) {
-      // Create a shuffled copy of categories
       const shuffledCategories = [...categories].sort(() => Math.random() - 0.5)
-      
+
       setRankedCategories(shuffledCategories.map((category) => ({
         id: category,
         name: category,
-        rank: null // No rank assigned initially
+        rank: null
       })))
-      setNextRank(1) // Reset next rank to 1
+      setNextRank(1)
     }
   }, [categories])
 
@@ -56,290 +55,212 @@ function GameLobby() {
     }
   }
 
-  const handleRankingsSubmit = (rankings) => {
-    submitRankings(rankings)
-  }
-
-  // CategoryRanking functions
+  // Category ranking: click to assign the next rank; click the latest to undo
   const handleCategoryClick = (categoryId) => {
     setRankedCategories(prevCategories => {
       return prevCategories.map(category => {
         if (category.id === categoryId) {
           if (category.rank === null) {
-            // Assign new rank
             return { ...category, rank: nextRank }
           } else if (category.rank === nextRank - 1) {
-            // Unset the highest rank (most recently assigned)
             return { ...category, rank: null }
           }
         }
         return category
       })
     })
-    
-    // Update nextRank based on whether we're setting or unsetting
+
     const clickedCategory = rankedCategories.find(cat => cat.id === categoryId)
     if (clickedCategory && clickedCategory.rank === null) {
-      // Setting a new rank
       setNextRank(prevRank => prevRank + 1)
     } else if (clickedCategory && clickedCategory.rank === nextRank - 1) {
-      // Unsetting the highest rank
       setNextRank(prevRank => prevRank - 1)
     }
   }
 
-  // Check if all categories have been ranked
   const allCategoriesRanked = rankedCategories.every(category => category.rank !== null)
 
-  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault()
-    
-    // Convert to the expected format: { category: rank }
     const rankings = {}
     rankedCategories.forEach(item => {
       rankings[item.name] = item.rank
     })
-    
-    handleRankingsSubmit(rankings)
+    submitRankings(rankings)
   }
 
   const copyGameId = () => {
     const fullUrl = `${window.location.origin}?game=${gameId}`
     navigator.clipboard.writeText(fullUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
   }
 
   if (!gameState) {
     return (
       <div className="lobby">
-        <div className="lobby-content">
-          <div className="loading-section">
-            <h2>Connecting to Game...</h2>
-            <div className="loading-spinner"></div>
-            <p className="loading-message">
-              Attempting to connect to the game server.
-            </p>
-            
-            <div className="troubleshooting">
-              <h3>Having trouble connecting?</h3>
-              <ul>
-                <li>Check your internet connection</li>
-                <li>Verify the game ID is correct</li>
-                <li>The game may have ended or been reset</li>
-                <li>Try refreshing the page</li>
-              </ul>
-              
-              <div className="loading-actions">
-                <button 
-                  onClick={() => window.location.href = '/'}
-                  className="btn btn-secondary"
-                >
-                  ← Back to Home
-                </button>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="btn btn-primary"
-                >
-                  🔄 Refresh Page
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="lobby-loading">
+          <div className="round-strip">Connecting…</div>
+          <h2>Joining the game</h2>
+          <p>
+            If this takes more than a moment, the game may have ended — head
+            back home and join again with the same name.
+          </p>
+          <button onClick={() => window.location.href = '/'} className="mega-btn violet">
+            ← Back to Home
+          </button>
         </div>
       </div>
     )
   }
 
+  const hasCategories = categories && categories.length > 0
+  const rankedCount = hasCategories
+    ? players.filter(pid => playerRankings[pid]).length
+    : players.length
+  const unrankedCount = players.length - rankedCount
+
   return (
     <div className="lobby">
       <div className="lobby-content">
-        <div className="lobby-header">
-          <h1>Game Lobby</h1>
-          <div className="game-info">
-            <div className="game-id">
-              Game ID: <span>{gameId}</span>
-              <button onClick={copyGameId} className="copy-btn">
-                📋 Copy
-              </button>
+        <div className="round-strip">Game Lobby</div>
+        <button className="game-code" onClick={copyGameId} title="Copy the invite link">
+          {gameId}
+        </button>
+        <button className="copy-link" onClick={copyGameId}>
+          {copied ? '✓ Invite link copied!' : '🔗 Copy invite link'}
+        </button>
+
+        {/* Players */}
+        <div className="player-chips">
+          {players.map((pid) => (
+            <div
+              key={pid}
+              className={`player-chip ${hasCategories ? (playerRankings[pid] ? 'ready' : 'waiting') : ''}`}
+            >
+              <span className="chip-avatar">{avatarFor(pid)}</span>
+              <span className="chip-name">
+                {pid === gameState.host && '👑 '}
+                {playerNames[pid] || 'Unknown Player'}
+              </span>
+              {hasCategories && (
+                <span className="chip-state">
+                  {playerRankings[pid] ? '✓ ready' : 'not ranked'}
+                </span>
+              )}
+              {isHost && pid !== gameState.host && (
+                <button
+                  className="kick-btn"
+                  title={`Remove ${playerNames[pid] || 'player'} from the game`}
+                  onClick={() => removePlayer(pid)}
+                >
+                  ✕
+                </button>
+              )}
             </div>
-          </div>
+          ))}
         </div>
 
-        <div className="players-section panel-spacing">
-          <h2>Players ({players.length})</h2>
-          <div className="players-list">
-            {players.map((pid) => (
-              <div key={pid} className="player-item">
-                <div className="player-avatar">👤</div>
-                <div className="player-info">
-                  <div className="player-name">
-                    {playerNames[pid] || 'Unknown Player'}
-                  </div>
-                  <div className="player-points">
-                    Points: <span className="points-value">{playerPoints[pid] !== undefined ? playerPoints[pid] : 0}</span>
-                  </div>
-                </div>
-                {categories && categories.length > 0 && (
-                  <div className={`ranking-status-badge ${playerRankings[pid] ? 'ranked' : 'unranked'}`}>
-                    {playerRankings[pid] ? '✓ Ranked' : 'Not ranked'}
-                  </div>
-                )}
-                {pid === gameState.host && (
-                  <div className="host-badge">Host</div>
-                )}
-                {isHost && pid !== gameState.host && (
-                  <button
-                    className="kick-btn"
-                    title={`Remove ${playerNames[pid] || 'player'} from the game`}
-                    onClick={() => removePlayer(pid)}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Category Ranking Section */}
-        {categories && categories.length > 0 && (
-          <div className="categories-section category-ranking panel-spacing standard-panel">
-            {categories && categories.length > 0 && !playerRankings[playerId] && (
-              <>
-                <div className="ranking-header">
-                  <h2>Rank Your Categories</h2>
-                  <p>Click each category in order of preference. Rank 1 is your strongest, {categories.length} is your weakest.</p>
-                </div>
-                
-                <form onSubmit={handleSubmit} className="ranking-form">
-                  <div className="categories-list">
-                    {rankedCategories.map((item, index) => {
-                      const isClickable = item.rank === null || item.rank === nextRank - 1
-                      const isHighestRank = item.rank === nextRank - 1
-                      
-                      return (
-                        <div
-                          key={item.id}
-                          className={`category-item ${isClickable ? 'clickable' : 'ranked'} ${isHighestRank ? 'highest-rank' : ''}`}
-                          onClick={() => isClickable && handleCategoryClick(item.id)}
-                        >
-                          <div className="rank-number">
-                            {item.rank ? `#${item.rank}` : ''}
-                          </div>
-                          <div className="category-content">
-                            <span className="category-name">{item.name}</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  
-                  <div className="ranking-actions">
-                    <button 
-                      type="submit" 
-                      className="btn btn-primary"
-                      disabled={!allCategoriesRanked}
-                    >
-                      Submit Rankings
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-            {playerRankings[playerId] && (
-              <div className="ranking-submitted">
-                <p>✅ Your rankings have been submitted!</p>
-                <div className="your-rankings">
-                  {categories
-                    .map(category => ({
-                      category,
-                      rank: playerRankings[playerId][category]
-                    }))
-                    .sort((a, b) => a.rank - b.rank)
-                    .map(({ category, rank }) => (
-                      <div key={category} className="ranking-item">
-                        <span className="ranking-text">
-                          <span className="rank-value">#{rank}</span>
-                          <span className="category-name"> {category}</span>
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Rankings Status */}
-        {categories && categories.length > 0 && (
-          <div className="ranking-status panel-spacing">
-            <p>
-              {Object.keys(playerRankings).length} of {players.length} players have submitted rankings
+        {/* Category ranking */}
+        {hasCategories && !playerRankings[playerId] && (
+          <div className="ranking-stage">
+            <div className="ranking-title">Rank Your Categories</div>
+            <p className="ranking-hint">
+              Tap in order of confidence — #1 is your strongest.
             </p>
+
+            <form onSubmit={handleSubmit}>
+              <div className="rank-cards">
+                {rankedCategories.map((item) => {
+                  const isClickable = item.rank === null || item.rank === nextRank - 1
+                  const isLatest = item.rank === nextRank - 1
+
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`rank-card ${item.rank ? 'ranked' : ''} ${isLatest ? 'latest' : ''}`}
+                      disabled={!isClickable}
+                      onClick={() => isClickable && handleCategoryClick(item.id)}
+                    >
+                      <span className="rank-num">{item.rank ? `#${item.rank}` : '·'}</span>
+                      <span className="rank-name">{item.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                type="submit"
+                className="mega-btn ranking-submit"
+                disabled={!allCategoriesRanked}
+              >
+                LOCK IN MY RANKINGS ★
+              </button>
+            </form>
           </div>
         )}
 
-        {/* Rules Panel */}
-        <div className="panel-spacing">
-          <RulesPanel 
+        {hasCategories && playerRankings[playerId] && (
+          <div className="ranked-done">
+            ✓ Rankings locked:&nbsp;
+            {categories
+              .map(category => ({ category, rank: playerRankings[playerId][category] }))
+              .sort((a, b) => a.rank - b.rank)
+              .map(({ category, rank }, i) => (
+                <span key={category}>
+                  {i > 0 && ' · '}
+                  <b>#{rank}</b> {category}
+                </span>
+              ))}
+          </div>
+        )}
+
+        {hasCategories && (
+          <div className="ranking-progress">
+            {rankedCount} of {players.length} players ready
+          </div>
+        )}
+
+        {/* Start / waiting */}
+        {isHost && players.length >= 2 && (
+          <div className="start-area">
+            <button
+              onClick={startGame}
+              className="mega-btn start-btn"
+              disabled={rankedCount < 2}
+            >
+              START THE GAME ★
+            </button>
+            {hasCategories && rankedCount < 2 && (
+              <p className="start-note">Waiting for at least 2 players to rank…</p>
+            )}
+            {hasCategories && rankedCount >= 2 && unrankedCount > 0 && (
+              <p className="start-note warn">
+                Starting now drops {unrankedCount} unranked player{unrankedCount === 1 ? '' : 's'}
+              </p>
+            )}
+          </div>
+        )}
+
+        {isHost && players.length < 2 && (
+          <p className="waiting-line">Share the invite link — you need at least 2 players 🎉</p>
+        )}
+
+        {!isHost && (
+          <p className="waiting-line">Waiting for the host to start the game…</p>
+        )}
+
+        {error && <div className="error-message">{error}</div>}
+
+        <details className="game-details">
+          <summary>Game rules</summary>
+          <RulesPanel
             gameState={gameState}
             playerWagerCount={null}
             categories={categories}
           />
-        </div>
-
-        {isHost && players.length >= 2 && (() => {
-          const hasCategories = categories && categories.length > 0
-          const rankedCount = hasCategories
-            ? players.filter(pid => playerRankings[pid]).length
-            : players.length
-          const unrankedCount = players.length - rankedCount
-
-          return (
-            <div className="host-controls">
-              <button
-                onClick={startGame}
-                className="btn btn-primary start-game-btn"
-                disabled={rankedCount < 2}
-              >
-                Start Game
-              </button>
-              {hasCategories && rankedCount < 2 && (
-                <p className="start-game-note">
-                  Waiting for at least 2 players to complete category rankings...
-                </p>
-              )}
-              {hasCategories && rankedCount >= 2 && unrankedCount > 0 && (
-                <p className="start-game-note">
-                  Starting now will drop {unrankedCount} player{unrankedCount === 1 ? '' : 's'} who {unrankedCount === 1 ? "hasn't" : "haven't"} submitted rankings.
-                </p>
-              )}
-              {hasCategories && unrankedCount === 0 && (
-                <p className="start-game-note">
-                  All players have submitted rankings! Ready to start.
-                </p>
-              )}
-              {!hasCategories && (
-                <p className="start-game-note">
-                  Share the Game ID with other players so they can join!
-                </p>
-              )}
-            </div>
-          )
-        })()}
-
-        {!isHost && (
-          <div className="waiting-message">
-            <p>Waiting for the host to start the game...</p>
-            <p>Share the Game ID with other players so they can join!</p>
-          </div>
-        )}
-
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        </details>
       </div>
     </div>
   )
