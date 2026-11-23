@@ -371,6 +371,63 @@
   color: #fde047;
 }
 
+/* ---- bet locking ---- */
+.lock-countdown {
+  margin-top: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.lock-count-num {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 4.2rem;
+  line-height: 1;
+  color: #fde047;
+  text-shadow: 0 6px 40px rgba(253, 224, 71, 0.45);
+  animation: lock-pulse 1s ease-in-out infinite;
+}
+
+@keyframes lock-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+.lock-count-label {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fdba74;
+}
+
+.lock-closed-note {
+  margin-top: 1.6rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.lock-status {
+  margin-top: 1.2rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fdba74;
+}
+
+.lock-status.locked {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.host-lock {
+  margin-top: 1.8rem;
+}
+
+.lock-btn {
+  font-size: 1.15rem;
+  padding: 0.9rem 2.4rem;
+}
+
 /* ---- host resolve ---- */
 .host-resolve {
   margin-top: 1.8rem;

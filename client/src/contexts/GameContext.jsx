@@ -52,7 +52,8 @@ const clearedWagerFields = {
   playerChoices: {},
   wagerResolved: false,
   wagerResults: null,
-  wagerCategory: ''
+  wagerCategory: '',
+  betsLockAt: null
 }
 
 function gameReducer(state, action) {
@@ -93,16 +94,20 @@ function gameReducer(state, action) {
     }
 
     case 'WAGER_PROPOSED': {
-      const { options, contestants, odds, category } = action.payload
+      const { options, contestants, odds, category, betsLockAt } = action.payload
       return {
         ...state,
         ...clearedWagerFields,
         wagerOptions: { options, odds },
         wagerContestants: contestants || [],
         wagerActive: true,
-        wagerCategory: category || ''
+        wagerCategory: category || '',
+        betsLockAt: betsLockAt || null
       }
     }
+
+    case 'BETS_LOCKING':
+      return { ...state, betsLockAt: action.payload.betsLockAt }
 
     case 'CHOICE_MADE': {
       const { playerId, playerName, hasChosen, choice, points } = action.payload
@@ -207,6 +212,10 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'WAGER_CLEARED' })
     }
 
+    const handleBetsLocking = (payload) => {
+      dispatch({ type: 'BETS_LOCKING', payload })
+    }
+
     const handleRankingsComplete = (payload) => {
       dispatch({ type: 'RANKINGS_COMPLETE', payload })
     }
@@ -240,6 +249,7 @@ export function GameProvider({ children, socket }) {
     socket.on('choiceMade', handleChoiceMade)
     socket.on('wagerResolved', handleWagerResolved)
     socket.on('wagerCancelled', handleWagerCancelled)
+    socket.on('betsLocking', handleBetsLocking)
     socket.on('rankingsComplete', handleRankingsComplete)
     socket.on('removedFromGame', handleRemovedFromGame)
     socket.on('error', handleError)
@@ -253,6 +263,7 @@ export function GameProvider({ children, socket }) {
       socket.off('choiceMade', handleChoiceMade)
       socket.off('wagerResolved', handleWagerResolved)
       socket.off('wagerCancelled', handleWagerCancelled)
+      socket.off('betsLocking', handleBetsLocking)
       socket.off('rankingsComplete', handleRankingsComplete)
       socket.off('removedFromGame', handleRemovedFromGame)
       socket.off('error', handleError)
@@ -314,6 +325,10 @@ export function GameProvider({ children, socket }) {
     sendGameAction('cancelWager', {})
   }
 
+  const lockBets = () => {
+    sendGameAction('lockBets', {})
+  }
+
   const submitRankings = (rankings) => {
     sendGameAction('submitRankings', { rankings })
   }
@@ -338,6 +353,7 @@ export function GameProvider({ children, socket }) {
     resolveWager,
     resetWagerState,
     cancelWager,
+    lockBets,
     submitRankings,
     removePlayer,
     clearError

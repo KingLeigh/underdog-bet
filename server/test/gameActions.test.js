@@ -478,6 +478,48 @@ test('cancelWager is host-only', () => {
   assert.equal(wagerStates.get('TEST01').isActive, true);
 });
 
+// ---- lockBets ---------------------------------------------------------------
+
+test('lockBets sets a ~10s deadline and announces it', () => {
+  const game = makeGame();
+  propose(io, game);
+
+  const before = Date.now();
+  processGameAction(io, game, 'lockBets', {}, 'p1');
+
+  const lockAt = wagerStates.get('TEST01').betsLockAt;
+  assert.ok(lockAt >= before + 9000 && lockAt <= Date.now() + 10000);
+  assert.equal(lastEvent(events, 'betsLocking').betsLockAt, lockAt);
+});
+
+test('lockBets is host-only and does not restart a running countdown', () => {
+  const game = makeGame();
+  propose(io, game);
+
+  processGameAction(io, game, 'lockBets', {}, 'p2');
+  assert.equal(wagerStates.get('TEST01').betsLockAt, null);
+
+  processGameAction(io, game, 'lockBets', {}, 'p1');
+  const first = wagerStates.get('TEST01').betsLockAt;
+  processGameAction(io, game, 'lockBets', {}, 'p1');
+  assert.equal(wagerStates.get('TEST01').betsLockAt, first, 'second lock is a no-op');
+});
+
+test('bets are accepted during the countdown and rejected after the deadline', () => {
+  const game = makeGame();
+  propose(io, game);
+  processGameAction(io, game, 'lockBets', {}, 'p1');
+
+  // Countdown running: bet goes through
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 20 }, 'p3');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 20);
+
+  // Deadline passed: no new bets
+  wagerStates.get('TEST01').betsLockAt = Date.now() - 1;
+  processGameAction(io, game, 'makeChoice', { choice: 1, points: 50 }, 'p2');
+  assert.equal(wagerStates.get('TEST01').playerChoices.p2, undefined);
+});
+
 // ---- submitRankings ---------------------------------------------------------
 
 test('rankings must be a complete permutation of 1..N', () => {

@@ -31,6 +31,8 @@ function GameBoard() {
     makeChoice,
     resolveWager,
     cancelWager,
+    lockBets,
+    betsLockAt,
     resetWagerState,
     error,
     socket,
@@ -40,6 +42,22 @@ function GameBoard() {
     rankingsComplete,
     wagerCategory
   } = useGame()
+
+  // Tick while a bet-lock countdown is running so the remaining seconds
+  // (and the flip to "locked") render without any server round trip
+  const [lockNow, setLockNow] = useState(Date.now())
+  useEffect(() => {
+    if (!betsLockAt || Date.now() >= betsLockAt + 1000) return
+    const tick = setInterval(() => {
+      setLockNow(Date.now())
+      if (Date.now() >= betsLockAt + 1000) clearInterval(tick)
+    }, 250)
+    return () => clearInterval(tick)
+  }, [betsLockAt])
+  const betsLocked = !!betsLockAt && lockNow >= betsLockAt
+  const lockSecondsLeft = betsLockAt && !betsLocked
+    ? Math.max(0, Math.ceil((betsLockAt - lockNow) / 1000))
+    : null
 
   useEffect(() => {
     // If game is not playing, redirect to lobby
@@ -220,7 +238,19 @@ function GameBoard() {
                 {fighter(sorted[1], sorted[0], 'right')}
               </div>
 
-              {amPlayer && !myBet && (
+              {/* Last-chance countdown for players who haven't bet yet */}
+              {amPlayer && !myBet && betsLockAt && !betsLocked && (
+                <div className="lock-countdown">
+                  <span className="lock-count-num">{lockSecondsLeft}</span>
+                  <span className="lock-count-label">Last chance to bet!</span>
+                </div>
+              )}
+
+              {amPlayer && !myBet && betsLocked && (
+                <div className="lock-closed-note">🔒 Betting closed — you sat this one out</div>
+              )}
+
+              {amPlayer && !myBet && !betsLocked && (
                 <ChipBetForm
                   selectedName={selectedOption !== null ? wagerOptions.options[selectedOption] : null}
                   currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
@@ -267,7 +297,24 @@ function GameBoard() {
                 })}
               </div>
 
-              {isHost && betsIn > 0 && (
+              {/* Status line for everyone who isn't facing the big countdown */}
+              {betsLockAt && !betsLocked && (!amPlayer || !!myBet) && (
+                <div className="lock-status">🔒 Betting closes in {lockSecondsLeft}s</div>
+              )}
+              {betsLocked && (!amPlayer || !!myBet) && (
+                <div className="lock-status locked">🔒 Bets are locked</div>
+              )}
+
+              {/* Host: lock betting first, then judge the contest */}
+              {isHost && !betsLockAt && (
+                <div className="host-lock">
+                  <button className="mega-btn lock-btn" onClick={lockBets}>
+                    🔒 LOCK BETS
+                  </button>
+                </div>
+              )}
+
+              {isHost && betsLocked && (
                 <div className="host-resolve">
                   <div className="resolve-title">Who won?</div>
                   <WagerResolutionForm
@@ -275,14 +322,17 @@ function GameBoard() {
                     wagerOptions={wagerOptions}
                     onSelectionChange={setHasResolutionSelected}
                   />
-                  <button
-                    onClick={handleCancelClick}
-                    className={`cancel-btn ${cancelConfirmationActive ? 'danger' : ''}`}
-                    disabled={hasResolutionSelected}
-                  >
-                    {cancelConfirmationActive ? 'Confirm cancel?' : 'Cancel contest'}
-                  </button>
                 </div>
+              )}
+
+              {isHost && (
+                <button
+                  onClick={handleCancelClick}
+                  className={`cancel-btn ${cancelConfirmationActive ? 'danger' : ''}`}
+                  disabled={hasResolutionSelected}
+                >
+                  {cancelConfirmationActive ? 'Confirm cancel?' : 'Cancel contest'}
+                </button>
               )}
             </div>
           )

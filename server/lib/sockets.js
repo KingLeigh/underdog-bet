@@ -23,7 +23,8 @@ function sendActiveWagerTo(socket, game, recipientPlayerID) {
     options: wagerState.options,
     contestants: wagerState.contestants,
     odds: wagerState.odds,
-    category: wagerState.category || ''
+    category: wagerState.category || '',
+    betsLockAt: wagerState.betsLockAt || null
   });
 
   // Send current player choices (reveal points but keep choices secret,

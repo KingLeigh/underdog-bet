@@ -136,7 +136,8 @@ function processGameAction(io, game, action, payload, playerID) {
           category: category,
           playerChoices: {},
           resolved: false,
-          correctOption: null
+          correctOption: null,
+          betsLockAt: null // epoch ms deadline once the host locks betting
         });
 
         console.log(`Game ${game.id}: wager proposed "${options[0]}" (${odds1}x) vs "${options[1]}" (${odds2}x)${category ? ` in ${category}` : ''}`);
@@ -146,7 +147,8 @@ function processGameAction(io, game, action, payload, playerID) {
           options: options,
           contestants: [player1, player2],
           odds: [odds1, odds2],
-          category: category
+          category: category,
+          betsLockAt: null
         });
       } else {
         console.error(`Invalid wager proposal in game ${game.id}:`, {
@@ -163,6 +165,11 @@ function processGameAction(io, game, action, payload, playerID) {
       if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1 && payload.points !== undefined) {
         const wagerState = wagerStates.get(game.id);
         if (wagerState && wagerState.isActive && !wagerState.resolved) {
+          // No bets once the lock deadline has passed
+          if (wagerState.betsLockAt && Date.now() >= wagerState.betsLockAt) {
+            return game;
+          }
+
           const currentPoints = game.playerPoints[playerID] || 0;
 
           // A bet must be positive and can never exceed the player's balance
@@ -201,6 +208,20 @@ function processGameAction(io, game, action, payload, playerID) {
         }
       }
       return game;
+
+    case 'lockBets': {
+      // Host locks betting: a 10-second countdown starts, after which no
+      // further bets are accepted (enforced in makeChoice by the deadline)
+      if (game.host === playerID) {
+        const wagerState = wagerStates.get(game.id);
+        if (wagerState && wagerState.isActive && !wagerState.resolved && !wagerState.betsLockAt) {
+          wagerState.betsLockAt = Date.now() + 10000;
+          io.to(game.id).emit('betsLocking', { betsLockAt: wagerState.betsLockAt });
+          console.log(`Game ${game.id}: bets locking at ${new Date(wagerState.betsLockAt).toISOString()}`);
+        }
+      }
+      return game;
+    }
 
     case 'cancelWager':
       // Host cancels the wager - no points awarded or lost
