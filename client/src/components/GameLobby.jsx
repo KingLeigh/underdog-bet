@@ -225,12 +225,12 @@ function GameLobby() {
 
         {isHost && hasCategories && rankedCount >= 2 && (
           <a
-            className="copy-link"
+            className="mega-btn violet matchmaker-btn"
             href={`/matchmaker?game=${gameId}`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            🎲 Preview matchups
+            OPEN MATCHMAKER ★
           </a>
         )}
 

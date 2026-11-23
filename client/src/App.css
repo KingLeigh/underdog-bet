@@ -193,6 +193,11 @@ h4 {
   box-shadow: 0 2px 0 #5b21b6;
 }
 
+a.mega-btn {
+  display: inline-block;
+  text-decoration: none;
+}
+
 /* Big pill text inputs shared by Home / forms */
 .stage-input {
   width: 100%;

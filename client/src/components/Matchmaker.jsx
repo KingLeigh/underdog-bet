@@ -320,7 +320,7 @@ function Matchmaker() {
               {gameInfo.players.length} ranked player{gameInfo.players.length === 1 ? '' : 's'} · {gameInfo.cats.reduce((s, c) => s + c.count, 0)} challenges · reload to pick up new rankings
             </p>
 
-            <button className="mega-btn" onClick={makeMatches} disabled={!!solveStatus}>
+            <button className="mega-btn violet" onClick={makeMatches} disabled={!!solveStatus}>
               {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
             </button>
 

@@ -234,6 +234,12 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+.matchmaker-btn {
+  margin-top: 1.7rem;
+  font-size: 1.15rem;
+  padding: 0.9rem 2.2rem;
+}
+
 /* ---- start / waiting ---- */
 .start-area {
   margin-top: 2rem;
