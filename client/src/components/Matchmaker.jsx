@@ -109,6 +109,15 @@ function Matchmaker() {
     return () => { cancelled = true }
   }, [gameCode, saveParam])
 
+  // A lobby-stage game with no saved schedule solves itself on open — the
+  // first set of matchups is one click fewer for the host
+  useEffect(() => {
+    if (gameInfo && gameInfo.status !== 'playing' && !matchups && !solveStatus && !solveError) {
+      makeMatches()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameInfo])
+
   const makeMatches = () => {
     if (!gameInfo) return
     const { players, categories, cats } = gameInfo
