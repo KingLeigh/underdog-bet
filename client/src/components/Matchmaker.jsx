@@ -213,9 +213,6 @@ function Matchmaker() {
       : Math.max(2, ...entries.flatMap(m => [m.highRank, m.lowRank]))
     const maxGap = M - 1
 
-    const gapLabel = (g) =>
-      maxGap === 1 ? 'Duel' : g === 1 ? '⚔️ Close' : g === maxGap ? '💥 Blowout' : '🎲 Mid'
-
     const counts = {}
     for (const m of entries) counts[m.gap] = (counts[m.gap] || 0) + 1
     const gapsSorted = Object.keys(counts).map(Number).sort((a, b) => a - b)
@@ -223,31 +220,17 @@ function Matchmaker() {
     const distinct = gapsSorted.length
     const maxDistinct = Math.min(maxGap, entries.length)
 
-    // Merge gap sizes that share a label (several gaps can all be "Mid"),
-    // keeping the per-gap breakdown in the tooltip
-    const buckets = []
-    for (const g of gapsSorted) {
-      const label = gapLabel(g)
-      const last = buckets[buckets.length - 1]
-      if (last && last.label === label) {
-        last.count += counts[g]
-        last.gaps.push(g)
-      } else {
-        buckets.push({ label, count: counts[g], gaps: [g] })
-      }
-    }
-
     const ranksUsed = new Set(entries.flatMap(m => [m.highRank, m.lowRank]))
 
     return (
       <div className="mm-mix">
-        {buckets.map(b => (
+        {gapsSorted.map(g => (
           <span
-            key={b.label}
+            key={g}
             className="mm-cat-badge"
-            title={`${b.count} matchup${b.count === 1 ? '' : 's'} with rank gap${b.gaps.length === 1 ? '' : 's'} of ${b.gaps.join(', ')}`}
+            title={`${counts[g]} matchup${counts[g] === 1 ? '' : 's'} where the favorite outranks the underdog by ${g}${g === maxGap ? ' (the maximum possible)' : ''}`}
           >
-            {b.label} <b>×{b.count}</b>
+            Gap {g} <b>×{counts[g]}</b>
           </span>
         ))}
         <span className="mm-cat-badge" title={`${distinct} different gap sizes out of ${maxDistinct} possible`}>
