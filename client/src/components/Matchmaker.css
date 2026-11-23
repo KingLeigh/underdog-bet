@@ -140,6 +140,16 @@
 
 .mm-share {
   margin-top: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mm-share-status {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #a7f3d0;
 }
 
 /* ---- schedule report card ---- */

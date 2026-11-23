@@ -153,16 +153,17 @@ function Matchmaker() {
     }, 30)
   }
 
-  const copyShareLink = () => {
+  // Save the schedule: copy the shareable link and open the saved view
+  const saveMatchups = () => {
     if (!matchups || matchups.length === 0) return
     const compact = matchups.map(m => `${m.number}:${m.category}:${m.high}:${m.low}:${m.matchup}`).join('|')
     const url = `${window.location.origin}/matchmaker?save=${btoa(compact)}`
-    navigator.clipboard.writeText(url).then(() => {
-      setShareStatus('Link copied!')
-      setTimeout(() => setShareStatus(''), 2500)
-    }).catch(() => {
-      prompt('Share this link:', url)
-    })
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).catch(() => {})
+    }
+    window.open(url, '_blank', 'noopener')
+    setShareStatus('Link copied to your clipboard — and opened in a new tab')
+    setTimeout(() => setShareStatus(''), 3500)
   }
 
   // Schedule report card: challenges used per category, gap spread as a
@@ -330,9 +331,10 @@ function Matchmaker() {
 
             {matchups && matchups.length > 0 && (
               <div className="mm-share">
-                <button className="copy-link" onClick={copyShareLink}>
-                  {shareStatus || '🔗 Copy shareable link'}
+                <button className="mega-btn" onClick={saveMatchups}>
+                  SAVE THESE MATCHUPS ★
                 </button>
+                {shareStatus && <div className="mm-share-status">{shareStatus}</div>}
               </div>
             )}
 
