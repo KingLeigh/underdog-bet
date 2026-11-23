@@ -127,13 +127,18 @@
   font-size: 1.5rem;
   font-weight: 700;
   opacity: 0.9;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  line-height: 1.1;
 }
 
 .fighter .fighter-odds .odds-word {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0.75;
+  line-height: 1;
 }
 
 /* Role badge: the dramatic label on each card */
@@ -327,8 +332,8 @@
 }
 
 .bet-chip.waiting {
-  opacity: 0.55;
-  border: 2px dashed rgba(255, 255, 255, 0.4);
+  opacity: 0.8;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
   background: transparent;
 }
 
