@@ -3,6 +3,24 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import './CreateGame.css'
 
+// Chunky -/+ control used for all the numeric game settings.
+// onStep receives a delta and the owner applies it functionally, so rapid
+// clicks can never collapse into a single step.
+function Stepper({ label, value, display, step, min, max, onStep }) {
+  return (
+    <div className="cg-stepper">
+      <div className="cg-stepper-label">{label}</div>
+      <div className="odds-stepper big">
+        <button type="button" onClick={() => onStep(-step)} disabled={value <= min}>−</button>
+        <span>{display !== undefined ? display : value}</span>
+        <button type="button" onClick={() => onStep(step)} disabled={value >= max}>+</button>
+      </div>
+    </div>
+  )
+}
+
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
+
 function CreateGame() {
   const [searchParams] = useSearchParams()
   const [createPlayerName, setCreatePlayerName] = useState('')
@@ -11,20 +29,24 @@ function CreateGame() {
   const [challengesPerCategory, setChallengesPerCategory] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
   const [minBalance, setMinBalance] = useState(10)
-  const [maxBetSize, setMaxBetSize] = useState('')
+  const [maxBet, setMaxBet] = useState(0) // 0 = no limit
   const [bounty, setBounty] = useState('None')
-  const [bountyAmount, setBountyAmount] = useState('')
+  const [bountyAmount, setBountyAmount] = useState(25)
   const [isPreFilled, setIsPreFilled] = useState(false)
-  
+
   const navigate = useNavigate()
   const { createGame, currentGame, gameState, error, clearError } = useGame()
 
-  // Parse URL parameters and pre-fill form fields, or auto-fill based on categories
+  // The minimum balance can never exceed the starting points
+  useEffect(() => {
+    setMinBalance(m => Math.min(m, startingPoints))
+  }, [startingPoints])
+
+  // Parse URL parameters and pre-fill the category fields (Challenge List flow)
   useEffect(() => {
     const categoriesParam = searchParams.get('categories')
     const countsParam = searchParams.get('counts')
-    
-    // If we have URL parameters, use them (only run once when URL params change)
+
     if (categoriesParam && countsParam) {
       setCategories(categoriesParam)
       setChallengesPerCategory(countsParam)
@@ -34,18 +56,16 @@ function CreateGame() {
     }
   }, [searchParams])
 
-  // Auto-fill challenges when categories change (only if no URL parameters)
+  // Auto-fill challenge counts when categories change (only without URL params)
   useEffect(() => {
     const categoriesParam = searchParams.get('categories')
     const countsParam = searchParams.get('counts')
-    
-    // Only auto-fill if we don't have URL parameters
+
     if (!categoriesParam && !countsParam) {
       if (categories.trim()) {
         const categoryCount = categories.split(',').filter(cat => cat.trim()).length
         if (categoryCount > 0) {
-          const defaultChallenges = Array(categoryCount).fill('1').join(',')
-          setChallengesPerCategory(defaultChallenges)
+          setChallengesPerCategory(Array(categoryCount).fill('1').join(','))
         }
       } else {
         setChallengesPerCategory('')
@@ -53,16 +73,16 @@ function CreateGame() {
     }
   }, [categories, searchParams])
 
-  // Validation function to check for unique category names
+  // Validation: category names must be unique
   const validateUniqueCategories = () => {
     if (!categories.trim()) {
       return { isValid: true, duplicates: [] }
     }
-    
+
     const categoryList = categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
     const duplicates = []
     const seen = new Set()
-    
+
     categoryList.forEach(category => {
       if (seen.has(category.toLowerCase())) {
         duplicates.push(category)
@@ -70,339 +90,233 @@ function CreateGame() {
         seen.add(category.toLowerCase())
       }
     })
-    
+
     return { isValid: duplicates.length === 0, duplicates }
   }
 
-  // Validation function for challenges per category
+  // Validation: challenge counts must match the categories
   const validateChallengesInput = () => {
     if (!categories.trim()) {
-      // If no categories, challenges should be empty
       return challengesPerCategory.trim() === ''
     }
-    
+
     const categoryCount = categories.split(',').filter(cat => cat.trim()).length
     if (categoryCount === 0) {
       return challengesPerCategory.trim() === ''
     }
-    
-    // Check if challenges input is empty when categories exist
+
     if (!challengesPerCategory.trim()) {
       return false
     }
-    
-    // Split challenges and validate each is a number
+
     const challengesList = challengesPerCategory.split(',').map(challenge => challenge.trim())
-    
-    // Check length matches category count
     if (challengesList.length !== categoryCount) {
       return false
     }
-    
-    // Check each challenge is a valid number
+
     return challengesList.every(challenge => {
       const num = parseInt(challenge)
       return !isNaN(num) && num > 0 && challenge === num.toString()
     })
   }
 
-  // The minimum balance floor must fit within the starting points
-  const validateMinBalance = () => {
-    const minValue = minBalance === '' ? 10 : minBalance
-    const startValue = startingPoints === '' ? 100 : startingPoints
-    return minValue >= 0 && minValue <= startValue
-  }
-
   const handleCreateGame = (e) => {
     e.preventDefault()
 
-    // Validate unique categories before proceeding
-    const categoryValidation = validateUniqueCategories()
-    if (!categoryValidation.isValid) {
+    if (!validateUniqueCategories().isValid || !validateChallengesInput()) {
       return
     }
 
-    // Validate challenges input before proceeding
-    if (!validateChallengesInput()) {
-      return
-    }
-
-    if (!validateMinBalance()) {
-      return
-    }
-    
-    // Parse categories from comma-separated string
-    const categoriesList = categories.trim() 
+    const categoriesList = categories.trim()
       ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
       : []
-    
-    // Parse max bet size - convert to number if provided, otherwise null
-    const maxBetValue = maxBetSize.trim() ? parseInt(maxBetSize) : null
-    
-    // Parse bounty amount - convert to number if Fixed bounty is selected
-    const bountyAmountValue = bounty === 'Fixed' && bountyAmount.trim() ? parseInt(bountyAmount) : null
-    
-    // Parse challenges per category - convert to array of numbers
-    const challengesList = challengesPerCategory.trim() 
+
+    const challengesList = challengesPerCategory.trim()
       ? challengesPerCategory.split(',').map(challenge => parseInt(challenge.trim())).filter(num => !isNaN(num))
       : []
-    
+
     createGame({
       playerName: createPlayerName,
       hostPlays: hostPlays,
       categories: categoriesList,
       challengesPerCategory: challengesList,
-      startingPoints: startingPoints === '' ? 100 : startingPoints,
-      minBalance: minBalance === '' ? 10 : minBalance,
-      maxBetSize: maxBetValue,
+      startingPoints: startingPoints,
+      minBalance: minBalance,
+      maxBetSize: maxBet === 0 ? null : maxBet,
       bounty: bounty,
-      bountyAmount: bountyAmountValue
+      bountyAmount: bounty === 'Fixed' ? bountyAmount : null
     })
   }
 
-  // Auto-navigate when game is created
+  // Auto-navigate when the game is created
   useEffect(() => {
     if (currentGame && gameState) {
       navigate(`/lobby/${currentGame}`)
     }
   }, [currentGame, gameState, navigate])
 
-  // Listen for errors and clear them
   useEffect(() => {
     if (error) {
       clearError()
     }
   }, [error, clearError])
 
+  const dupes = validateUniqueCategories()
+
   return (
     <div className="create-game">
-      <div className="create-game-content">
-        <div className="create-game-header">
-          <h1>Create New Game</h1>
-          <p>Set up your game with custom rules and settings</p>
-        </div>
+      <form className="create-content" onSubmit={handleCreateGame}>
+        <div className="round-strip">New Game</div>
+        <h1 className="create-title">Set the Table</h1>
 
-        <form onSubmit={handleCreateGame} className="create-game-form">
-          <div className="form-section standard-panel">
-            <h2>Player</h2>
-            
-            <div className="form-group">
-              <label htmlFor="playerName">Your Name:</label>
-              <input
-                type="text"
-                id="playerName"
-                name="playerName"
-                value={createPlayerName}
-                onChange={(e) => setCreatePlayerName(e.target.value)}
-                placeholder="Enter your name"
-                required
-              />
-            </div>
+        <section className="cg-section">
+          <div className="cg-label">Your name</div>
+          <input
+            type="text"
+            value={createPlayerName}
+            onChange={(e) => setCreatePlayerName(e.target.value)}
+            placeholder="Your name"
+            className="stage-input"
+            required
+            autoFocus
+          />
 
-            <div className="form-group">
-              <label className="host-plays-toggle">
-                <input
-                  type="checkbox"
-                  checked={!hostPlays}
-                  onChange={(e) => setHostPlays(!e.target.checked)}
-                />
-                <span> I'm hosting only — run the game without playing</span>
-              </label>
-              <small className="form-help">
-                Emcee mode: you set up contests and judge winners, but don't bet and don't appear on the leaderboard.
-              </small>
-            </div>
+          <div className="cg-label">You are</div>
+          <div className="cat-pills">
+            <button type="button" className={`cat-pill ${hostPlays ? 'on' : ''}`} onClick={() => setHostPlays(true)}>
+              Playing
+            </button>
+            <button type="button" className={`cat-pill ${!hostPlays ? 'on' : ''}`} onClick={() => setHostPlays(false)}>
+              Hosting only
+            </button>
           </div>
-
-          <div className="form-section standard-panel">
-            <h2>Betting Options</h2>
-            
-            <div className="form-group">
-              <label htmlFor="startingPoints">Starting Points:</label>
-              <input
-                type="number"
-                id="startingPoints"
-                name="startingPoints"
-                value={startingPoints}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setStartingPoints('');
-                  } else {
-                    const numValue = parseInt(value);
-                    if (!isNaN(numValue)) {
-                      setStartingPoints(numValue);
-                    }
-                  }
-                }}
-                min="1"
-                max="10000"
-                className="starting-points-input"
-              />
-              <small className="form-help">
-                The number of points each player starts with. Default is 100.
-              </small>
+          {!hostPlays && (
+            <div className="cg-help">
+              Emcee mode: you run contests and judge winners, but don't bet and don't appear on the leaderboard.
             </div>
+          )}
+        </section>
 
-            <div className="form-group">
-              <label htmlFor="minBalance">Minimum Balance:</label>
-              <input
-                type="number"
-                id="minBalance"
-                name="minBalance"
-                value={minBalance}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '') {
-                    setMinBalance('');
-                  } else {
-                    const numValue = parseInt(value);
-                    if (!isNaN(numValue)) {
-                      setMinBalance(numValue);
-                    }
-                  }
-                }}
-                min="0"
-                max="10000"
-                className="min-balance-input"
-              />
-              <small className="form-help">
-                Players can never drop below this balance — losses are clamped when a contest resolves, so nobody busts out of betting. Default is 10. Set to 0 to allow busting.
-              </small>
-              {!validateMinBalance() && (
-                <div className="error-message">
-                  <strong>Invalid minimum balance:</strong> it must be between 0 and the starting points.
-                </div>
-              )}
-            </div>
+        <section className="cg-section">
+          <div className="cg-label">Chips</div>
+          <div className="cg-steppers">
+            <Stepper
+              label="Starting points"
+              value={startingPoints}
+              step={25}
+              min={25}
+              max={1000}
+              onStep={(d) => setStartingPoints(s => clamp(s + d, 25, 1000))}
+            />
+            <Stepper
+              label="Minimum balance"
+              value={minBalance}
+              display={minBalance === 0 ? 'Bust!' : minBalance}
+              step={5}
+              min={0}
+              max={startingPoints}
+              onStep={(d) => setMinBalance(m => clamp(m + d, 0, startingPoints))}
+            />
+            <Stepper
+              label="Max bet"
+              value={maxBet}
+              display={maxBet === 0 ? 'No limit' : maxBet}
+              step={10}
+              min={0}
+              max={1000}
+              onStep={(d) => setMaxBet(m => clamp(m + d, 0, 1000))}
+            />
+          </div>
+          <div className="cg-help">
+            Players can never drop below the minimum balance — set it to 0 to allow busting out.
+          </div>
+        </section>
 
-            <div className="form-group">
-              <label htmlFor="maxBetSize">Maximum Bet Size (Optional):</label>
-              <input
-                type="number"
-                id="maxBetSize"
-                name="maxBetSize"
-                value={maxBetSize}
-                onChange={(e) => setMaxBetSize(e.target.value)}
-                min="1"
-                max="10000"
-                className="max-bet-input"
-                placeholder="Leave empty for no limit"
-              />
-              <small className="form-help">
-                Maximum bet size per wager. If empty, players can bet any amount they have available.
-              </small>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="bounty">Bounty:</label>
-              <select
-                id="bounty"
-                name="bounty"
-                value={bounty}
-                onChange={(e) => setBounty(e.target.value)}
-                className="bounty-select"
+        <section className="cg-section">
+          <div className="cg-label">Bounty for contest winners</div>
+          <div className="cat-pills">
+            {['None', 'Fixed', 'Average', 'Min', 'Max'].map(option => (
+              <button
+                type="button"
+                key={option}
+                className={`cat-pill ${bounty === option ? 'on' : ''}`}
+                onClick={() => setBounty(option)}
               >
-                <option value="None">None</option>
-                <option value="Fixed">Fixed</option>
-                <option value="Average">Average</option>
-                <option value="Min">Min</option>
-                <option value="Max">Max</option>
-              </select>
-              <small className="form-help">
-                Configure bounty settings for the game.
-              </small>
-            </div>
-            
-            {bounty === 'Fixed' && (
-              <div className="form-group">
-                <label htmlFor="bountyAmount">Bounty Amount:</label>
-                <input
-                  type="number"
-                  id="bountyAmount"
-                  name="bountyAmount"
-                  value={bountyAmount}
-                  onChange={(e) => setBountyAmount(e.target.value)}
-                  min="1"
-                  max="10000"
-                  className="bounty-amount-input"
-                  placeholder="Enter bounty amount"
-                  required
-                />
-                <small className="form-help">
-                  The fixed amount of points to be awarded as bounty to the winner.
-                </small>
-              </div>
-            )}
+                {option}
+              </button>
+            ))}
           </div>
-
-          <div className="form-section standard-panel">
-            <h2>Game Categories</h2>
-            
-            <div className="form-group">
-              <label htmlFor="categories">Categories:</label>
-              <input
-                type="text"
-                id="categories"
-                name="categories"
-                value={categories}
-                onChange={(e) => setCategories(e.target.value)}
-                placeholder="e.g., Speed, Strength, Intelligence, Luck"
-                className="categories-input"
-                disabled={isPreFilled}
+          {bounty === 'Fixed' && (
+            <div className="cg-steppers">
+              <Stepper
+                label="Bounty amount"
+                value={bountyAmount}
+                step={5}
+                min={5}
+                max={500}
+                onStep={(d) => setBountyAmount(a => clamp(a + d, 5, 500))}
               />
-              <small className="form-help">
-                Comma-separated list of categories for player ranking. Players will rank themselves 1-N in each category before the game starts.
-              </small>
-              {!validateUniqueCategories().isValid && (
-                <div className="error-message">
-                  <strong>Duplicate categories found:</strong> {validateUniqueCategories().duplicates.join(', ')}. Please ensure all category names are unique.
-                </div>
-              )}
             </div>
+          )}
+          {bounty !== 'None' && bounty !== 'Fixed' && (
+            <div className="cg-help">
+              The winner also receives the {bounty.toLowerCase()} of all bets placed on the contest.
+            </div>
+          )}
+        </section>
 
-            <div className="form-group">
-              <label htmlFor="challengesPerCategory">Num Challenges per Category:</label>
+        <section className="cg-section">
+          <div className="cg-label">Categories (optional)</div>
+          <input
+            type="text"
+            value={categories}
+            onChange={(e) => setCategories(e.target.value)}
+            placeholder="Speed, Luck, Trivia…"
+            className="stage-input cg-text"
+            disabled={isPreFilled}
+          />
+          <div className="cg-help">
+            Comma-separated. Players rank themselves in each category before the game starts.
+          </div>
+          {!dupes.isValid && (
+            <div className="error-message">
+              Duplicate categories: {dupes.duplicates.join(', ')} — names must be unique.
+            </div>
+          )}
+
+          {categories.trim() && (
+            <>
+              <div className="cg-label">Challenges per category</div>
               <input
                 type="text"
-                id="challengesPerCategory"
-                name="challengesPerCategory"
                 value={challengesPerCategory}
                 onChange={(e) => setChallengesPerCategory(e.target.value)}
-                placeholder="1,1,1,1"
-                className="challenges-input"
+                placeholder="1,1,1"
+                className="stage-input cg-text"
                 disabled={isPreFilled}
               />
-              <small className="form-help">
-                Comma-separated list of challenge counts for each category. Each number represents how many challenges will be created for that category.
-              </small>
-            </div>
-          </div>
+              {!validateChallengesInput() && (
+                <div className="cg-help warn">
+                  One number per category, e.g. {categories.split(',').filter(c => c.trim()).map(() => '1').join(',')}
+                </div>
+              )}
+            </>
+          )}
+        </section>
 
-          <div className="form-actions">
-            <button 
-              type="submit" 
-              className="btn btn-primary btn-large"
-              disabled={!validateChallengesInput() || !validateUniqueCategories().isValid || !validateMinBalance()}
-            >
-              Create Game
-            </button>
-            <button 
-              type="button" 
-              className="btn btn-secondary btn-large"
-              onClick={() => navigate('/')}
-            >
-              Back to Home
-            </button>
-          </div>
-        </form>
+        <button
+          type="submit"
+          className="mega-btn create-btn"
+          disabled={!validateChallengesInput() || !dupes.isValid}
+        >
+          CREATE GAME ★
+        </button>
+        <button type="button" className="back-link" onClick={() => navigate('/')}>
+          ← Back to home
+        </button>
 
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
-      </div>
+        {error && <div className="error-message">{error}</div>}
+      </form>
     </div>
   )
 }
