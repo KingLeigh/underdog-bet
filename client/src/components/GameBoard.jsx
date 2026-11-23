@@ -334,7 +334,7 @@ function GameBoard() {
                 return (
                   <div key={p.id} className={`board-row ${p.isMe ? 'me' : ''}`}>
                     <span className="board-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
-                    <span className="board-name">{avatarFor(p.id)} {p.name}{p.isMe ? ' (you)' : ''}</span>
+                    <span className="board-name">{avatarFor(p.id)} {p.name}</span>
                     <span className={`board-delta ${deltaClass}`}>
                       {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
                     </span>
