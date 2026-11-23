@@ -546,18 +546,8 @@
   width: min(640px, 100%);
 }
 
-.standings-section .standings-title {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  text-align: center;
-}
-
 .standings-section .night-summary {
-  margin-top: 0.6rem;
+  margin-top: 0;
 }
 
 .night-summary tr.me td {

@@ -538,7 +538,6 @@ function GameBoard() {
              material (results and the finale show it in the stage) ---- */}
         {!finished && !(wagerResolved && wagerResults) && (
           <div className="standings-section">
-            <div className="standings-title">Standings</div>
             <StandingsTable standings={standings} stats={gameState?.stats} />
           </div>
         )}
