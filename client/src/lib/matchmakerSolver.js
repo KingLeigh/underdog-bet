@@ -363,46 +363,81 @@ export function checkFeasible(players, categories, challenges, { timeLimitMs = 2
   return res.ok
 }
 
-// Order matchups so consecutive matches avoid repeating a category or player
+// Order matchups into a play order for the evening. Whole orderings are
+// scored globally (party-sized schedules make this cheap):
+//   1. rest  - maximize the minimum number of matchups between any player's
+//              two appearances (no back-to-back contests, dominant term)
+//   2. flow  - penalize consecutive matchups in the same category
+//   3. finale - bonus when a maximum-gap matchup closes the show
+// Seeded random sampling plus swap hill-climbing; deterministic per seed.
 export function optimizeMatchOrdering(assignments, seedValue = null) {
-  if (assignments.length <= 1) return assignments
-
-  const ordered = []
-  const remaining = [...assignments]
+  const n = assignments.length
+  if (n <= 2) return assignments
 
   const rand = seedValue ? rng(seedValue) : Math.random
-  const startIdx = Math.floor(rand() * remaining.length)
-  ordered.push(remaining.splice(startIdx, 1)[0])
+  const biggestGap = Math.max(...assignments.map(a => a.gap || 0))
 
-  while (remaining.length > 0) {
-    let bestScore = -Infinity
-    let bestIdx = -1
-
-    for (let i = 0; i < remaining.length; i++) {
-      const match = remaining[i]
-      const lastMatch = ordered[ordered.length - 1]
-
-      let score = 0
-
-      if (match.category !== lastMatch.category) {
-        score += 10
+  const scoreOrder = (order) => {
+    const slots = new Map() // player -> appearance indexes
+    order.forEach((m, i) => {
+      for (const p of [m.high, m.low]) {
+        if (!slots.has(p)) slots.set(p, [])
+        slots.get(p).push(i)
       }
+    })
 
-      if (match.high !== lastMatch.high && match.high !== lastMatch.low &&
-          match.low !== lastMatch.high && match.low !== lastMatch.low) {
-        score += 20
-      }
-
-      score += rand() * 2
-
-      if (score > bestScore) {
-        bestScore = score
-        bestIdx = i
+    let minRest = Infinity
+    let sumRest = 0
+    for (const appearances of slots.values()) {
+      for (let k = 1; k < appearances.length; k++) {
+        const rest = appearances[k] - appearances[k - 1] - 1
+        minRest = Math.min(minRest, rest)
+        sumRest += rest
       }
     }
+    if (minRest === Infinity) minRest = n // nobody appears twice
 
-    ordered.push(remaining.splice(bestIdx, 1)[0])
+    let sameCategoryAdjacent = 0
+    for (let i = 1; i < n; i++) {
+      if (order[i].category === order[i - 1].category) sameCategoryAdjacent++
+    }
+
+    const finale = (order[n - 1].gap || 0) === biggestGap ? 1 : 0
+
+    return 2000 * minRest + 5 * sumRest - 100 * sameCategoryAdjacent + 150 * finale
   }
 
-  return ordered
+  // Sample random orderings, keep the best…
+  let best = null
+  let bestScore = -Infinity
+  const tries = Math.min(400, 60 * n)
+  for (let t = 0; t < tries; t++) {
+    const candidate = shuffle([...assignments], rand)
+    const s = scoreOrder(candidate)
+    if (s > bestScore) {
+      bestScore = s
+      best = candidate
+    }
+  }
+
+  // …then improve it with pairwise-swap hill climbing
+  let improved = true
+  let guard = 0
+  while (improved && guard++ < 50) {
+    improved = false
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        ;[best[i], best[j]] = [best[j], best[i]]
+        const s = scoreOrder(best)
+        if (s > bestScore) {
+          bestScore = s
+          improved = true
+        } else {
+          ;[best[i], best[j]] = [best[j], best[i]]
+        }
+      }
+    }
+  }
+
+  return best
 }

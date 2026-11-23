@@ -218,6 +218,53 @@ describe('optimizeMatchOrdering', () => {
     const key = a => `${a.category}|${a.high}|${a.low}`
     expect(ordered.map(key).sort()).toEqual(res.assignments.map(key).sort())
   })
+
+  test('avoids back-to-back appearances when an ordering without them exists', () => {
+    // M4 shares a player with M1 (A) and M2 (C), but M3 is fully disjoint,
+    // so e.g. M1, M2, M3, M4 has no adjacent matchups sharing a player.
+    const assignments = [
+      { high: 'A', low: 'B', category: 'Trivia', gap: 1 },
+      { high: 'C', low: 'D', category: 'Cardio', gap: 1 },
+      { high: 'E', low: 'F', category: 'Darts', gap: 1 },
+      { high: 'A', low: 'C', category: 'Memory', gap: 1 }
+    ]
+    for (const seed of [1, 7, 42, 999]) {
+      const ordered = optimizeMatchOrdering(assignments, seed)
+      for (let i = 1; i < ordered.length; i++) {
+        const prev = [ordered[i - 1].high, ordered[i - 1].low]
+        expect(prev).not.toContain(ordered[i].high)
+        expect(prev).not.toContain(ordered[i].low)
+      }
+    }
+  })
+
+  test('puts a biggest-gap matchup last when the ordering is unconstrained', () => {
+    // All players and categories distinct: rest and alternation put no
+    // pressure on the order, so the finale bonus decides the closer.
+    const assignments = [
+      { high: 'A', low: 'B', category: 'Trivia', gap: 1 },
+      { high: 'C', low: 'D', category: 'Cardio', gap: 5 },
+      { high: 'E', low: 'F', category: 'Darts', gap: 2 },
+      { high: 'G', low: 'H', category: 'Memory', gap: 3 }
+    ]
+    for (const seed of [1, 7, 42, 999]) {
+      const ordered = optimizeMatchOrdering(assignments, seed)
+      expect(ordered[ordered.length - 1].gap).toBe(5)
+    }
+  })
+
+  test('is deterministic for a given seed', () => {
+    const { players, categories, challenges } = feasibleSetup()
+    const res = solveMatchmaking(players, categories, challenges, {
+      targetGap: 1,
+      selectN: players.length,
+      randomSeed: 42
+    })
+    const key = a => `${a.category}|${a.high}|${a.low}`
+    const a = optimizeMatchOrdering([...res.assignments], 1234)
+    const b = optimizeMatchOrdering([...res.assignments], 1234)
+    expect(a.map(key)).toEqual(b.map(key))
+  })
 })
 
 describe('createCostFunction', () => {
