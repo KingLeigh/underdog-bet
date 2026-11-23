@@ -229,26 +229,7 @@ function GameBoard() {
               </div>
             )}
 
-            <table className="night-summary">
-              <thead>
-                <tr><th></th><th>Contests</th><th>Bets</th><th>Wagered</th><th>Score</th></tr>
-              </thead>
-              <tbody>
-                {standings.map(p => {
-                  const s = (gameState && gameState.stats && gameState.stats[p.id]) ||
-                    { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
-                  return (
-                    <tr key={p.id} className={p.isMe ? 'me' : ''}>
-                      <td className="sum-name">{avatarFor(p.id)} {p.name}</td>
-                      <td>{s.contestWins}–{s.contestLosses}</td>
-                      <td>{s.betWins}–{s.betLosses}</td>
-                      <td>{s.totalBet}</td>
-                      <td className="sum-score">{p.points}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <StandingsTable standings={standings} stats={gameState?.stats} mode="stats" />
           </div>
         )}
 
@@ -481,32 +462,7 @@ function GameBoard() {
               {wagerResults.bountyAmount > 0 && <> &nbsp;+{wagerResults.bountyAmount} bounty 💰</>}
             </div>
 
-            <div className="results-board">
-              <div className="board-row head">
-                <span className="board-rank"></span>
-                <span className="board-name"></span>
-                <span className="board-delta">Round</span>
-                <span className="board-total">Total</span>
-              </div>
-              {standings.map((p, i) => {
-                const r = wagerResults.results.find(x => x.playerId === p.id)
-                const gotBounty = p.id === wagerResults.winnerPlayerId && wagerResults.bountyAmount > 0
-                let delta = r ? parseInt(r.pointsChange) : 0
-                if (gotBounty) delta += wagerResults.bountyAmount
-                const active = !!r || gotBounty
-                const deltaClass = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
-                return (
-                  <div key={p.id} className={`board-row ${p.isMe ? 'me' : ''}`}>
-                    <span className="board-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
-                    <span className="board-name">{avatarFor(p.id)} {p.name}</span>
-                    <span className={`board-delta ${deltaClass}`}>
-                      {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
-                    </span>
-                    <span className="board-total">{p.points}</span>
-                  </div>
-                )
-              })}
-            </div>
+            <StandingsTable standings={standings} roundResults={wagerResults} mode="round" />
 
             {/* Next scheduled matchup goes via the pre-contest odds screen;
                 an exhausted schedule ends the night with the Winner screen */}
@@ -526,16 +482,13 @@ function GameBoard() {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* ---- Score ticker (hidden during contests, where the bet chips carry
-             the standings, and on results, which show the full board) ---- */}
-        {!finished && !wagerActive && !(wagerResolved && wagerResults) && (
-          <div className="score-ticker">
-            {standings.map((p, i) => (
-              <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>
-                {i === 0 ? '🏆 ' : ''}<span className="tick-name">{p.name}</span> {p.points}
-              </span>
-            ))}
-          </div>
+        {/* ---- Standings & stats, always a tap away (the finale shows the
+             same table in the open) ---- */}
+        {!finished && (
+          <details className="game-details">
+            <summary>📊 Standings & stats</summary>
+            <StandingsTable standings={standings} stats={gameState?.stats} mode="stats" />
+          </details>
         )}
 
         {/* ---- Collapsed game info ---- */}
@@ -597,6 +550,72 @@ function GameBoard() {
         </div>
       </div>
     </div>
+  )
+}
+
+// One leaderboard, two faces: 'round' shows the swing after a contest
+// (Round ± and Total), 'stats' the night's full record (contest W-L,
+// bet W-L, total wagered, score). Same table, same visual language.
+function StandingsTable({ standings, stats, roundResults, mode }) {
+  return (
+    <table className="night-summary">
+      <thead>
+        <tr>
+          <th></th>
+          {mode === 'round' ? (
+            <>
+              <th>Round</th>
+              <th>Total</th>
+            </>
+          ) : (
+            <>
+              <th>Contests</th>
+              <th>Bets</th>
+              <th>Wagered</th>
+              <th>Score</th>
+            </>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {standings.map((p, i) => {
+          const nameCell = (
+            <td className="sum-name">
+              <span className="sum-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
+              {' '}{avatarFor(p.id)} {p.name}
+            </td>
+          )
+          if (mode === 'round') {
+            const r = roundResults.results.find(x => x.playerId === p.id)
+            const gotBounty = p.id === roundResults.winnerPlayerId && roundResults.bountyAmount > 0
+            let delta = r ? parseInt(r.pointsChange) : 0
+            if (gotBounty) delta += roundResults.bountyAmount
+            const active = !!r || gotBounty
+            const cls = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
+            return (
+              <tr key={p.id} className={p.isMe ? 'me' : ''}>
+                {nameCell}
+                <td className={`sum-delta ${cls}`}>
+                  {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
+                </td>
+                <td className="sum-score">{p.points}</td>
+              </tr>
+            )
+          }
+          const s = (stats && stats[p.id]) ||
+            { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
+          return (
+            <tr key={p.id} className={p.isMe ? 'me' : ''}>
+              {nameCell}
+              <td>{s.contestWins}–{s.contestLosses}</td>
+              <td>{s.betWins}–{s.betLosses}</td>
+              <td>{s.totalBet}</td>
+              <td className="sum-score">{p.points}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
