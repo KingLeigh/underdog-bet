@@ -165,78 +165,100 @@ function Matchmaker() {
     })
   }
 
-  // Per-category usage badges: how many of each category's challenges the
-  // proposed schedule uses (dots when the totals are known)
-  const usageRow = matchups && matchups.length > 0 && (() => {
+  // Schedule report card: challenges used per category, gap spread as a
+  // small histogram, and which ranks appear anywhere in the schedule
+  const reportCard = matchups && matchups.length > 0 && (() => {
     const used = {}
     for (const m of matchups) used[m.category] = (used[m.category] || 0) + 1
 
-    const entries = gameInfo
+    const catEntries = gameInfo
       ? gameInfo.cats.map(c => ({ name: c.name, used: used[c.name] || 0, total: c.count }))
       : Object.entries(used).map(([name, u]) => ({ name, used: u, total: null }))
 
-    return (
-      <div className="mm-cat-usage">
-        {entries.map(c => (
-          <span
-            key={c.name}
-            className={`mm-cat-badge ${c.used === 0 ? 'unused' : ''}`}
-            title={c.total != null
-              ? `${c.used} of ${c.total} ${c.name} challenges used`
-              : `${c.used} ${c.name} challenge${c.used === 1 ? '' : 's'} used`}
-          >
-            {c.name}
-            {c.total != null ? (
-              <span className="mm-dots">
-                {Array.from({ length: c.total }, (_, i) => (
-                  <span key={i} className={i < c.used ? 'dot on' : 'dot'} />
-                ))}
-              </span>
-            ) : (
-              <b>×{c.used}</b>
-            )}
-          </span>
-        ))}
-      </div>
-    )
-  })()
-
-  // Gap mix, variety and rank-coverage readout: how spicy is this schedule?
-  const mixRow = matchups && matchups.length > 0 && (() => {
     const entries = matchups.filter(m => Number.isFinite(m.gap) && m.gap > 0)
-    if (entries.length === 0) return null
 
     // Rank scale: category count when a game is loaded, else the largest
     // rank visible in a shared schedule
     const M = gameInfo
       ? gameInfo.categories.length
-      : Math.max(2, ...entries.flatMap(m => [m.highRank, m.lowRank]))
+      : Math.max(2, ...matchups.flatMap(m => [m.highRank, m.lowRank]).filter(Number.isFinite))
     const maxGap = M - 1
 
-    const counts = {}
-    for (const m of entries) counts[m.gap] = (counts[m.gap] || 0) + 1
+    const gapCounts = {}
+    for (const m of entries) gapCounts[m.gap] = (gapCounts[m.gap] || 0) + 1
+    const tallest = Math.max(1, ...Object.values(gapCounts))
 
     const ranksUsed = new Set(entries.flatMap(m => [m.highRank, m.lowRank]))
 
     return (
-      <div className="mm-mix">
-        {Array.from({ length: maxGap }, (_, i) => i + 1).map(g => (
-          <span
-            key={g}
-            className={`mm-cat-badge ${counts[g] ? '' : 'unused'}`}
-            title={`${counts[g] || 0} matchup${counts[g] === 1 ? '' : 's'} where the favorite outranks the underdog by ${g}${g === maxGap ? ' (the maximum possible)' : ''}`}
-          >
-            Gap {g} <b>×{counts[g] || 0}</b>
-          </span>
-        ))}
-        <span className="mm-cat-badge" title="Which ranks appear somewhere in the schedule — touching both #1 and the bottom makes a more interesting night">
-          Ranks
-          <span className="mm-rank-pips">
-            {Array.from({ length: M }, (_, i) => (
-              <span key={i} className={`mm-rank-pip ${ranksUsed.has(i + 1) ? 'on' : ''}`}>{i + 1}</span>
+      <div className="mm-report">
+        <div className="mm-report-title">Schedule Report</div>
+
+        <div className="report-row">
+          <div className="report-label">Challenges used</div>
+          <div className="report-value">
+            {catEntries.map(c => (
+              <span
+                key={c.name}
+                className={`rep-cat ${c.used === 0 ? 'unused' : ''}`}
+                title={c.total != null
+                  ? `${c.used} of ${c.total} ${c.name} challenges used`
+                  : `${c.used} ${c.name} challenge${c.used === 1 ? '' : 's'} used`}
+              >
+                {c.name}
+                {c.total != null ? (
+                  <span className="mm-dots">
+                    {Array.from({ length: c.total }, (_, i) => (
+                      <span key={i} className={i < c.used ? 'dot on' : 'dot'} />
+                    ))}
+                  </span>
+                ) : (
+                  <b>×{c.used}</b>
+                )}
+              </span>
             ))}
-          </span>
-        </span>
+          </div>
+        </div>
+
+        {entries.length > 0 && (
+          <div className="report-row">
+            <div className="report-label">Gap spread</div>
+            <div className="report-value">
+              <div className="gap-bars">
+                {Array.from({ length: maxGap }, (_, i) => i + 1).map(g => {
+                  const count = gapCounts[g] || 0
+                  return (
+                    <div
+                      key={g}
+                      className={`gap-col ${count === 0 ? 'unused' : ''}`}
+                      title={`${count} matchup${count === 1 ? '' : 's'} where the favorite outranks the underdog by ${g}${g === maxGap ? ' (the maximum possible)' : ''}`}
+                    >
+                      <div className="gap-count">{count || ''}</div>
+                      <div className="gap-bar" style={{ height: `${6 + (count / tallest) * 30}px` }} />
+                      <div className="gap-num">{g}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {entries.length > 0 && (
+          <div className="report-row">
+            <div className="report-label">Ranks in play</div>
+            <div
+              className="report-value"
+              title="Which ranks appear somewhere in the schedule — touching both #1 and the bottom makes a more interesting night"
+            >
+              <span className="mm-rank-pips">
+                {Array.from({ length: M }, (_, i) => (
+                  <span key={i} className={`mm-rank-pip ${ranksUsed.has(i + 1) ? 'on' : ''}`}>{i + 1}</span>
+                ))}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     )
   })()
@@ -269,8 +291,7 @@ function Matchmaker() {
         {isViewOnly && (
           <>
             <h1 className="mm-title">Tonight's Matchups</h1>
-            {usageRow}
-            {mixRow}
+            {reportCard}
             {matchupsTable}
           </>
         )}
@@ -313,8 +334,7 @@ function Matchmaker() {
 
             {solveError && <div className="mm-error">{solveError}</div>}
 
-            {usageRow}
-            {mixRow}
+            {reportCard}
             {matchupsTable}
 
             {matchups && matchups.length > 0 && (

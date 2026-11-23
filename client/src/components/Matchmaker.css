@@ -32,12 +32,6 @@
   gap: 0.6rem;
 }
 
-.mm-mix {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-}
 
 .mm-rank-pips {
   display: flex;
@@ -74,35 +68,9 @@
   max-width: 460px;
 }
 
-/* Category usage badges */
-.mm-cat-usage {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
-}
 
-.mm-cat-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.4rem 0.95rem;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.07);
-  font-weight: 700;
-  font-size: 0.85rem;
-}
 
-.mm-cat-badge.unused {
-  opacity: 0.5;
-}
 
-.mm-cat-badge b {
-  font-family: 'Space Mono', monospace;
-  color: #fde047;
-}
 
 .mm-dots {
   display: flex;
@@ -167,4 +135,117 @@
 
 .mm-share {
   margin-top: 0.4rem;
+}
+
+/* ---- schedule report card ---- */
+.mm-report {
+  width: min(540px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.9rem 1.3rem 1.1rem;
+}
+
+.mm-report-title {
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  padding-bottom: 0.5rem;
+}
+
+.report-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.report-label {
+  flex: 0 0 120px;
+  text-align: left;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.report-value {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+}
+
+.rep-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.rep-cat.unused {
+  opacity: 0.45;
+}
+
+.rep-cat b {
+  font-family: 'Space Mono', monospace;
+  color: #fde047;
+}
+
+/* gap histogram */
+.gap-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+}
+
+.gap-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.gap-col .gap-count {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: #fde047;
+  min-height: 0.9rem;
+}
+
+.gap-col .gap-bar {
+  width: 18px;
+  border-radius: 5px 5px 2px 2px;
+  background: #fde047;
+}
+
+.gap-col.unused .gap-bar {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.gap-col .gap-num {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.gap-col.unused .gap-num {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 560px) {
+  .report-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 }
