@@ -119,7 +119,6 @@ function GameLobby() {
     ? players.filter(pid => playerRankings[pid]).length
     : players.length
   const unrankedCount = players.length - rankedCount
-  const hostIsPlayer = players.includes(gameState.host)
   const amPlayer = players.includes(playerId)
 
   return (
@@ -133,15 +132,8 @@ function GameLobby() {
           {copied ? '✓ Invite link copied!' : '🔗 Copy invite link'}
         </button>
 
-        {/* Players */}
+        {/* Players (an emcee host is not shown — they have no row in the game) */}
         <div className="player-chips">
-          {!hostIsPlayer && (
-            <div className="player-chip host-chip">
-              <span className="chip-avatar">👑</span>
-              <span className="chip-name">{playerNames[gameState.host] || 'Host'}</span>
-              <span className="chip-state">host</span>
-            </div>
-          )}
           {players.map((pid) => (
             <div
               key={pid}

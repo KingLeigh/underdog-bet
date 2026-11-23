@@ -84,6 +84,41 @@
   font-size: 1.15rem;
 }
 
+/* Per-category challenge count chips */
+.cat-count-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+}
+
+.cat-count-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.6rem 0.45rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.ccc-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.odds-stepper.tiny button {
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+}
+
+.odds-stepper.tiny span {
+  min-width: 1.6rem;
+  font-size: 1rem;
+}
+
 .create-btn {
   margin-top: 1.6rem;
   width: min(360px, 100%);

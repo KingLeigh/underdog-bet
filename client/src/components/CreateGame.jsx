@@ -24,9 +24,9 @@ const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
 function CreateGame() {
   const [searchParams] = useSearchParams()
   const [createPlayerName, setCreatePlayerName] = useState('')
-  const [hostPlays, setHostPlays] = useState(true)
+  const [hostPlays, setHostPlays] = useState(false) // host-only by default
   const [categories, setCategories] = useState('')
-  const [challengesPerCategory, setChallengesPerCategory] = useState('')
+  const [challengeCounts, setChallengeCounts] = useState({}) // category name -> count
   const [startingPoints, setStartingPoints] = useState(100)
   const [minBalance, setMinBalance] = useState(10)
   const [maxBet, setMaxBet] = useState(0) // 0 = no limit
@@ -49,29 +49,21 @@ function CreateGame() {
 
     if (categoriesParam && countsParam) {
       setCategories(categoriesParam)
-      setChallengesPerCategory(countsParam)
+      const names = categoriesParam.split(',').map(c => c.trim())
+      const counts = countsParam.split(',').map(c => parseInt(c.trim()))
+      const map = {}
+      names.forEach((name, i) => { map[name] = counts[i] || 1 })
+      setChallengeCounts(map)
       setIsPreFilled(true)
     } else {
       setIsPreFilled(false)
     }
   }, [searchParams])
 
-  // Auto-fill challenge counts when categories change (only without URL params)
-  useEffect(() => {
-    const categoriesParam = searchParams.get('categories')
-    const countsParam = searchParams.get('counts')
-
-    if (!categoriesParam && !countsParam) {
-      if (categories.trim()) {
-        const categoryCount = categories.split(',').filter(cat => cat.trim()).length
-        if (categoryCount > 0) {
-          setChallengesPerCategory(Array(categoryCount).fill('1').join(','))
-        }
-      } else {
-        setChallengesPerCategory('')
-      }
-    }
-  }, [categories, searchParams])
+  const catList = categories.split(',').map(c => c.trim()).filter(c => c.length > 0)
+  const countFor = (name) => challengeCounts[name] || 1
+  const stepCount = (name, delta) =>
+    setChallengeCounts(prev => ({ ...prev, [name]: clamp((prev[name] || 1) + delta, 1, 9) }))
 
   // Validation: category names must be unique
   const validateUniqueCategories = () => {
@@ -94,52 +86,18 @@ function CreateGame() {
     return { isValid: duplicates.length === 0, duplicates }
   }
 
-  // Validation: challenge counts must match the categories
-  const validateChallengesInput = () => {
-    if (!categories.trim()) {
-      return challengesPerCategory.trim() === ''
-    }
-
-    const categoryCount = categories.split(',').filter(cat => cat.trim()).length
-    if (categoryCount === 0) {
-      return challengesPerCategory.trim() === ''
-    }
-
-    if (!challengesPerCategory.trim()) {
-      return false
-    }
-
-    const challengesList = challengesPerCategory.split(',').map(challenge => challenge.trim())
-    if (challengesList.length !== categoryCount) {
-      return false
-    }
-
-    return challengesList.every(challenge => {
-      const num = parseInt(challenge)
-      return !isNaN(num) && num > 0 && challenge === num.toString()
-    })
-  }
-
   const handleCreateGame = (e) => {
     e.preventDefault()
 
-    if (!validateUniqueCategories().isValid || !validateChallengesInput()) {
+    if (!validateUniqueCategories().isValid) {
       return
     }
 
-    const categoriesList = categories.trim()
-      ? categories.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0)
-      : []
-
-    const challengesList = challengesPerCategory.trim()
-      ? challengesPerCategory.split(',').map(challenge => parseInt(challenge.trim())).filter(num => !isNaN(num))
-      : []
-
     createGame({
-      playerName: createPlayerName,
+      playerName: hostPlays ? createPlayerName : 'Host',
       hostPlays: hostPlays,
-      categories: categoriesList,
-      challengesPerCategory: challengesList,
+      categories: catList,
+      challengesPerCategory: catList.map(name => countFor(name)),
       startingPoints: startingPoints,
       minBalance: minBalance,
       maxBetSize: maxBet === 0 ? null : maxBet,
@@ -170,30 +128,32 @@ function CreateGame() {
         <h1 className="create-title">Set the Table</h1>
 
         <section className="cg-section">
-          <div className="cg-label">Your name</div>
-          <input
-            type="text"
-            value={createPlayerName}
-            onChange={(e) => setCreatePlayerName(e.target.value)}
-            placeholder="Your name"
-            className="stage-input"
-            required
-            autoFocus
-          />
-
           <div className="cg-label">You are</div>
           <div className="cat-pills">
-            <button type="button" className={`cat-pill ${hostPlays ? 'on' : ''}`} onClick={() => setHostPlays(true)}>
-              Playing
-            </button>
             <button type="button" className={`cat-pill ${!hostPlays ? 'on' : ''}`} onClick={() => setHostPlays(false)}>
               Hosting only
+            </button>
+            <button type="button" className={`cat-pill ${hostPlays ? 'on' : ''}`} onClick={() => setHostPlays(true)}>
+              Playing
             </button>
           </div>
           {!hostPlays && (
             <div className="cg-help">
               Emcee mode: you run contests and judge winners, but don't bet and don't appear on the leaderboard.
             </div>
+          )}
+          {hostPlays && (
+            <>
+              <div className="cg-label">Your name</div>
+              <input
+                type="text"
+                value={createPlayerName}
+                onChange={(e) => setCreatePlayerName(e.target.value)}
+                placeholder="Your name"
+                className="stage-input"
+                required
+              />
+            </>
           )}
         </section>
 
@@ -284,22 +244,29 @@ function CreateGame() {
             </div>
           )}
 
-          {categories.trim() && (
+          {catList.length > 0 && dupes.isValid && (
             <>
               <div className="cg-label">Challenges per category</div>
-              <input
-                type="text"
-                value={challengesPerCategory}
-                onChange={(e) => setChallengesPerCategory(e.target.value)}
-                placeholder="1,1,1"
-                className="stage-input cg-text"
-                disabled={isPreFilled}
-              />
-              {!validateChallengesInput() && (
-                <div className="cg-help warn">
-                  One number per category, e.g. {categories.split(',').filter(c => c.trim()).map(() => '1').join(',')}
-                </div>
-              )}
+              <div className="cat-count-chips">
+                {catList.map(name => (
+                  <div key={name} className="cat-count-chip">
+                    <span className="ccc-name">{name}</span>
+                    <div className="odds-stepper tiny">
+                      <button
+                        type="button"
+                        onClick={() => stepCount(name, -1)}
+                        disabled={isPreFilled || countFor(name) <= 1}
+                      >−</button>
+                      <span>{countFor(name)}</span>
+                      <button
+                        type="button"
+                        onClick={() => stepCount(name, 1)}
+                        disabled={isPreFilled || countFor(name) >= 9}
+                      >+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </section>
@@ -307,7 +274,7 @@ function CreateGame() {
         <button
           type="submit"
           className="mega-btn create-btn"
-          disabled={!validateChallengesInput() || !dupes.isValid}
+          disabled={!dupes.isValid}
         >
           CREATE GAME ★
         </button>
