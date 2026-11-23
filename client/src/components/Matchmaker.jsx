@@ -319,15 +319,6 @@ function Matchmaker() {
               {gameInfo.players.length} ranked player{gameInfo.players.length === 1 ? '' : 's'} · {gameInfo.cats.reduce((s, c) => s + c.count, 0)} challenges · reload to pick up new rankings
             </p>
 
-            <div className="mm-roster">
-              {gameInfo.players.map(p => (
-                <div key={p.pid} className="player-chip">
-                  <span className="chip-avatar">{avatarFor(p.pid)}</span>
-                  <span className="chip-name">{p.name}</span>
-                </div>
-              ))}
-            </div>
-
             <button className="mega-btn" onClick={makeMatches} disabled={!!solveStatus}>
               {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
             </button>
@@ -344,6 +335,32 @@ function Matchmaker() {
                 </button>
               </div>
             )}
+
+            <details className="game-details">
+              <summary>Rankings matrix</summary>
+              <div className="mm-matrix-wrap">
+                <table className="mm-matrix">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      {gameInfo.categories.map(c => <th key={c}>{c}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gameInfo.players.map(p => (
+                      <tr key={p.pid}>
+                        <td className="mx-player">{avatarFor(p.pid)} {p.name}</td>
+                        {gameInfo.categories.map(c => {
+                          const r = p.ranks[c]
+                          const cls = r === 1 ? 'top' : r === gameInfo.categories.length ? 'bottom' : ''
+                          return <td key={c} className={`mx-rank ${cls}`}>{r}</td>
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </>
         )}
       </div>

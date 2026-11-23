@@ -25,12 +25,6 @@
   max-width: 460px;
 }
 
-.mm-roster {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem;
-}
 
 
 .mm-rank-pips {
@@ -248,4 +242,54 @@
     align-items: flex-start;
     gap: 0.5rem;
   }
+}
+
+/* ---- rankings matrix (collapsible, info-dense) ---- */
+.mm-matrix-wrap {
+  overflow-x: auto;
+  margin-top: 0.6rem;
+}
+
+.mm-matrix {
+  border-collapse: collapse;
+  margin: 0 auto;
+}
+
+.mm-matrix th {
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  text-align: center;
+}
+
+.mm-matrix td {
+  padding: 0.35rem 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mx-player {
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mx-rank {
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mx-rank.top {
+  color: #fde047;
+}
+
+.mx-rank.bottom {
+  color: rgba(255, 255, 255, 0.35);
 }
