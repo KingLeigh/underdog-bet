@@ -339,7 +339,7 @@ function GameBoard() {
           <div className="score-ticker">
             {standings.map((p, i) => (
               <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>
-                {i === 0 ? '🏆 ' : ''}{p.name} {p.points}
+                {i === 0 ? '🏆 ' : ''}<span className="tick-name">{p.name}</span> {p.points}
               </span>
             ))}
           </div>

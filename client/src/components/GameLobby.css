@@ -95,6 +95,9 @@
 
 .player-chip .chip-name {
   text-transform: uppercase;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 
 .player-chip .chip-state {

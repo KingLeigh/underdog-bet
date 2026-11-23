@@ -25,6 +25,9 @@ main {
   margin-bottom: 0;
 }
 
+/* Type system: Lilita One = player names & display headings,
+   Space Grotesk = UI text & labels, Space Mono = numbers & codes */
+
 /* Shared Heading Styles */
 h1 {
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;

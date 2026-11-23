@@ -125,6 +125,8 @@
 
 .mm-table td:nth-child(4) {
   text-transform: uppercase;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.03em;
 }
 
 .mm-share {
@@ -272,7 +274,9 @@
 
 .mx-player {
   text-align: left;
-  font-weight: 700;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   font-size: 0.85rem;
   text-transform: uppercase;
   white-space: nowrap;

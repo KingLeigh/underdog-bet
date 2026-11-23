@@ -415,6 +415,9 @@
   text-transform: uppercase;
   flex: 1;
   text-align: left;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
 }
 
 .board-delta {
@@ -818,6 +821,8 @@
 /* Player names display in caps everywhere (stored data keeps its casing) */
 .bets-line .pname {
   text-transform: uppercase;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.06em;
 }
 
 .score-ticker .tick {
@@ -826,4 +831,13 @@
 
 .player-ranking-card h4 {
   text-transform: uppercase;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.score-ticker .tick-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.05em;
+  font-weight: 400;
 }
