@@ -102,6 +102,39 @@ function createInitialWagerState() {
   };
 }
 
+// Keep the player-ID counter ahead of any restored ID so new players
+// never collide with ones loaded from the database
+function ensurePlayerCounterAbove(playerID) {
+  const n = Number(String(playerID).replace(/^p/, ''));
+  if (Number.isFinite(n) && n >= nextPlayerID) {
+    nextPlayerID = n + 1;
+  }
+}
+
+// Restore a persisted { game, wager } snapshot into the in-memory maps.
+// Registry entries are rebuilt from the game's own player names (socketIDs
+// are dead after a restart anyway) so rejoin-by-name keeps working.
+function restoreGame(snapshot) {
+  const game = snapshot && snapshot.game;
+  if (!game || !game.id) return false;
+
+  gameSessions.set(game.id, game);
+  wagerStates.set(game.id, snapshot.wager || createInitialWagerState());
+
+  for (const [pid, name] of Object.entries(game.playerNames || {})) {
+    ensurePlayerCounterAbove(pid);
+    if (!playerRegistry.has(pid)) {
+      playerRegistry.set(pid, {
+        socketID: null,
+        playerName: name,
+        gameId: game.id,
+        lastSeen: Date.now()
+      });
+    }
+  }
+  return true;
+}
+
 // Note: there is deliberately no abandoned-game cleanup. Games live in
 // memory until the server restarts, so hosts can create games well in
 // advance. Revisit expiry/TTL when the database layer lands (see TODO.md).
@@ -117,5 +150,6 @@ module.exports = {
   addPoints,
   getPlayerPoints,
   getWagerState,
-  createInitialWagerState
+  createInitialWagerState,
+  restoreGame
 };

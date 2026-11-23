@@ -1,6 +1,7 @@
 // Game rules: processing of gameAction events (start, wagers, rankings).
 
 const { wagerStates, addPoints, playerRegistry } = require('./store');
+const persistence = require('./persistence');
 
 // Remove a player from a game entirely (host kick, or dropped at game start
 // for not submitting rankings). Notifies the removed player and detaches
@@ -325,6 +326,18 @@ function processGameAction(io, game, action, payload, playerID) {
             wagerState: wagerState,
             bountyAmount: bountyAmount,
             winnerPlayerId: winnerPlayerId
+          });
+
+          // Permanent record: the contest, every bet and payout, the bounty
+          persistence.logEvent(game.id, 'contestResolved', {
+            category: wagerState.category || '',
+            contestants: wagerState.contestants,
+            options: wagerState.options,
+            odds: wagerState.odds,
+            winnerPlayerId,
+            winningOption,
+            bountyAmount: bountyAmount || 0,
+            results
           });
 
           // Reset wager state for next round

@@ -12,6 +12,7 @@ const {
   createInitialWagerState
 } = require('./store');
 const { processGameAction } = require('./gameActions');
+const persistence = require('./persistence');
 
 // Send the active wager state (if any) to a player who just (re)joined a game
 function sendActiveWagerTo(socket, game, recipientPlayerID) {
@@ -94,6 +95,9 @@ function registerSocketHandlers(io) {
           // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
           socket.to(gameId).emit('gameStateUpdate', game);
           console.log(`Player ${playerName || 'Unknown'} (${playerID}) joined game ${gameId}`);
+
+          persistence.saveGame(gameId);
+          persistence.logEvent(gameId, 'playerJoined', { playerID, name: game.playerNames[playerID] });
         }
       } else {
         socket.emit('error', { message: 'Game not found' });
@@ -150,6 +154,9 @@ function registerSocketHandlers(io) {
       socket.join(gameId);
       socket.emit('gameCreated', { ...gameState, playerID });
       console.log(`Game ${gameId} created by ${gameConfig.playerName || 'Unknown'} (${playerID})`);
+
+      persistence.saveGame(gameId);
+      persistence.logEvent(gameId, 'gameCreated', { host: playerID, hostPlays, categories: gameState.categories });
     });
 
     // Handle game actions
@@ -172,6 +179,14 @@ function registerSocketHandlers(io) {
 
         // Broadcast updated state to all players in the game
         io.to(gameId).emit('gameStateUpdate', updatedState);
+
+        // Write through to the database. Every action is logged generically;
+        // resolveWager also logs a richer contestResolved event (with the
+        // computed payouts) from inside gameActions.
+        persistence.saveGame(gameId);
+        if (action !== 'resolveWager') {
+          persistence.logEvent(gameId, action, { playerID, ...payload });
+        }
       }
     });
 

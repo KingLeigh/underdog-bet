@@ -9,6 +9,7 @@ const path = require('path');
 
 const { registerRoutes } = require('./lib/routes');
 const { registerSocketHandlers } = require('./lib/sockets');
+const persistence = require('./lib/persistence');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +48,16 @@ if (process.env.NODE_ENV === 'production') {
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Connect to the database (when configured) and restore saved games before
+// accepting connections. A failed init is loud but not fatal: the party can
+// still run in-memory.
+persistence
+  .init()
+  .catch(err => {
+    console.error('Persistence init failed — continuing IN-MEMORY ONLY:', err.message);
+  })
+  .finally(() => {
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  });
