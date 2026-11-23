@@ -36,7 +36,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')));
 }
 
-registerRoutes(app);
+registerRoutes(app, io);
 registerSocketHandlers(io);
 
 // Serve React app for any non-API routes in production

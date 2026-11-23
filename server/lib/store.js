@@ -135,6 +135,18 @@ function restoreGame(snapshot) {
   return true;
 }
 
+// Remove a game and everything tied to it from memory (the manager's
+// Delete button). The database row is removed separately by persistence.
+function deleteGame(gameId) {
+  if (!gameSessions.has(gameId)) return false;
+  gameSessions.delete(gameId);
+  wagerStates.delete(gameId);
+  for (const [playerID, playerData] of playerRegistry.entries()) {
+    if (playerData.gameId === gameId) playerRegistry.delete(playerID);
+  }
+  return true;
+}
+
 // Note: there is deliberately no abandoned-game cleanup. Games live in
 // memory until the server restarts, so hosts can create games well in
 // advance. Revisit expiry/TTL when the database layer lands (see TODO.md).
@@ -151,5 +163,6 @@ module.exports = {
   getPlayerPoints,
   getWagerState,
   createInitialWagerState,
-  restoreGame
+  restoreGame,
+  deleteGame
 };

@@ -115,6 +115,28 @@ test('a saved game and its wager survive a restart', async () => {
   await persistence.close();
 });
 
+test('a deleted game stays gone after a restart, but its events remain', async () => {
+  const db = newDb();
+  const { Pool } = db.adapters.createPg();
+
+  await persistence.init({ pool: new Pool() });
+  gameSessions.set('G3', sampleGame('G3'));
+  await persistence.saveGame('G3');
+  await persistence.logEvent('G3', 'gameCreated', {});
+
+  await persistence.deleteGame('G3');
+
+  gameSessions.clear();
+  await persistence.close();
+  await persistence.init({ pool: new Pool() });
+  assert.equal(gameSessions.has('G3'), false, 'deleted game not restored');
+
+  const check = new Pool();
+  const events = await check.query("SELECT count(*) AS n FROM events WHERE game_id = 'G3'");
+  assert.equal(Number(events.rows[0].n), 1, 'history kept');
+  await persistence.close();
+});
+
 test('with no database configured, persistence is inert', async () => {
   const on = await persistence.init({ databaseUrl: null });
   assert.equal(on, false);

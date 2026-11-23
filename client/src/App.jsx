@@ -6,6 +6,7 @@ import CreateGame from './components/CreateGame'
 import GameLobby from './components/GameLobby'
 import GameBoard from './components/GameBoard'
 import Matchmaker from './components/Matchmaker'
+import GameManager from './components/GameManager'
 import ChallengeSelector from './components/ChallengeSelector'
 import ChallengeList from './components/ChallengeList'
 import { GameProvider } from './contexts/GameContext'
@@ -51,6 +52,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/create-game" element={<CreateGame />} />
               <Route path="/matchmaker" element={<Matchmaker />} />
+              <Route path="/gamemanager" element={<GameManager />} />
               <Route path="/challenge-selector" element={<ChallengeSelector />} />
               <Route path="/challenge-list" element={<ChallengeList />} />
               <Route path="/lobby/:gameId" element={<GameLobby />} />

@@ -102,6 +102,15 @@ function logEvent(gameId, type, payload) {
     .catch(err => console.error(`Logging ${type} for game ${gameId} failed:`, err.message));
 }
 
+// Remove a game's snapshot row. Its events stay: they are the permanent
+// record, and at ~100 KB per full night there is no reason to lose history.
+function deleteGame(gameId) {
+  if (!enabled) return Promise.resolve();
+  return pool
+    .query('DELETE FROM games WHERE id = $1', [gameId])
+    .catch(err => console.error(`Deleting game ${gameId} failed:`, err.message));
+}
+
 async function close() {
   if (pool) await pool.end();
   pool = null;
@@ -112,4 +121,4 @@ function isEnabled() {
   return enabled;
 }
 
-module.exports = { init, saveGame, logEvent, close, isEnabled };
+module.exports = { init, saveGame, logEvent, deleteGame, close, isEnabled };

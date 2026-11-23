@@ -1,0 +1,171 @@
+/* Game Manager: unlinked backstage screen, info-dense like the Matchmaker */
+
+.game-manager {
+  display: flex;
+  justify-content: center;
+}
+
+.gm-content {
+  width: min(820px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0 2rem;
+}
+
+.gm-kicker {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.gm-title {
+  margin-top: 0.2rem;
+}
+
+.gm-note {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.gm-error {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  color: #fda4af;
+  padding: 0.7rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.gm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.gm-table th {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.gm-table td {
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.gm-code {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: #fde047;
+  letter-spacing: 0.1em;
+}
+
+.gm-host {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gm-count,
+.gm-when {
+  font-family: 'Space Mono', monospace;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.85rem;
+}
+
+.gm-stage {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+}
+
+.gm-stage.waiting {
+  background: rgba(253, 224, 71, 0.15);
+  color: #fde047;
+}
+
+.gm-stage.playing {
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+}
+
+.gm-stage.live {
+  background: rgba(236, 72, 153, 0.2);
+  color: #f9a8d4;
+}
+
+.gm-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.gm-launch {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: none;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: linear-gradient(180deg, #a78bfa, #7c3aed);
+  color: #ede9fe;
+  box-shadow: 0 3px 0 #5b21b6;
+}
+
+.gm-launch:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #5b21b6;
+}
+
+.gm-delete {
+  margin-left: 0.9rem;
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  background: none;
+  color: #fda4af;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.gm-delete.danger {
+  background: #f43f5e;
+  border-color: #f43f5e;
+  color: #fff;
+}
+
+.gm-refresh {
+  margin-top: 1.6rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.gm-refresh:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+@media (max-width: 640px) {
+  .gm-when { display: none; }
+  .gm-table th:nth-child(5) { display: none; }
+}

@@ -42,7 +42,9 @@ function sleep(ms) {
 
 before(async () => {
   serverProcess = spawn(process.execPath, [path.join(__dirname, '..', 'index.js')], {
-    env: { ...process.env, PORT: String(PORT), GOOGLE_APPS_SCRIPT_URL: '' },
+    // DATABASE_URL is blanked so the test server never persists its games
+    // into a real database (dotenv does not override existing env vars)
+    env: { ...process.env, PORT: String(PORT), GOOGLE_APPS_SCRIPT_URL: '', DATABASE_URL: '' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 

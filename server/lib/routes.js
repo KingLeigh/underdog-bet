@@ -1,18 +1,41 @@
 // REST API endpoints.
 
-const { gameSessions, wagerStates, getPlayerPoints, getWagerState } = require('./store');
+const { gameSessions, wagerStates, getPlayerPoints, getWagerState, deleteGame } = require('./store');
 const { getChallenges } = require('./challenges');
+const persistence = require('./persistence');
 
-function registerRoutes(app) {
+function registerRoutes(app, io) {
   app.get('/api/games', (req, res) => {
-    const games = Array.from(gameSessions.values()).map(game => ({
-      id: game.id,
-      status: game.status,
-      playerCount: game.players.length,
-      createdAt: game.createdAt,
-      playerPoints: game.playerPoints
-    }));
+    const games = Array.from(gameSessions.values()).map(game => {
+      const wagerState = wagerStates.get(game.id);
+      return {
+        id: game.id,
+        status: game.status,
+        playerCount: game.players.length,
+        hostName: game.playerNames[game.host] || 'Unknown',
+        wagerActive: !!(wagerState && wagerState.isActive && !wagerState.resolved),
+        createdAt: game.createdAt,
+        playerPoints: game.playerPoints
+      };
+    });
     res.json(games);
+  });
+
+  // Delete a game entirely (game manager). Connected players are told and
+  // kicked; the events history stays in the database.
+  app.delete('/api/games/:id', (req, res) => {
+    const gameId = req.params.id;
+    if (!gameSessions.has(gameId)) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+    if (io) {
+      io.to(gameId).emit('removedFromGame', { gameId, reason: 'This game was deleted by the host.' });
+      io.in(gameId).socketsLeave(gameId);
+    }
+    deleteGame(gameId);
+    persistence.deleteGame(gameId);
+    console.log(`Game ${gameId} deleted via game manager`);
+    res.json({ ok: true });
   });
 
   app.get('/api/games/:id', (req, res) => {
