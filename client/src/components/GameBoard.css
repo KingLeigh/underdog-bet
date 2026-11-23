@@ -419,54 +419,175 @@
   border-radius: 8px;
 }
 
-/* ---- host proposal form ---- */
-.wager-proposal-form {
+/* ---- host contest setup: pills, player cards, odds steppers ---- */
+.contest-setup {
   margin-top: 1.4rem;
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.9rem;
+  gap: 1.3rem;
 }
 
-.proposal-players {
+.cat-pills {
   display: flex;
-  gap: 0.9rem;
-  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
 }
 
-.proposal-players .form-group {
-  flex: 1;
-}
-
-.form-group {
-  width: 100%;
-  text-align: left;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.8rem;
+.cat-pill {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.75);
   font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.cat-pill:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.cat-pill.on {
+  background: #fde047;
+  border-color: #fde047;
+  color: #111;
+}
+
+.mini-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.mini-card {
+  position: relative;
+  width: 128px;
+  padding: 1rem 0.6rem 0.8rem;
+  border-radius: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.12s ease;
+}
+
+.mini-card:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mini-card.picked {
+  border-color: #fde047;
+  background: rgba(253, 224, 71, 0.12);
+  box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.18);
+}
+
+.mini-avatar {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.mini-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.mini-meta {
+  font-size: 0.66rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 0.35rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
 }
 
-.form-input {
-  width: 100%;
-  padding: 0.8rem 0.9rem;
-  border-radius: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+.mini-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fde047;
+  color: #111;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.setup-preview {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.preview-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.preview-name {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 1.2rem;
+}
+
+.vs-mini {
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  color: #fde047;
+  font-size: 1.1rem;
+  transform: rotate(-8deg);
+}
+
+.odds-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.odds-stepper button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s ease;
 }
 
-.form-input option {
-  color: #111;
+.odds-stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.odds-stepper button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.odds-stepper span {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 1.3rem;
+  min-width: 3.4rem;
+  text-align: center;
+  color: #fde047;
 }
 
 /* ---- collapsed game info ---- */
@@ -592,5 +713,13 @@
 
   .resolve-pick {
     max-width: none;
+  }
+
+  .mini-card {
+    width: 104px;
+  }
+
+  .setup-preview {
+    gap: 0.9rem;
   }
 }

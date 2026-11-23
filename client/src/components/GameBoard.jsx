@@ -462,29 +462,34 @@ function ChipBetForm({ selectedName, currentPoints, minBalance, maxBetSize, onSu
   )
 }
 
-// Wager Proposal Form Component (host sets up the contest)
+// Host sets up the contest: tap a category pill, tap two player cards,
+// dial the odds, go.
 function WagerProposalForm({ onSubmit }) {
   const { players, playerNames, playerWagerCount, categories, playerRankings, rankingsComplete } = useGame()
-  const [option1, setOption1] = useState('')
-  const [option2, setOption2] = useState('')
-  const [odds1, setOdds1] = useState(1)
-  const [odds2, setOdds2] = useState(1)
+  const [picked, setPicked] = useState([]) // up to two playerIDs
+  const [odds, setOdds] = useState({}) // pid -> odds multiplier
   const [selectedCategory, setSelectedCategory] = useState('')
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (option1 && option2 && option1 !== option2 && odds1 && odds2) {
-      onSubmit(option1, option2, odds1, odds2, selectedCategory)
-      setOption1('')
-      setOption2('')
-      setOdds1(1)
-      setOdds2(1)
-      setSelectedCategory('')
-    }
+  const hasCategories = categories && categories.length > 0 && rankingsComplete
+
+  const togglePick = (pid) => {
+    setPicked(prev => {
+      if (prev.includes(pid)) return prev.filter(p => p !== pid)
+      if (prev.length < 2) return [...prev, pid]
+      return [prev[1], pid] // already two: swap out the older pick
+    })
   }
 
-  // Player list for dropdowns with wager counts and category rankings
-  const playerNameList = players
+  const stepOdds = (pid, delta) => {
+    setOdds(prev => {
+      const current = prev[pid] || 1
+      const next = Math.min(10, Math.max(1, Math.round((current + delta) * 2) / 2))
+      return { ...prev, [pid]: next }
+    })
+  }
+
+  // Grid sorted by rank in the selected category, else by games played
+  const grid = players
     .map(pid => {
       const name = playerNames[pid]
       const wagerCount = playerWagerCount[pid] || 0
@@ -506,132 +511,83 @@ function WagerProposalForm({ onSubmit }) {
       return a.name.localeCompare(b.name)
     })
 
-  const formatPlayerDisplay = (player) => {
-    if (selectedCategory && player.categoryRank) {
-      return `${player.name} (Rank ${player.categoryRank}, Played ${player.wagerCount})`
-    } else {
-      return `${player.name} (Played ${player.wagerCount})`
-    }
-  }
+  const ready = picked.length === 2
 
-  const formatOddsLabel = (pid, defaultText) => {
-    if (!pid) return defaultText
-    const name = playerNames[pid]
-    const rank = selectedCategory ? playerRankings[pid]?.[selectedCategory] : null
-    return rank ? `Odds for ${name} (Rank ${rank}):` : `Odds for ${name}:`
+  const handleStart = () => {
+    if (!ready) return
+    onSubmit(picked[0], picked[1], odds[picked[0]] || 1, odds[picked[1]] || 1, selectedCategory)
+    setPicked([])
+    setOdds({})
+    setSelectedCategory('')
   }
 
   return (
-    <form onSubmit={handleSubmit} className="wager-proposal-form">
-      {categories && categories.length > 0 && rankingsComplete && (
-        <div className="form-group">
-          <label htmlFor="category-select">Category:</label>
-          <select
-            id="category-select"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="form-input"
+    <div className="contest-setup">
+      {hasCategories && (
+        <div className="cat-pills">
+          <button
+            type="button"
+            className={`cat-pill ${selectedCategory === '' ? 'on' : ''}`}
+            onClick={() => setSelectedCategory('')}
           >
-            <option value="">No Category</option>
-            {categories.map((category, index) => (
-              <option key={index} value={category}>{category}</option>
-            ))}
-          </select>
+            None
+          </button>
+          {categories.map((category) => (
+            <button
+              type="button"
+              key={category}
+              className={`cat-pill ${selectedCategory === category ? 'on' : ''}`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="proposal-players">
-        <div className="form-group">
-          <label htmlFor="option1">First Player:</label>
-          <select
-            id="option1"
-            value={option1}
-            onChange={(e) => setOption1(e.target.value)}
-            required
-            className="form-input"
+      <div className="mini-grid">
+        {grid.map((player) => (
+          <button
+            type="button"
+            key={player.pid}
+            className={`mini-card ${picked.includes(player.pid) ? 'picked' : ''}`}
+            onClick={() => togglePick(player.pid)}
           >
-            <option value="">Select a player</option>
-            {playerNameList.map((player) => (
-              <option key={player.pid} value={player.pid} disabled={player.pid === option2}>
-                {formatPlayerDisplay(player)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label htmlFor="option2">Second Player:</label>
-          <select
-            id="option2"
-            value={option2}
-            onChange={(e) => setOption2(e.target.value)}
-            required
-            className="form-input"
-          >
-            <option value="">Select a player</option>
-            {playerNameList.map((player) => (
-              <option key={player.pid} value={player.pid} disabled={player.pid === option1}>
-                {formatPlayerDisplay(player)}
-              </option>
-            ))}
-          </select>
-        </div>
+            <span className="mini-avatar">{avatarFor(player.pid)}</span>
+            <span className="mini-name">{player.name}</span>
+            <span className="mini-meta">
+              {selectedCategory && player.categoryRank ? `Rank ${player.categoryRank} · ` : ''}
+              Played {player.wagerCount}
+            </span>
+            {picked.includes(player.pid) && (
+              <span className="mini-badge">{picked.indexOf(player.pid) + 1}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      <div className="proposal-players">
-        <div className="form-group">
-          <label htmlFor="odds1">{formatOddsLabel(option1, 'Odds for First Player:')}</label>
-          <input
-            type="number"
-            id="odds1"
-            value={odds1}
-            onChange={(e) => {
-              const value = e.target.value
-              if (value === '') {
-                setOdds1('')
-              } else {
-                const numValue = parseFloat(value)
-                if (!isNaN(numValue)) {
-                  setOdds1(Math.max(1, numValue))
-                }
-              }
-            }}
-            min="1"
-            step="0.1"
-            className="form-input"
-          />
+      {ready && (
+        <div className="setup-preview">
+          {picked.map((pid, i) => (
+            <React.Fragment key={pid}>
+              {i === 1 && <div className="vs-mini">VS</div>}
+              <div className="preview-side">
+                <div className="preview-name">{avatarFor(pid)} {playerNames[pid]}</div>
+                <div className="odds-stepper">
+                  <button type="button" onClick={() => stepOdds(pid, -0.5)} disabled={(odds[pid] || 1) <= 1}>−</button>
+                  <span>{odds[pid] || 1}×</span>
+                  <button type="button" onClick={() => stepOdds(pid, 0.5)}>+</button>
+                </div>
+              </div>
+            </React.Fragment>
+          ))}
         </div>
-        <div className="form-group">
-          <label htmlFor="odds2">{formatOddsLabel(option2, 'Odds for Second Player:')}</label>
-          <input
-            type="number"
-            id="odds2"
-            value={odds2}
-            onChange={(e) => {
-              const value = e.target.value
-              if (value === '') {
-                setOdds2('')
-              } else {
-                const numValue = parseFloat(value)
-                if (!isNaN(numValue)) {
-                  setOdds2(Math.max(1, numValue))
-                }
-              }
-            }}
-            min="1"
-            step="0.1"
-            className="form-input"
-          />
-        </div>
-      </div>
+      )}
 
-      <button
-        type="submit"
-        className="place-bet propose"
-        disabled={!option1 || !option2 || option1 === option2 || !odds1 || !odds2}
-      >
-        START THE CONTEST ★
+      <button className="place-bet propose" disabled={!ready} onClick={handleStart}>
+        {ready ? 'START THE CONTEST ★' : 'PICK TWO PLAYERS'}
       </button>
-    </form>
+    </div>
   )
 }
 
