@@ -156,6 +156,42 @@ function Matchmaker() {
     })
   }
 
+  // Per-category usage badges: how many of each category's challenges the
+  // proposed schedule uses (dots when the totals are known)
+  const usageRow = matchups && matchups.length > 0 && (() => {
+    const used = {}
+    for (const m of matchups) used[m.category] = (used[m.category] || 0) + 1
+
+    const entries = gameInfo
+      ? gameInfo.cats.map(c => ({ name: c.name, used: used[c.name] || 0, total: c.count }))
+      : Object.entries(used).map(([name, u]) => ({ name, used: u, total: null }))
+
+    return (
+      <div className="mm-cat-usage">
+        {entries.map(c => (
+          <span
+            key={c.name}
+            className={`mm-cat-badge ${c.used === 0 ? 'unused' : ''}`}
+            title={c.total != null
+              ? `${c.used} of ${c.total} ${c.name} challenges used`
+              : `${c.used} ${c.name} challenge${c.used === 1 ? '' : 's'} used`}
+          >
+            {c.name}
+            {c.total != null ? (
+              <span className="mm-dots">
+                {Array.from({ length: c.total }, (_, i) => (
+                  <span key={i} className={i < c.used ? 'dot on' : 'dot'} />
+                ))}
+              </span>
+            ) : (
+              <b>×{c.used}</b>
+            )}
+          </span>
+        ))}
+      </div>
+    )
+  })()
+
   const matchupsTable = matchups && matchups.length > 0 && (
     <table className="mm-table">
       <thead>
@@ -184,6 +220,7 @@ function Matchmaker() {
         {isViewOnly && (
           <>
             <h1 className="mm-title">Tonight's Matchups</h1>
+            {usageRow}
             {matchupsTable}
           </>
         )}
@@ -252,6 +289,7 @@ function Matchmaker() {
 
             {solveError && <div className="mm-error">{solveError}</div>}
 
+            {usageRow}
             {matchupsTable}
 
             {matchups && matchups.length > 0 && (

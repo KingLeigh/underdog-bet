@@ -51,6 +51,53 @@
   max-width: 460px;
 }
 
+/* Category usage badges */
+.mm-cat-usage {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.mm-cat-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.mm-cat-badge.unused {
+  opacity: 0.5;
+}
+
+.mm-cat-badge b {
+  font-family: 'Space Mono', monospace;
+  color: #fde047;
+}
+
+.mm-dots {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.mm-dots .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(253, 224, 71, 0.55);
+}
+
+.mm-dots .dot.on {
+  background: #fde047;
+  border-color: #fde047;
+}
+
 .mm-table {
   width: 100%;
   border-collapse: collapse;
