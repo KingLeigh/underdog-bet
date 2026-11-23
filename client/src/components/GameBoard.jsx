@@ -484,12 +484,14 @@ function ChipBetForm({ selectedName, currentPoints, minBalance, maxBetSize, onSu
 function WagerProposalForm({ onSubmit }) {
   const { players, playerNames, playerWagerCount, categories, playerRankings, rankingsComplete } = useGame()
   const [picked, setPicked] = useState([]) // up to two playerIDs
-  const [odds, setOdds] = useState({}) // pid -> odds multiplier
+  const [dogOdds, setDogOdds] = useState(1) // the underdog's multiplier (favorite is pegged at 1x)
+  const [swapped, setSwapped] = useState(false) // manual side swap when ranks don't decide
   const [selectedCategory, setSelectedCategory] = useState('')
 
   const hasCategories = categories && categories.length > 0 && rankingsComplete
 
   const togglePick = (pid) => {
+    setSwapped(false)
     setPicked(prev => {
       if (prev.includes(pid)) return prev.filter(p => p !== pid)
       if (prev.length < 2) return [...prev, pid]
@@ -500,36 +502,23 @@ function WagerProposalForm({ onSubmit }) {
   const rankOf = (pid) =>
     (selectedCategory && playerRankings[pid] && playerRankings[pid][selectedCategory]) || null
 
-  // Preview order: favorite on the left. With differing category ranks the
-  // better rank IS the favorite; otherwise shorter odds make the favorite
-  // (and the sides reorder live as the odds change).
+  // Preview order: favorite on the left, pegged at 1x. With differing
+  // category ranks the better rank IS the favorite; otherwise pick order
+  // decides and the host can swap the sides manually.
   const orderedPick = (() => {
     if (picked.length < 2) return picked
     const [a, b] = picked
     const ra = rankOf(a), rb = rankOf(b)
     if (ra && rb && ra !== rb) return ra < rb ? [a, b] : [b, a]
-    const oa = odds[a] || 1, ob = odds[b] || 1
-    if (oa !== ob) return oa < ob ? [a, b] : [b, a]
-    return [a, b]
+    return swapped ? [b, a] : [a, b]
   })()
 
   const [favId, dogId] = orderedPick
   const rankBasedRoles = picked.length === 2 &&
     rankOf(favId) && rankOf(dogId) && rankOf(favId) !== rankOf(dogId)
 
-  const stepOdds = (pid, delta) => {
-    setOdds(prev => {
-      const current = prev[pid] || 1
-      let next = Math.min(10, Math.max(1, Math.round((current + delta) * 2) / 2))
-      // With rank-defined roles, the favorite can never pay more than the
-      // underdog: clamp each side at the other's odds.
-      if (rankBasedRoles) {
-        if (pid === favId) next = Math.min(next, prev[dogId] || 1)
-        if (pid === dogId) next = Math.max(next, prev[favId] || 1)
-      }
-      return { ...prev, [pid]: next }
-    })
-  }
+  const stepDogOdds = (delta) =>
+    setDogOdds(current => Math.min(10, Math.max(1, Math.round((current + delta) * 2) / 2)))
 
   // Grid sorted by rank in the selected category, else by games played
   const grid = players
@@ -558,10 +547,11 @@ function WagerProposalForm({ onSubmit }) {
 
   const handleStart = () => {
     if (!ready) return
-    // Submit favorite-first so the contestant order matches the preview
-    onSubmit(favId, dogId, odds[favId] || 1, odds[dogId] || 1, selectedCategory)
+    // Submit favorite-first (pegged at 1x) so the live cards match the preview
+    onSubmit(favId, dogId, 1, dogOdds, selectedCategory)
     setPicked([])
-    setOdds({})
+    setDogOdds(1)
+    setSwapped(false)
     setSelectedCategory('')
   }
 
@@ -603,45 +593,51 @@ function WagerProposalForm({ onSubmit }) {
               {selectedCategory && player.categoryRank ? `Rank ${player.categoryRank} · ` : ''}
               Played {player.wagerCount}
             </span>
-            {picked.includes(player.pid) && (
-              <span className="mini-badge">{picked.indexOf(player.pid) + 1}</span>
-            )}
           </button>
         ))}
       </div>
 
       {ready && (() => {
-        const favOdds = odds[favId] || 1
-        const dogOdds = odds[dogId] || 1
-        const even = !rankBasedRoles && favOdds === dogOdds
+        const even = !rankBasedRoles && dogOdds === 1
 
-        const side = (pid, role) => {
-          const value = odds[pid] || 1
-          const minusDisabled = value <= 1 ||
-            (rankBasedRoles && pid === dogId && value <= favOdds)
-          const plusDisabled = value >= 10 ||
-            (rankBasedRoles && pid === favId && value >= dogOdds)
-          return (
-            <div className="preview-side" key={pid}>
-              <div className="preview-tag">{role}</div>
-              <div className="preview-name">
-                {avatarFor(pid)} {playerNames[pid]}
-                {rankOf(pid) && <span className="preview-rank">Rank {rankOf(pid)}</span>}
-              </div>
-              <div className="odds-stepper">
-                <button type="button" onClick={() => stepOdds(pid, -0.5)} disabled={minusDisabled}>−</button>
-                <span>{value}×</span>
-                <button type="button" onClick={() => stepOdds(pid, 0.5)} disabled={plusDisabled}>+</button>
-              </div>
-            </div>
-          )
-        }
+        const nameOf = (pid) => (
+          <div className="preview-name">
+            {avatarFor(pid)} {playerNames[pid]}
+            {rankOf(pid) && <span className="preview-rank">Rank {rankOf(pid)}</span>}
+          </div>
+        )
 
         return (
           <div className="setup-preview">
-            {side(favId, even ? 'Even' : 'Favorite')}
-            <div className="vs-mini">VS</div>
-            {side(dogId, even ? 'Even' : 'Underdog')}
+            <div className="preview-side">
+              <div className="preview-tag">{even ? 'Even' : 'Favorite'}</div>
+              {nameOf(favId)}
+              <div className="odds-fixed">1×</div>
+            </div>
+
+            <div className="vs-stack">
+              <div className="vs-mini">VS</div>
+              {!rankBasedRoles && (
+                <button
+                  type="button"
+                  className="swap-btn"
+                  title="Swap the sides"
+                  onClick={() => setSwapped(s => !s)}
+                >
+                  ⇄
+                </button>
+              )}
+            </div>
+
+            <div className="preview-side">
+              <div className="preview-tag">{even ? 'Even' : 'Underdog'}</div>
+              {nameOf(dogId)}
+              <div className="odds-stepper">
+                <button type="button" onClick={() => stepDogOdds(-0.5)} disabled={dogOdds <= 1}>−</button>
+                <span>{dogOdds}×</span>
+                <button type="button" onClick={() => stepDogOdds(0.5)} disabled={dogOdds >= 10}>+</button>
+              </div>
+            </div>
           </div>
         )
       })()}

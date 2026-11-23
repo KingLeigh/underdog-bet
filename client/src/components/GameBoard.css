@@ -553,22 +553,6 @@
   font-weight: 700;
 }
 
-.mini-badge {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #fde047;
-  color: #111;
-  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-}
 
 .setup-preview {
   display: flex;
@@ -613,6 +597,37 @@
   color: #fde047;
   font-size: 1.1rem;
   transform: rotate(-8deg);
+}
+
+.odds-fixed {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.45rem 0;
+}
+
+.vs-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.swap-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.swap-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .odds-stepper {
