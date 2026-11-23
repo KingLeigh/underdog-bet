@@ -45,7 +45,8 @@ function GameBoard() {
     challengesPerCategory,
     playerRankings,
     rankingsComplete,
-    wagerCategory
+    wagerCategory,
+    wagerChallenge
   } = useGame()
 
   // Tick while a bet-lock countdown is running so the remaining seconds
@@ -272,7 +273,8 @@ function GameBoard() {
                       aria-label="Previous matchup"
                     >‹</button>
                     <div className="matchup-nav-body">
-                      <div className="category-title">{viewed.category}</div>
+                      <div className="category-title">{viewed.challenge || viewed.category}</div>
+                      {viewed.challenge ? <div className="category-sub">{viewed.category}</div> : null}
                       <p className="next-teaser">
                         <b>{playerNames[viewed.highId] || '?'}</b>
                         <span className="teaser-rank">rank {viewed.highRank}</span>
@@ -393,7 +395,10 @@ function GameBoard() {
           return (
             <div className="contest-area">
               <div className="round-strip">{contestLabel}</div>
-              <div className="category-title">{wagerCategory || 'Who Wins?'}</div>
+              <div className="category-title">{wagerChallenge || wagerCategory || 'Who Wins?'}</div>
+              {wagerChallenge && wagerCategory ? (
+                <div className="category-sub">{wagerCategory}</div>
+              ) : null}
 
               {/* One chip per player, leader first: who's bet, who's still
                   deciding — betting progress at the top of the stage */}

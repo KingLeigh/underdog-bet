@@ -491,7 +491,7 @@ function makeMatchmadeGame() {
     playerRankings: { p1: { A: 1, B: 2 }, p2: { A: 2, B: 1 } }
   });
   processGameAction(io, game, 'saveMatchups', { matchups: [
-    { category: 'A', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 },
+    { category: 'A', challenge: '  Stop the timer blind  ', highId: 'p1', lowId: 'p2', highRank: 1, lowRank: 2, gap: 1 },
     { category: 'B', highId: 'p2', lowId: 'p1', highRank: 1, lowRank: 2, gap: 1 }
   ] }, 'p1');
   return game;
@@ -503,6 +503,8 @@ test('saveMatchups stores the schedule with its roster snapshot', () => {
   assert.deepEqual(game.matchupsFor, ['p1', 'p2']);
   assert.equal(game.matchups[0].number, 1);
   assert.ok(game.matchups.every(m => !m.played && !m.skipped));
+  assert.equal(game.matchups[0].challenge, 'Stop the timer blind', 'challenge name trimmed and stored');
+  assert.equal(game.matchups[1].challenge, '', 'missing name is empty');
 });
 
 test('saveMatchups is host-only and rejects unranked contestants', () => {
@@ -559,6 +561,7 @@ test('nextMatchup proposes the scheduled wager with gap-derived odds', () => {
   assert.equal(wager.category, 'A');
   assert.deepEqual(wager.odds, [1, 1.5], 'gap 1 -> 1.5x underdog');
   assert.deepEqual(lastEvent(events, 'wagerProposed').options, ['Bob', 'Alice']);
+  assert.equal(lastEvent(events, 'wagerProposed').challenge, 'Stop the timer blind', 'challenge name travels with the wager');
 
   // The host's own odds override the gap default; junk odds fall back to it
   processGameAction(io, game, 'cancelWager', {}, 'p1');

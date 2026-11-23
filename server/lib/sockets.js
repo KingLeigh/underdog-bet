@@ -25,6 +25,7 @@ function sendActiveWagerTo(socket, game, recipientPlayerID) {
     contestants: wagerState.contestants,
     odds: wagerState.odds,
     category: wagerState.category || '',
+    challenge: wagerState.challenge || '',
     betsLockAt: wagerState.betsLockAt || null,
     matchupNumber: wagerState.matchupNumber || null
   });

@@ -53,6 +53,7 @@ const clearedWagerFields = {
   wagerResolved: false,
   wagerResults: null,
   wagerCategory: '',
+  wagerChallenge: '',
   betsLockAt: null,
   wagerMatchupNumber: null
 }
@@ -95,7 +96,7 @@ function gameReducer(state, action) {
     }
 
     case 'WAGER_PROPOSED': {
-      const { options, contestants, odds, category, betsLockAt, matchupNumber } = action.payload
+      const { options, contestants, odds, category, challenge, betsLockAt, matchupNumber } = action.payload
       return {
         ...state,
         ...clearedWagerFields,
@@ -103,6 +104,7 @@ function gameReducer(state, action) {
         wagerContestants: contestants || [],
         wagerActive: true,
         wagerCategory: category || '',
+        wagerChallenge: challenge || '',
         betsLockAt: betsLockAt || null,
         wagerMatchupNumber: matchupNumber || null
       }

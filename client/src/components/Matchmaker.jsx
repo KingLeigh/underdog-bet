@@ -97,6 +97,7 @@ function Matchmaker() {
             highRank: m.highRank,
             lowRank: m.lowRank,
             gap: m.gap,
+            challenge: m.challenge || '',
             played: !!m.played,
             skipped: !!m.skipped
           })))
@@ -182,7 +183,8 @@ function Matchmaker() {
         matchup: `${a.highRank} vs ${a.lowRank}`,
         highRank: a.highRank,
         lowRank: a.lowRank,
-        gap: a.gap
+        gap: a.gap,
+        challenge: ''
       })))
     }, 30)
   }
@@ -195,6 +197,7 @@ function Matchmaker() {
     gameInfo.players.forEach(p => { nameToPid[p.name] = p.pid })
     const payload = matchups.map(m => ({
       category: m.category,
+      challenge: m.challenge || '',
       highId: nameToPid[m.high],
       lowId: nameToPid[m.low],
       highRank: m.highRank,
@@ -324,10 +327,18 @@ function Matchmaker() {
     ? (matchups.find(m => !m.played && !m.skipped) || {}).number
     : null
 
+  // Before the start, the challenge column is the page's one editable
+  // field: name the actual challenge and it becomes the contest's title
+  const editableNames = gameInfo && !playing && !isViewOnly
+  const setChallenge = (number, value) => {
+    setMatchups(rows => rows.map(r => r.number === number ? { ...r, challenge: value } : r))
+    setSaved(false)
+  }
+
   const matchupsTable = matchups && matchups.length > 0 && (
     <table className="mm-table">
       <thead>
-        <tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th></tr>
+        <tr><th>#</th><th>Category</th><th>Favorite</th><th>Underdog</th><th>Matchup</th><th>Challenge</th></tr>
       </thead>
       <tbody>
         {matchups.map((m) => {
@@ -340,6 +351,20 @@ function Matchmaker() {
               <td className="mm-fav">{m.high}</td>
               <td>{m.low}</td>
               <td>{m.matchup}</td>
+              <td>
+                {editableNames ? (
+                  <input
+                    className="mm-challenge-input"
+                    type="text"
+                    maxLength={80}
+                    placeholder="name it…"
+                    value={m.challenge || ''}
+                    onChange={e => setChallenge(m.number, e.target.value)}
+                  />
+                ) : (
+                  <span className="mm-challenge">{m.challenge || '–'}</span>
+                )}
+              </td>
             </tr>
           )
         })}

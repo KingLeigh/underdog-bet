@@ -275,6 +275,8 @@ function processGameAction(io, game, action, payload, playerID) {
       game.matchups = list.map((m, i) => ({
         number: i + 1,
         category: m.category,
+        // Optional host-typed challenge name, shown as the contest title
+        challenge: typeof m.challenge === 'string' ? m.challenge.trim().slice(0, 80) : '',
         highId: m.highId,
         lowId: m.lowId,
         highRank: m.highRank,
@@ -335,6 +337,7 @@ function processGameAction(io, game, action, payload, playerID) {
         contestants: [m.highId, m.lowId],
         odds: [1, dogOdds],
         category: m.category,
+        challenge: m.challenge || '',
         playerChoices: {},
         resolved: false,
         correctOption: null,
@@ -348,6 +351,7 @@ function processGameAction(io, game, action, payload, playerID) {
         contestants: [m.highId, m.lowId],
         odds: [1, dogOdds],
         category: m.category,
+        challenge: m.challenge || '',
         betsLockAt: null,
         matchupNumber: m.number
       });
@@ -543,6 +547,7 @@ function processGameAction(io, game, action, payload, playerID) {
           wagerState.correctOption = null;
           wagerState.fromSchedule = false;
           wagerState.matchupNumber = null;
+          wagerState.challenge = '';
           wagerState.resolved = false;
         } else {
           console.error(`Cannot resolve wager for game ${game.id}:`, {

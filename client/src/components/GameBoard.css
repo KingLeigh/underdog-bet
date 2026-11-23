@@ -554,6 +554,17 @@
   background: rgba(253, 224, 71, 0.07);
 }
 
+/* Category demoted to a subtitle when a challenge name is the title */
+.category-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin: -0.5rem 0 0.9rem;
+}
+
 /* ---- scheduled matchups ---- */
 .next-teaser {
   font-size: 1.2rem;

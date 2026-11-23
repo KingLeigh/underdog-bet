@@ -125,6 +125,32 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Host-typed challenge names */
+.mm-challenge-input {
+  width: 150px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+}
+
+.mm-challenge-input:focus {
+  border-color: #fde047;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mm-challenge-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.mm-challenge {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* Progress marks while a game is running */
 .mm-table tr.mm-done td {
   opacity: 0.4;
