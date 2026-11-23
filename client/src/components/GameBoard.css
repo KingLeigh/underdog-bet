@@ -358,28 +358,66 @@
   margin-top: 0.2rem;
 }
 
-.results-lines {
+.results-board {
   margin-top: 1.4rem;
-  width: min(380px, 100%);
+  width: min(460px, 100%);
 }
 
-.result-line {
+.board-row {
   display: flex;
-  justify-content: space-between;
-  padding: 0.55rem 0.4rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 1.05rem;
   font-weight: 600;
+  font-size: 1.02rem;
+  border-radius: 10px;
 }
 
-.result-line .gain {
-  color: #34d399;
-  font-family: 'Space Mono', monospace;
+.board-row.head {
+  border-bottom: none;
+  padding-bottom: 0.15rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.result-line .loss {
-  color: #fda4af;
+.board-row.me {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.board-rank {
+  width: 2.2rem;
+  text-align: left;
   font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.board-name {
+  flex: 1;
+  text-align: left;
+}
+
+.board-delta {
+  width: 4.4rem;
+  text-align: right;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+}
+
+.board-delta.gain { color: #34d399; }
+.board-delta.loss { color: #fda4af; }
+.board-delta.even { color: rgba(255, 255, 255, 0.6); }
+.board-delta.none { color: rgba(255, 255, 255, 0.3); }
+
+.board-total {
+  width: 4.4rem;
+  text-align: right;
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: #fde047;
 }
 
 .next-contest-btn {

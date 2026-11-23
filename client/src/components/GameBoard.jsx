@@ -317,13 +317,28 @@ function GameBoard() {
               {wagerResults.bountyAmount > 0 && <> &nbsp;+{wagerResults.bountyAmount} bounty 💰</>}
             </div>
 
-            <div className="results-lines">
-              {wagerResults.results.map((result, index) => {
-                const isPositive = result.pointsChange.startsWith('+')
+            <div className="results-board">
+              <div className="board-row head">
+                <span className="board-rank"></span>
+                <span className="board-name"></span>
+                <span className="board-delta">Round</span>
+                <span className="board-total">Total</span>
+              </div>
+              {standings.map((p, i) => {
+                const r = wagerResults.results.find(x => x.playerId === p.id)
+                const gotBounty = p.id === wagerResults.winnerPlayerId && wagerResults.bountyAmount > 0
+                let delta = r ? parseInt(r.pointsChange) : 0
+                if (gotBounty) delta += wagerResults.bountyAmount
+                const active = !!r || gotBounty
+                const deltaClass = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
                 return (
-                  <div key={index} className="result-line">
-                    <span>{result.playerName}</span>
-                    <span className={isPositive ? 'gain' : 'loss'}>{result.pointsChange}</span>
+                  <div key={p.id} className={`board-row ${p.isMe ? 'me' : ''}`}>
+                    <span className="board-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
+                    <span className="board-name">{avatarFor(p.id)} {p.name}{p.isMe ? ' (you)' : ''}</span>
+                    <span className={`board-delta ${deltaClass}`}>
+                      {active ? (delta > 0 ? `+${delta}` : `${delta}`) : '–'}
+                    </span>
+                    <span className="board-total">{p.points}</span>
                   </div>
                 )
               })}
@@ -339,14 +354,16 @@ function GameBoard() {
 
         {error && <div className="error-message">{error}</div>}
 
-        {/* ---- Score ticker ---- */}
-        <div className="score-ticker">
-          {standings.map((p, i) => (
-            <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>
-              {i === 0 ? '🏆 ' : ''}{p.name} {p.points}
-            </span>
-          ))}
-        </div>
+        {/* ---- Score ticker (hidden on results, which show the full board) ---- */}
+        {!(wagerResolved && wagerResults) && (
+          <div className="score-ticker">
+            {standings.map((p, i) => (
+              <span key={p.id} className={`tick ${p.isMe ? 'me' : ''} ${i === 0 ? 'lead' : ''}`}>
+                {i === 0 ? '🏆 ' : ''}{p.name} {p.points}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* ---- Collapsed game info ---- */}
         <details className="game-details">
