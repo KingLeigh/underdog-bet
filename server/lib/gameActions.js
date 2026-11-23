@@ -346,6 +346,28 @@ function processGameAction(io, game, action, payload, playerID) {
       return game;
     }
 
+    case 'skipMatchup': {
+      // Host declares no contest on the upcoming scheduled matchup (prop
+      // broke, contestant indisposed, room moved on): the schedule advances
+      // and nobody's points are touched. Only between contests — a live
+      // wager is voided with cancelWager instead.
+      if (game.host !== playerID || game.status !== 'playing') {
+        return game;
+      }
+      const liveWager = wagerStates.get(game.id);
+      if (liveWager && liveWager.isActive && !liveWager.resolved) {
+        return game;
+      }
+      const all = game.matchups || [];
+      const at = game.matchupIndex || 0;
+      if (at >= all.length) {
+        return game;
+      }
+      game.matchupIndex = at + 1;
+      console.log(`Game ${game.id}: matchup ${at + 1}/${all.length} declared no contest`);
+      return game;
+    }
+
     case 'lockBets': {
       // Host locks betting: a 10-second countdown starts, after which no
       // further bets are accepted (enforced in makeChoice by the deadline)

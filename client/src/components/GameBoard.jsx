@@ -35,6 +35,7 @@ function GameBoard() {
     betsLockAt,
     nextMatchup,
     finishGame,
+    skipMatchup,
     resetWagerState,
     error,
     socket,
@@ -133,10 +134,17 @@ function GameBoard() {
     ? Math.min(4, 1 + 0.5 * Math.max(1, nextScheduled.gap || 1))
     : 2
   const [nextDogOdds, setNextDogOdds] = useState(defaultDogOdds)
+  const [skipConfirm, setSkipConfirm] = useState(false)
   useEffect(() => {
     setNextDogOdds(defaultDogOdds)
+    setSkipConfirm(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleIdx, schedule.length])
+  useEffect(() => {
+    if (!skipConfirm) return
+    const t = setTimeout(() => setSkipConfirm(false), 4000)
+    return () => clearTimeout(t)
+  }, [skipConfirm])
 
   // Bounty preview shown to contestants while a wager is active.
   // (After resolution, the authoritative amount arrives in wagerResults.)
@@ -271,6 +279,15 @@ function GameBoard() {
                   </div>
                   <button className="mega-btn" onClick={() => nextMatchup(nextDogOdds)}>
                     START THE CONTEST ★
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (skipConfirm) { setSkipConfirm(false); skipMatchup() }
+                      else setSkipConfirm(true)
+                    }}
+                    className={`cancel-btn ${skipConfirm ? 'danger' : ''}`}
+                  >
+                    {skipConfirm ? 'Skip this matchup — sure?' : 'Declare no contest'}
                   </button>
                 </>
               ) : schedule.length > 0 ? (

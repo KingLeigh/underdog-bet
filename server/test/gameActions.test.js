@@ -637,6 +637,31 @@ test('resolution accumulates night stats; finishGame ends an exhausted schedule'
   assert.ok(done.finishedAt);
 });
 
+test('skipMatchup advances the schedule without touching points', () => {
+  const game = makeMatchmadeGame();
+  Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
+
+  processGameAction(io, game, 'skipMatchup', {}, 'p2');
+  assert.equal(game.matchupIndex, 0, 'host-only');
+
+  processGameAction(io, game, 'skipMatchup', {}, 'p1');
+  assert.equal(game.matchupIndex, 1);
+  assert.deepEqual(game.playerPoints, { p1: 100, p2: 100 }, 'nobody pays');
+  assert.equal(game.stats, undefined, 'no stats recorded');
+
+  // Not while a wager is live — that path is cancelWager
+  processGameAction(io, game, 'nextMatchup', {}, 'p1');
+  processGameAction(io, game, 'skipMatchup', {}, 'p1');
+  assert.equal(game.matchupIndex, 1, 'refused mid-wager');
+  processGameAction(io, game, 'cancelWager', {}, 'p1');
+
+  // Skipping the last matchup exhausts the schedule; further skips no-op
+  processGameAction(io, game, 'skipMatchup', {}, 'p1');
+  assert.equal(game.matchupIndex, 2);
+  processGameAction(io, game, 'skipMatchup', {}, 'p1');
+  assert.equal(game.matchupIndex, 2);
+});
+
 test('nextMatchup refuses, without skipping, when a contestant is missing', () => {
   // Unreachable through real play (nothing removes a player mid-game; a
   // locked phone never leaves the roster) — but if it ever happens, the

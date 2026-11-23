@@ -337,6 +337,10 @@ export function GameProvider({ children, socket }) {
     sendGameAction('finishGame', {})
   }
 
+  const skipMatchup = () => {
+    sendGameAction('skipMatchup', {})
+  }
+
   const submitRankings = (rankings) => {
     sendGameAction('submitRankings', { rankings })
   }
@@ -364,6 +368,7 @@ export function GameProvider({ children, socket }) {
     lockBets,
     nextMatchup,
     finishGame,
+    skipMatchup,
     submitRankings,
     removePlayer,
     clearError
