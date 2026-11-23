@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
-  rng,
   generateSeed,
-  createCostFunction,
   buildChallenges,
   solveMatchmaking,
   checkFeasible,
@@ -21,9 +19,7 @@ function Matchmaker() {
 
   const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats }
   const [loadError, setLoadError] = useState('')
-  const [targetGap, setTargetGap] = useState(2)
-  const [gapMode, setGapMode] = useState('loose')
-  const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup }]
+  const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup, highRank, lowRank, gap }]
   const [isViewOnly, setIsViewOnly] = useState(false)
   const [solveStatus, setSolveStatus] = useState('')
   const [solveError, setSolveError] = useState('')
@@ -38,7 +34,14 @@ function Matchmaker() {
         const decoded = atob(saveParam)
         const loaded = decoded.split('|').map(str => {
           const [number, category, high, low, matchup] = str.split(':')
-          return { number: parseInt(number), category, high, low, matchup }
+          // The matchup field is "highRank vs lowRank" — recover the ranks
+          const parsed = /^(\d+) vs (\d+)$/.exec(matchup || '')
+          const highRank = parsed ? parseInt(parsed[1]) : NaN
+          const lowRank = parsed ? parseInt(parsed[2]) : NaN
+          return {
+            number: parseInt(number), category, high, low, matchup,
+            highRank, lowRank, gap: lowRank - highRank
+          }
         })
         setMatchups(loaded)
         setIsViewOnly(true)
@@ -75,7 +78,6 @@ function Matchmaker() {
         }))
 
         setGameInfo({ gameId: game.id, players, categories: game.categories, cats })
-        setTargetGap(Math.max(1, Math.ceil(game.categories.length / 2)))
       } catch (e) {
         if (!cancelled) setLoadError(e.message)
       }
@@ -89,6 +91,7 @@ function Matchmaker() {
     const { players, categories, cats } = gameInfo
     const challenges = buildChallenges(cats)
     const N = players.length
+    const targetGap = 1 // irrelevant: solving is preference-free (zero cost)
 
     setMatchups(null)
     setSolveError('')
@@ -116,8 +119,11 @@ function Matchmaker() {
         return
       }
 
+      // Preference-free: every valid schedule is equally good, so the solver
+      // returns the first one its (seed-randomized) search finds — which is
+      // what makes each RESHUFFLE a genuinely different schedule
       const seed = generateSeed()
-      const costFn = createCostFunction(targetGap, gapMode, rng(seed))
+      const costFn = () => 0
       const res = solveMatchmaking(players, categories, challenges, {
         targetGap,
         timeLimitMs: 10000,
@@ -139,7 +145,10 @@ function Matchmaker() {
         category: a.category,
         high: a.high,
         low: a.low,
-        matchup: `${a.highRank} vs ${a.lowRank}`
+        matchup: `${a.highRank} vs ${a.lowRank}`,
+        highRank: a.highRank,
+        lowRank: a.lowRank,
+        gap: a.gap
       })))
     }, 30)
   }
@@ -192,6 +201,52 @@ function Matchmaker() {
     )
   })()
 
+  // Gap mix, variety and rank-coverage readout: how spicy is this schedule?
+  const mixRow = matchups && matchups.length > 0 && (() => {
+    const entries = matchups.filter(m => Number.isFinite(m.gap) && m.gap > 0)
+    if (entries.length === 0) return null
+
+    // Rank scale: category count when a game is loaded, else the largest
+    // rank visible in a shared schedule
+    const M = gameInfo
+      ? gameInfo.categories.length
+      : Math.max(2, ...entries.flatMap(m => [m.highRank, m.lowRank]))
+    const maxGap = M - 1
+
+    const gapLabel = (g) =>
+      maxGap === 1 ? 'Duel' : g === 1 ? '⚔️ Close' : g === maxGap ? '💥 Blowout' : '🎲 Mid'
+
+    const counts = {}
+    for (const m of entries) counts[m.gap] = (counts[m.gap] || 0) + 1
+    const gapsSorted = Object.keys(counts).map(Number).sort((a, b) => a - b)
+
+    const distinct = gapsSorted.length
+    const maxDistinct = Math.min(maxGap, entries.length)
+
+    const ranksUsed = new Set(entries.flatMap(m => [m.highRank, m.lowRank]))
+
+    return (
+      <div className="mm-mix">
+        {gapsSorted.map(g => (
+          <span key={g} className="mm-cat-badge" title={`${counts[g]} matchup${counts[g] === 1 ? '' : 's'} with a rank gap of ${g}`}>
+            {gapLabel(g)} <b>×{counts[g]}</b>
+          </span>
+        ))}
+        <span className="mm-cat-badge" title={`${distinct} different gap sizes out of ${maxDistinct} possible`}>
+          Variety <b>{distinct}/{maxDistinct}</b>
+        </span>
+        <span className="mm-cat-badge" title="Which ranks appear somewhere in the schedule — touching both #1 and the bottom makes a more interesting night">
+          Ranks
+          <span className="mm-rank-pips">
+            {Array.from({ length: M }, (_, i) => (
+              <span key={i} className={`mm-rank-pip ${ranksUsed.has(i + 1) ? 'on' : ''}`}>{i + 1}</span>
+            ))}
+          </span>
+        </span>
+      </div>
+    )
+  })()
+
   const matchupsTable = matchups && matchups.length > 0 && (
     <table className="mm-table">
       <thead>
@@ -221,6 +276,7 @@ function Matchmaker() {
           <>
             <h1 className="mm-title">Tonight's Matchups</h1>
             {usageRow}
+            {mixRow}
             {matchupsTable}
           </>
         )}
@@ -257,32 +313,6 @@ function Matchmaker() {
               ))}
             </div>
 
-            <div className="mm-controls">
-              <div className="cg-stepper">
-                <div className="cg-stepper-label">Spacing target</div>
-                <div className="odds-stepper">
-                  <button type="button" onClick={() => setTargetGap(g => Math.max(1, g - 1))} disabled={targetGap <= 1}>−</button>
-                  <span>{targetGap}</span>
-                  <button type="button" onClick={() => setTargetGap(g => Math.min(gameInfo.categories.length, g + 1))} disabled={targetGap >= gameInfo.categories.length}>+</button>
-                </div>
-              </div>
-              <div className="cg-stepper">
-                <div className="cg-stepper-label">Gap mode</div>
-                <div className="cat-pills">
-                  {['strict', 'loose', 'chaos'].map(mode => (
-                    <button
-                      type="button"
-                      key={mode}
-                      className={`cat-pill ${gapMode === mode ? 'on' : ''}`}
-                      onClick={() => setGapMode(mode)}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             <button className="mega-btn" onClick={makeMatches} disabled={!!solveStatus}>
               {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
             </button>
@@ -290,6 +320,7 @@ function Matchmaker() {
             {solveError && <div className="mm-error">{solveError}</div>}
 
             {usageRow}
+            {mixRow}
             {matchupsTable}
 
             {matchups && matchups.length > 0 && (
