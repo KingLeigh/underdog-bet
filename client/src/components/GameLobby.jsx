@@ -119,6 +119,8 @@ function GameLobby() {
     ? players.filter(pid => playerRankings[pid]).length
     : players.length
   const unrankedCount = players.length - rankedCount
+  const hostIsPlayer = players.includes(gameState.host)
+  const amPlayer = players.includes(playerId)
 
   return (
     <div className="lobby">
@@ -133,6 +135,13 @@ function GameLobby() {
 
         {/* Players */}
         <div className="player-chips">
+          {!hostIsPlayer && (
+            <div className="player-chip host-chip">
+              <span className="chip-avatar">👑</span>
+              <span className="chip-name">{playerNames[gameState.host] || 'Host'}</span>
+              <span className="chip-state">host</span>
+            </div>
+          )}
           {players.map((pid) => (
             <div
               key={pid}
@@ -161,8 +170,8 @@ function GameLobby() {
           ))}
         </div>
 
-        {/* Category ranking */}
-        {hasCategories && !playerRankings[playerId] && (
+        {/* Category ranking (players only — an emcee host doesn't rank) */}
+        {hasCategories && amPlayer && !playerRankings[playerId] && (
           <div className="ranking-stage">
             <div className="ranking-title">Rank Your Categories</div>
             <p className="ranking-hint">

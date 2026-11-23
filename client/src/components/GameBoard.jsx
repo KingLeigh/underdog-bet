@@ -153,6 +153,8 @@ function GameBoard() {
 
   const myBet = playerChoices[playerId]
   const betsIn = Object.keys(playerChoices).length
+  // An emcee host runs the game without being a player: no betting UI
+  const amPlayer = players.includes(playerId)
 
   // Leaderboard, sorted by points
   const standings = players
@@ -215,9 +217,9 @@ function GameBoard() {
               className={[
                 'fighter', side,
                 selectedOption === f.idx || (myBet && userChoice === f.idx) ? 'picked' : '',
-                !canBetOn(f.idx) || myBet ? 'locked' : ''
+                !amPlayer ? 'spectator' : (!canBetOn(f.idx) || myBet ? 'locked' : '')
               ].join(' ')}
-              onClick={() => { if (!myBet && canBetOn(f.idx)) setSelectedOption(f.idx) }}
+              onClick={() => { if (amPlayer && !myBet && canBetOn(f.idx)) setSelectedOption(f.idx) }}
             >
               <span className="avatar">{avatarFor(wagerContestants[f.idx] || f.name)}</span>
               <span className="fighter-name">{f.name}</span>
@@ -239,7 +241,7 @@ function GameBoard() {
                 {fighter(sorted[1], sorted[0], 'right')}
               </div>
 
-              {!myBet && (
+              {amPlayer && !myBet && (
                 <ChipBetForm
                   selectedName={selectedOption !== null ? wagerOptions.options[selectedOption] : null}
                   currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}

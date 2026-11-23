@@ -209,3 +209,75 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   const e2 = await err2;
   assert.equal(e2.message, 'Cannot join game that has already started');
 });
+
+test('emcee mode: a non-player host runs the game', { timeout: 30000 }, async () => {
+  const emma = connect();
+  const dave = connect();
+  const fran = connect();
+
+  // 1. Emma hosts without playing
+  emma.emit('createGame', { playerName: 'emma', hostPlays: false });
+  const created = await once(emma, 'gameCreated');
+  const gameId = created.id;
+  const emmaId = created.playerID;
+  assert.equal(created.host, emmaId, 'emma is the host');
+  assert.deepEqual(created.players, [], 'host is not a player');
+  assert.equal(created.playerNames[emmaId], 'Emma', 'host still has a display name');
+
+  // 2. Two real players join
+  dave.emit('joinGame', { gameId, playerName: 'dave' });
+  const dj = await once(dave, 'gameJoined');
+  const daveId = dj.playerID;
+  fran.emit('joinGame', { gameId, playerName: 'fran' });
+  const fj = await once(fran, 'gameJoined');
+  const franId = fj.playerID;
+
+  // 3. The emcee host can start the game (authorized without being a player)
+  const playing = new Promise((resolve) => {
+    const h = (gs) => { if (gs.status === 'playing') { dave.off('gameStateUpdate', h); resolve(gs); } };
+    dave.on('gameStateUpdate', h);
+  });
+  emma.emit('gameAction', { gameId, action: 'startGame', payload: {} });
+  const started = await playing;
+  assert.deepEqual(started.players.sort(), [daveId, franId].sort(), 'only the real players are in the game');
+
+  // 4. The emcee proposes and resolves a wager; her bet attempts are rejected
+  const proposed = once(dave, 'wagerProposed');
+  emma.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: daveId, player2: franId, odds1: 1, odds2: 2 } });
+  await proposed;
+
+  let emceeBetSeen = false;
+  dave.once('choiceMade', (c) => { if (c.playerId === emmaId) emceeBetSeen = true; });
+  emma.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
+  dave.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
+  await sleep(300);
+  assert.equal(emceeBetSeen, false, 'the emcee host cannot bet');
+
+  const resolved = once(dave, 'wagerResolved');
+  emma.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 0 } });
+  const result = await resolved;
+  assert.equal(result.winnerPlayerId, daveId);
+
+  const points = await fetch(`${URL}/api/games/${gameId}/points`).then(r => r.json());
+  assert.deepEqual(Object.keys(points.playerPoints).sort(), [daveId, franId].sort(),
+    'the emcee host never appears in the points table');
+
+  // 5. Emcee reconnection by name must not add her as a player
+  emma.disconnect();
+  const emma2 = connect();
+  await once(emma2, 'connect');
+  emma2.emit('joinGame', { gameId, playerName: 'EMMA' });
+  const rejoined = await once(emma2, 'gameJoined');
+  assert.equal(rejoined.playerID, emmaId, 'name rejoin keeps the host identity');
+  assert.equal(rejoined.isHost, true);
+  assert.equal(rejoined.gameState.players.length, 2, 'rejoining emcee is not added as a player');
+
+  // 6. rejoinGame by ID also works for the emcee
+  emma2.disconnect();
+  const emma3 = connect();
+  await once(emma3, 'connect');
+  emma3.emit('rejoinGame', { gameId, playerID: emmaId });
+  const rejoined2 = await once(emma3, 'gameJoined');
+  assert.equal(rejoined2.isHost, true);
+  assert.equal(rejoined2.gameState.players.length, 2);
+});

@@ -121,6 +121,33 @@ test('startGame refuses when fewer than 2 players have rankings', () => {
   assert.deepEqual(result.players, ['p1', 'p2', 'p3'], 'nobody is dropped on a refused start');
 });
 
+// ---- emcee (non-player) host ------------------------------------------------
+
+test('an emcee host can start a game of two real players', () => {
+  const game = makeGame({
+    status: 'waiting',
+    host: 'h1', // not in players
+    players: ['p2', 'p3'],
+    playerPoints: { p2: 100, p3: 100 },
+    playerNames: { h1: 'Emma', p2: 'Alice', p3: 'Carol' }
+  });
+  const result = processGameAction(io, game, 'startGame', {}, 'h1');
+  assert.equal(result.status, 'playing');
+});
+
+test('an emcee host cannot place a bet', () => {
+  const game = makeGame({
+    host: 'h1',
+    players: ['p2', 'p3'],
+    playerPoints: { p2: 100, p3: 100 },
+    playerNames: { h1: 'Emma', p2: 'Alice', p3: 'Carol' }
+  });
+  processGameAction(io, game, 'proposeWager', { player1: 'p2', player2: 'p3', odds1: 1, odds2: 1 }, 'h1');
+
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'h1');
+  assert.equal(wagerStates.get('TEST01').playerChoices.h1, undefined, 'host has no balance to bet');
+});
+
 // ---- removePlayer (host kick) -----------------------------------------------
 
 test('the host can remove a player from a waiting game', () => {

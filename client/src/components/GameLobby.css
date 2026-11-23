@@ -88,6 +88,15 @@
   border-color: rgba(244, 63, 94, 0.45);
 }
 
+.player-chip.host-chip {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.player-chip.host-chip .chip-state {
+  color: #fcd34d;
+}
+
 .player-chip .chip-avatar {
   font-size: 1.4rem;
 }

@@ -54,6 +54,17 @@ function registerSocketHandlers(io) {
         const playerData = playerRegistry.get(playerID);
         playerData.gameId = gameId;
 
+        // A non-playing (emcee) host reconnecting by name: rejoin as host,
+        // never add them as a player
+        if (playerID === game.host && !game.players.includes(playerID)) {
+          socket.join(gameId);
+          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: true });
+          sendActiveWagerTo(socket, game, playerID);
+          socket.to(gameId).emit('gameStateUpdate', game);
+          console.log(`Emcee host ${playerName} (${playerID}) rejoined game ${gameId}`);
+          return;
+        }
+
         // Check if this player is already in the game
         if (game.players.includes(playerID)) {
           // Player is rejoining - just update their socket ID
@@ -97,6 +108,9 @@ function registerSocketHandlers(io) {
       const playerData = playerRegistry.get(playerID);
       playerData.gameId = gameId;
 
+      // Emcee mode: hostPlays false creates a host who runs the game but is
+      // not a player (no points, no betting, not on the leaderboard)
+      const hostPlays = gameConfig.hostPlays !== false;
       const startingPoints = gameConfig.startingPoints || 100;
       // Minimum balance floor: losses are clamped so no player ever drops
       // below it (0 allows busting). Clamped into [0, startingPoints].
@@ -109,7 +123,7 @@ function registerSocketHandlers(io) {
       const gameState = {
         id: gameId,
         host: playerID,
-        players: [playerID],
+        players: hostPlays ? [playerID] : [],
         status: 'waiting',
         createdAt: new Date().toISOString(),
         startingPoints: startingPoints,
@@ -117,10 +131,9 @@ function registerSocketHandlers(io) {
         maxBetSize: maxBetSize,
         bounty: bounty,
         bountyAmount: bountyAmount,
-        playerPoints: {
-          [playerID]: startingPoints
-        },
+        playerPoints: hostPlays ? { [playerID]: startingPoints } : {},
         playerNames: {
+          // The host always has a display name, player or not
           [playerID]: displayName(gameConfig.playerName) || `Player${playerID.slice(1)}`
         },
         categories: gameConfig.categories || [],
@@ -149,7 +162,9 @@ function registerSocketHandlers(io) {
         return;
       }
 
-      if (game && game.players.includes(playerID)) {
+      // Players act in their game; the host may act without being a player
+      // (emcee mode)
+      if (game && (game.players.includes(playerID) || playerID === game.host)) {
         // Process the action and update game state
         const updatedState = processGameAction(io, game, action, payload, playerID);
         gameSessions.set(gameId, updatedState);
@@ -174,8 +189,9 @@ function registerSocketHandlers(io) {
         return;
       }
 
-      // Check if this playerID exists in the game
-      if (!game.players.includes(playerID)) {
+      // Check if this playerID exists in the game (the host may rejoin
+      // without being a player — emcee mode)
+      if (!game.players.includes(playerID) && playerID !== game.host) {
         socket.emit('error', { message: 'Player not found in game' });
         return;
       }

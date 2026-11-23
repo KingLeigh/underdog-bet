@@ -6,6 +6,7 @@ import './CreateGame.css'
 function CreateGame() {
   const [searchParams] = useSearchParams()
   const [createPlayerName, setCreatePlayerName] = useState('')
+  const [hostPlays, setHostPlays] = useState(true)
   const [categories, setCategories] = useState('')
   const [challengesPerCategory, setChallengesPerCategory] = useState('')
   const [startingPoints, setStartingPoints] = useState(100)
@@ -148,6 +149,7 @@ function CreateGame() {
     
     createGame({
       playerName: createPlayerName,
+      hostPlays: hostPlays,
       categories: categoriesList,
       challengesPerCategory: challengesList,
       startingPoints: startingPoints === '' ? 100 : startingPoints,
@@ -195,6 +197,20 @@ function CreateGame() {
                 placeholder="Enter your name"
                 required
               />
+            </div>
+
+            <div className="form-group">
+              <label className="host-plays-toggle">
+                <input
+                  type="checkbox"
+                  checked={!hostPlays}
+                  onChange={(e) => setHostPlays(!e.target.checked)}
+                />
+                <span> I'm hosting only — run the game without playing</span>
+              </label>
+              <small className="form-help">
+                Emcee mode: you set up contests and judge winners, but don't bet and don't appear on the leaderboard.
+              </small>
             </div>
           </div>
 

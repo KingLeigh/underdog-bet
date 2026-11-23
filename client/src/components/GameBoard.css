@@ -95,6 +95,20 @@
   opacity: 0.55;
 }
 
+/* A non-playing (emcee) host sees the stage at full strength but the
+   cards are not bet targets */
+.fighter.spectator {
+  cursor: default;
+}
+
+.fighter.spectator:hover {
+  transform: perspective(900px) rotateY(7deg);
+}
+
+.fighter.spectator.right:hover {
+  transform: perspective(900px) rotateY(-7deg);
+}
+
 .fighter .avatar {
   font-size: 3.4rem;
   line-height: 1;
