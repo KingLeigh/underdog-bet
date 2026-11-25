@@ -4,8 +4,10 @@
 // the whole game to everyone in it. The current contest lives inside the
 // game as `game.contest` — null between contests, otherwise:
 //   { id, number, category, challenge, options, contestants, odds,
-//     bets: { playerId: { choice, points } }, betsLockAt, result }
-// with `result` null while betting is open and set once the host resolves
+//     bets: { playerId: { choice, points } }, bounty, betsLockAt, result }
+// `bounty` is what the winner would collect right now (kept current as bets
+// arrive, so clients never redo the math), with `result` null while betting
+// is open and set once the host resolves
 // (the Result screen), until the host dismisses it. Clients render this
 // state as-is; bet secrecy (picks, contestants' amounts) is presentation.
 
@@ -17,8 +19,10 @@ function liveContest(game) {
   return game.contest && !game.contest.result ? game.contest : null;
 }
 
-function newContest(fields) {
-  return { id: Date.now(), ...fields, bets: {}, betsLockAt: null, result: null };
+function newContest(game, fields) {
+  const contest = { id: Date.now(), ...fields, bets: {}, bounty: 0, betsLockAt: null, result: null };
+  contest.bounty = calculateBountyAmount(game, contest) || 0;
+  return contest;
 }
 
 // Remove a player from a game entirely (host kick, or dropped at game start
@@ -160,7 +164,7 @@ function processGameAction(io, game, action, payload, playerID) {
           player1 === player2 || !game.players.includes(player1) || !game.players.includes(player2)) {
         return game;
       }
-      game.contest = newContest({
+      game.contest = newContest(game, {
         number: null,
         category: payload.category || '',
         challenge: '',
@@ -196,6 +200,7 @@ function processGameAction(io, game, action, payload, playerID) {
         return game;
       }
       contest.bets[playerID] = { choice, points };
+      contest.bounty = calculateBountyAmount(game, contest) || 0;
       return game;
     }
 
@@ -301,7 +306,7 @@ function processGameAction(io, game, action, payload, playerID) {
       const dogOdds = validOdds
         ? requested
         : Math.min(4, 1 + 0.5 * Math.max(1, m.gap || 1));
-      game.contest = newContest({
+      game.contest = newContest(game, {
         number: m.number,
         category: m.category,
         challenge: m.challenge || '',

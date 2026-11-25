@@ -161,21 +161,11 @@ function GameBoard({ spectator = false }) {
     return () => clearTimeout(t)
   }, [skipConfirm])
 
-  // Bounty preview shown to contestants while a contest is live.
-  // (After resolution, the authoritative amount is in the result.)
-  const bountyPreview = (() => {
-    if (!live || !gameState.bounty || gameState.bounty === 'None') return null
-    if (!contestants.includes(playerId)) return null
-    const allBets = Object.values(bets).map(c => c.points).filter(p => p > 0)
-    if (allBets.length === 0) return null
-    switch (gameState.bounty) {
-      case 'Fixed': return gameState.bountyAmount || 0
-      case 'Min': return Math.min(...allBets)
-      case 'Max': return Math.max(...allBets)
-      case 'Average': return Math.floor(allBets.reduce((s, b) => s + b, 0) / allBets.length)
-      default: return null
-    }
-  })()
+  // Bounty preview, shown to contestants while a contest is live: the
+  // server keeps contest.bounty current as bets arrive
+  const bountyPreview = live && contestants.includes(playerId) && contest.bounty > 0
+    ? contest.bounty
+    : null
 
   // TV before the start: the lobby screen itself, watched without a seat
   if (spectator && gameState && gameState.status === 'waiting') {

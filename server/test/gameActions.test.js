@@ -478,6 +478,22 @@ test('bounty Fixed awards the configured amount', () => {
   assert.equal(game.playerPoints.p2, 100 + 20 + 25);
 });
 
+test('the contest carries the current bounty as bets arrive', () => {
+  const game = makeGame({ bounty: 'Max' });
+  propose(io, game);
+  assert.equal(game.contest.bounty, 0, 'no bets yet');
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 15 }, 'p1');
+  assert.equal(game.contest.bounty, 15);
+  processGameAction(io, game, 'makeChoice', { choice: 1, points: 40 }, 'p3');
+  assert.equal(game.contest.bounty, 40, 'tracks the largest bet');
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  assert.equal(game.contest.result.bountyAmount, game.contest.bounty, 'the preview is what gets paid');
+
+  const fixed = makeGame({ bounty: 'Fixed', bountyAmount: 25 });
+  propose(io, fixed);
+  assert.equal(fixed.contest.bounty, 25, 'a fixed bounty is known up front');
+});
+
 // ---- cancelWager ------------------------------------------------------------
 
 test('cancelWager nullifies all bets without touching points', () => {
