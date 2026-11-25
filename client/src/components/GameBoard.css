@@ -1222,6 +1222,29 @@
   .setup-preview {
     gap: 0.9rem;
   }
+
+  /* Standings: a portrait phone shows position, name, round and score;
+     the night's stats return in landscape (or on anything wider) */
+  .night-summary .sum-stat {
+    display: none;
+  }
+
+  /* Round and Score get fixed widths; the name cell takes the rest on
+     one line, and a very long name ends in "…" rather than pushing the
+     table off the screen */
+  .night-summary {
+    table-layout: fixed;
+  }
+
+  .night-summary th:not(:first-child) {
+    width: 4.6rem;
+  }
+
+  .night-summary .sum-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .player-ranking-card h4 {

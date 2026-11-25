@@ -656,9 +656,9 @@ function StandingsTable({ standings, stats, roundResults }) {
       <thead>
         <tr>
           <th></th>
-          <th>Contests</th>
-          <th>Bets</th>
-          <th>Wagered</th>
+          <th className="sum-stat">Contests</th>
+          <th className="sum-stat">Bets</th>
+          <th className="sum-stat">Wagered</th>
           {roundResults && <th>Round</th>}
           <th>Score</th>
         </tr>
@@ -690,9 +690,9 @@ function StandingsTable({ standings, stats, roundResults }) {
                 )}
                 {' '}{avatarFor(p.id)} {p.name}
               </td>
-              <td>{s.contestWins}–{s.contestLosses}</td>
-              <td>{s.betWins}–{s.betLosses}</td>
-              <td>{s.totalBet}</td>
+              <td className="sum-stat">{s.contestWins}–{s.contestLosses}</td>
+              <td className="sum-stat">{s.betWins}–{s.betLosses}</td>
+              <td className="sum-stat">{s.totalBet}</td>
               {roundCell}
               <td className="sum-score">{p.points}</td>
             </tr>
