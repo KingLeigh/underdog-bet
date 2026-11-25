@@ -1,7 +1,6 @@
 // REST API endpoints.
 
 const { gameSessions, wagerStates, getPlayerPoints, getWagerState, deleteGame } = require('./store');
-const { getChallenges } = require('./challenges');
 const { processGameAction } = require('./gameActions');
 const persistence = require('./persistence');
 
@@ -97,17 +96,6 @@ function registerRoutes(app, io) {
       res.json({ gameId: req.params.id, wagerState });
     } else {
       res.status(404).json({ error: 'Game not found' });
-    }
-  });
-
-  // Get challenges (with caching)
-  app.get('/api/challenges', async (req, res) => {
-    try {
-      const challenges = await getChallenges();
-      res.json(challenges);
-    } catch (error) {
-      console.error('Error fetching challenges:', error);
-      res.status(500).json({ error: 'Failed to fetch challenges' });
     }
   });
 

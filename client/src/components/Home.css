@@ -77,22 +77,3 @@
   color: #fda4af;
 }
 
-.tool-links {
-  margin-top: 1.2rem;
-  display: flex;
-  gap: 1.6rem;
-}
-
-.tool-links button {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-  padding: 0.4rem;
-}
-
-.tool-links button:hover {
-  color: rgba(255, 255, 255, 0.85);
-}

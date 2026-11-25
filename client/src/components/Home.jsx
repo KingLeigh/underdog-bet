@@ -107,10 +107,6 @@ function Home() {
             <button type="submit" className="mega-btn violet">JOIN GAME</button>
             {codeError && <div className="code-error">{codeError}</div>}
           </form>
-
-          <div className="tool-links">
-            <button onClick={() => navigate('/challenge-selector')}>📋 Challenge Selector</button>
-          </div>
         </>
       )}
     </div>
