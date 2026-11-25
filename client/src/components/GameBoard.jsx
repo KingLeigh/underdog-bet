@@ -4,6 +4,7 @@ import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
 import GameLobby from './GameLobby'
 import { avatarFor } from '../lib/avatars'
+import { rankPlayers, positionsBefore, roundChange, statsFor } from '../lib/standings'
 import './GameBoard.css'
 
 // spectator: the presentation (TV) screen at /tv/:gameId — the same stage
@@ -189,15 +190,19 @@ function GameBoard({ spectator = false }) {
   // An emcee host runs the game without being a player: no betting UI
   const amPlayer = players.includes(playerId)
 
-  // Leaderboard, sorted by points
-  const standings = players
-    .map(pid => ({
+  // Leaderboard order, ties broken the same way everywhere (lib/standings)
+  const standings = rankPlayers(
+    players.map(pid => ({
       id: pid,
       name: playerNames[pid] || 'Unknown Player',
       points: playerPoints[pid] !== undefined ? playerPoints[pid] : 0,
       isMe: pid === playerId
-    }))
-    .sort((a, b) => b.points - a.points)
+    })),
+    gameState?.stats
+  )
+  // Everyone level at the top is a champion; the podium is #2 and #3
+  const champions = standings.filter(p => p.position === 1)
+  const podium = standings.filter(p => p.position === 2 || p.position === 3)
 
   return (
     <div className="game-board">
@@ -208,37 +213,29 @@ function GameBoard({ spectator = false }) {
           <div className="winner-screen">
             <div className="round-strip">Final Result</div>
 
-            {standings[0] && (
+            {champions.length > 0 && (
               <div className="champ-banner">
-                <span className="champ-avatar">{avatarFor(standings[0].id)}</span>
-                <div className="champ-label">Tonight's Champion</div>
-                <div className="champ-name">{standings[0].name}</div>
-                <div className="champ-points">{standings[0].points} points</div>
+                <span className="champ-avatar">{champions.map(p => avatarFor(p.id)).join(' ')}</span>
+                <div className="champ-label">
+                  {champions.length > 1 ? "Tonight's Champions" : "Tonight's Champion"}
+                </div>
+                <div className="champ-name">{champions.map(p => p.name).join(' & ')}</div>
+                <div className="champ-points">{champions[0].points} points</div>
               </div>
             )}
 
-            {(standings[1] || standings[2]) && (
+            {podium.length > 0 && (
               <div className="podium">
-                {standings[1] && (
-                  <div className="podium-step second">
-                    <span className="podium-avatar">{avatarFor(standings[1].id)}</span>
-                    <div className="podium-name">{standings[1].name}</div>
+                {podium.map(p => (
+                  <div key={p.id} className={`podium-step ${p.position === 2 ? 'second' : 'third'}`}>
+                    <span className="podium-avatar">{avatarFor(p.id)}</span>
+                    <div className="podium-name">{p.name}</div>
                     <div className="podium-block">
-                      <span className="podium-medal">🥈</span>
-                      <span className="podium-points">{standings[1].points}</span>
+                      <span className="podium-medal">{p.position === 2 ? '🥈' : '🥉'}</span>
+                      <span className="podium-points">{p.points}</span>
                     </div>
                   </div>
-                )}
-                {standings[2] && (
-                  <div className="podium-step third">
-                    <span className="podium-avatar">{avatarFor(standings[2].id)}</span>
-                    <div className="podium-name">{standings[2].name}</div>
-                    <div className="podium-block">
-                      <span className="podium-medal">🥉</span>
-                      <span className="podium-points">{standings[2].points}</span>
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             )}
 
@@ -393,14 +390,14 @@ function GameBoard({ spectator = false }) {
               {/* One chip per player, leader first: who's bet, who's still
                   deciding — betting progress at the top of the stage */}
               <div className="bet-chips">
-                {standings.map((p, i) => {
+                {standings.map((p) => {
                   // Everyone receives every bet; contestants' amounts are
                   // hidden here, by design, to keep the tension
                   const c = bets[p.id]
                   const secret = contestants.includes(p.id)
                   return (
                     <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
-                      {i === 0 ? <span className="bet-chip-crown">🏆</span> : null}
+                      {p.position === 1 ? <span className="bet-chip-crown">🏆</span> : null}
                       <span className="bet-chip-avatar">{avatarFor(p.id)}</span>
                       <span className="bet-chip-name">{p.name}</span>
                       <span className="bet-chip-points">{p.points}</span>
@@ -642,28 +639,13 @@ function ColLabel({ full, short }) {
   )
 }
 
-// Leaderboard. Positions are shared on a tie (#1, #1, #3). With
-// roundResults (the Result screen) it also shows this round's point change
-// and how many places each player moved because of it: the earlier
-// standings are reconstructed as score minus this round's change, so no
-// history is needed.
+// Leaderboard, in rankPlayers order with its positions (shared only when
+// every tiebreak is level). With roundResults (the Result screen) it also
+// shows this round's point change and how many places each player moved
+// because of it: the earlier positions are reconstructed from the result
+// (lib/standings), so no history is needed.
 function StandingsTable({ standings, stats, roundResults }) {
-  // This round's change for a player: their bet result plus any bounty
-  const roundChange = (pid) => {
-    const r = roundResults.results.find(x => x.playerId === pid)
-    const gotBounty = pid === roundResults.winnerPlayerId && roundResults.bountyAmount > 0
-    let delta = r ? parseInt(r.pointsChange) : 0
-    if (gotBounty) delta += roundResults.bountyAmount
-    return { delta, active: !!r || gotBounty }
-  }
-
-  // Competition ranking by a score: 1 + how many players scored more
-  const positionsBy = (score) => {
-    const scores = standings.map(score)
-    return new Map(standings.map((p, i) => [p.id, 1 + scores.filter(x => x > scores[i]).length]))
-  }
-  const position = positionsBy(p => p.points)
-  const before = roundResults ? positionsBy(p => p.points - roundChange(p.id).delta) : null
+  const before = roundResults ? positionsBefore(standings, stats, roundResults) : null
 
   return (
     <table className="night-summary">
@@ -679,13 +661,12 @@ function StandingsTable({ standings, stats, roundResults }) {
       </thead>
       <tbody>
         {standings.map((p) => {
-          const s = (stats && stats[p.id]) ||
-            { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
-          const pos = position.get(p.id)
+          const s = statsFor(stats, p.id)
+          const pos = p.position
           const moved = before ? before.get(p.id) - pos : 0 // places climbed
           let roundCell = null
           if (roundResults) {
-            const { delta, active } = roundChange(p.id)
+            const { delta, active } = roundChange(roundResults, p.id)
             const cls = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
             roundCell = (
               <td className={`sum-delta ${cls}`}>

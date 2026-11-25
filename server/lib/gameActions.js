@@ -216,8 +216,18 @@ function processGameAction(io, game, action, payload, playerID) {
       if (Array.isArray(game.matchups) && game.matchups.some(x => !x.played && !x.skipped)) {
         return game; // the show isn't over yet
       }
+      // Leaderboard order, as the client ranks it (client/src/lib/standings.js):
+      // points, then contests won, bets won, total wagered
+      const keyOf = (pid) => {
+        const s = (game.stats && game.stats[pid]) || {};
+        return [game.playerPoints[pid] || 0, s.contestWins || 0, s.betWins || 0, s.totalBet || 0];
+      };
       const standings = [...game.players]
-        .sort((a, b) => (game.playerPoints[b] || 0) - (game.playerPoints[a] || 0))
+        .sort((a, b) => {
+          const ka = keyOf(a), kb = keyOf(b);
+          const i = ka.findIndex((v, j) => v !== kb[j]);
+          return i < 0 ? 0 : kb[i] - ka[i];
+        })
         .map(pid => ({ playerId: pid, name: game.playerNames[pid], points: game.playerPoints[pid] || 0 }));
       persistence.logEvent(game.id, 'gameFinished', { standings, stats: game.stats || {} });
       console.log(`Game ${game.id}: finished - winner ${standings[0] ? standings[0].name : 'nobody'}`);
