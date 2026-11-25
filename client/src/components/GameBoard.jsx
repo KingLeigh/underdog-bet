@@ -516,20 +516,21 @@ function GameBoard({ spectator = false }) {
                 an emcee host) */}
             {amPlayer && (() => {
               const mine = result.results.find(r => r.playerId === playerId)
+              // The bounty already shows under the winner title; it gets its
+              // own line only for a contest winner who didn't bet
               const bounty = playerId === result.winnerPlayerId && result.bountyAmount > 0
                 ? result.bountyAmount
                 : 0
-              const bountyNote = bounty ? <> &nbsp;+{bounty} bounty 💰</> : null
-              if (mine && mine.correct) {
-                return <div className="my-result won">You won your bet! {mine.pointsChange}{bountyNote}</div>
-              }
-              if (mine) {
-                return <div className="my-result lost">You lost your bet. {mine.pointsChange}{bountyNote}</div>
-              }
-              if (bounty) {
-                return <div className="my-result won">You won the bounty! +{bounty} 💰</div>
-              }
-              return <div className="my-result out">You sat this one out.</div>
+              const line = (cls, words, amount) => (
+                <div className={`my-result ${cls}`}>
+                  {words}
+                  {amount ? <> <span className="my-result-amount">{amount}</span></> : null}
+                </div>
+              )
+              if (mine && mine.correct) return line('won', 'You won your bet!', mine.pointsChange)
+              if (mine) return line('lost', 'You lost your bet.', mine.pointsChange)
+              if (bounty) return line('won', 'You won the bounty! 💰', `+${bounty}`)
+              return line('out', 'You sat this one out.')
             })()}
 
             <StandingsTable standings={standings} stats={gameState?.stats} roundResults={result} />

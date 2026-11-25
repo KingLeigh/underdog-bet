@@ -833,34 +833,34 @@
   margin-top: 0.2rem;
 }
 
-/* The player's own outcome on the Result screen */
+/* The player's own outcome on the Result screen: stage type, no box —
+   secondary to the winner title above it */
 .my-result {
-  margin: 1rem auto 0.4rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 14px;
-  display: inline-block;
+  margin-top: 1.1rem;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
-  font-size: 1.5rem;
-  letter-spacing: 0.01em;
+  font-size: clamp(1.35rem, 4.5vw, 1.9rem);
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.my-result.won {
-  color: #a7f3d0;
-  background: rgba(16, 185, 129, 0.16);
-  border: 2px solid rgba(110, 231, 183, 0.45);
+.my-result-amount {
+  font-size: 1.3em;
+  margin-left: 0.15em;
 }
 
-.my-result.lost {
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.14);
-  border: 2px solid rgba(252, 165, 165, 0.4);
+.my-result.won .my-result-amount {
+  color: #34d399;
+  text-shadow: 0 4px 24px rgba(52, 211, 153, 0.45);
+}
+
+.my-result.lost .my-result-amount {
+  color: #fda4af;
+  text-shadow: 0 4px 24px rgba(244, 63, 94, 0.4);
 }
 
 .my-result.out {
-  font-size: 1.15rem;
-  color: rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.06);
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  font-size: clamp(1.1rem, 3.5vw, 1.4rem);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .next-contest-btn {
