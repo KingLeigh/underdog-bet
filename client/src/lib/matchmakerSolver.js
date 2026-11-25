@@ -401,7 +401,10 @@ export function optimizeMatchOrdering(assignments, seedValue = null) {
 // furthest from all those before it.
 //   players: [{ name, ranks }], cats: [{ name, count }]
 //   returns { ok: true, matchups, repeats } or { ok: false, error }
-export function solveSchedule({ players, categories, cats, seed, history = [], timeLimitMs = 10000 }) {
+// A reshuffle stops after 1.5s with the best schedule found so far: once
+// some repeats can't be avoided, proving the fewest possible can take the
+// full 10s, and the extra time almost never finds a better schedule.
+export function solveSchedule({ players, categories, cats, seed, history = [], timeLimitMs = history.length > 0 ? 1500 : 10000 }) {
   const challenges = buildChallenges(cats)
   const N = players.length
   if (N < 2) {
