@@ -628,7 +628,29 @@ function GameBoard({ spectator = false }) {
 // The one leaderboard: contest W-L, bet W-L, total wagered, score —
 // and, when roundResults is given (the Results screen), a Round ± column
 // leading the numbers. Same table, same visual language, everywhere.
+// Leaderboard. Positions are shared on a tie (#1, #1, #3). With
+// roundResults (the Result screen) it also shows this round's point change
+// and how many places each player moved because of it: the earlier
+// standings are reconstructed as score minus this round's change, so no
+// history is needed.
 function StandingsTable({ standings, stats, roundResults }) {
+  // This round's change for a player: their bet result plus any bounty
+  const roundChange = (pid) => {
+    const r = roundResults.results.find(x => x.playerId === pid)
+    const gotBounty = pid === roundResults.winnerPlayerId && roundResults.bountyAmount > 0
+    let delta = r ? parseInt(r.pointsChange) : 0
+    if (gotBounty) delta += roundResults.bountyAmount
+    return { delta, active: !!r || gotBounty }
+  }
+
+  // Competition ranking by a score: 1 + how many players scored more
+  const positionsBy = (score) => {
+    const scores = standings.map(score)
+    return new Map(standings.map((p, i) => [p.id, 1 + scores.filter(x => x > scores[i]).length]))
+  }
+  const position = positionsBy(p => p.points)
+  const before = roundResults ? positionsBy(p => p.points - roundChange(p.id).delta) : null
+
   return (
     <table className="night-summary">
       <thead>
@@ -642,16 +664,14 @@ function StandingsTable({ standings, stats, roundResults }) {
         </tr>
       </thead>
       <tbody>
-        {standings.map((p, i) => {
+        {standings.map((p) => {
           const s = (stats && stats[p.id]) ||
             { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 }
+          const pos = position.get(p.id)
+          const moved = before ? before.get(p.id) - pos : 0 // places climbed
           let roundCell = null
           if (roundResults) {
-            const r = roundResults.results.find(x => x.playerId === p.id)
-            const gotBounty = p.id === roundResults.winnerPlayerId && roundResults.bountyAmount > 0
-            let delta = r ? parseInt(r.pointsChange) : 0
-            if (gotBounty) delta += roundResults.bountyAmount
-            const active = !!r || gotBounty
+            const { delta, active } = roundChange(p.id)
             const cls = !active ? 'none' : delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'even'
             roundCell = (
               <td className={`sum-delta ${cls}`}>
@@ -662,7 +682,12 @@ function StandingsTable({ standings, stats, roundResults }) {
           return (
             <tr key={p.id} className={p.isMe ? 'me' : ''}>
               <td className="sum-name">
-                <span className="sum-rank">{i === 0 ? '🏆' : `#${i + 1}`}</span>
+                <span className="sum-rank">{pos === 1 ? '🏆' : `#${pos}`}</span>
+                {moved !== 0 && (
+                  <span className={`sum-move ${moved > 0 ? 'up' : 'down'}`}>
+                    {moved > 0 ? '▲' : '▼'}{Math.abs(moved)}
+                  </span>
+                )}
                 {' '}{avatarFor(p.id)} {p.name}
               </td>
               <td>{s.contestWins}–{s.contestLosses}</td>

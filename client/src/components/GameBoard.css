@@ -535,6 +535,18 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* Places moved this round (Result screen only) */
+.night-summary .sum-move {
+  display: inline-block;
+  margin-right: 0.3rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.night-summary .sum-move.up { color: #34d399; }
+.night-summary .sum-move.down { color: #fda4af; }
+
 .night-summary .sum-delta.gain { color: #34d399; font-weight: 700; }
 .night-summary .sum-delta.loss { color: #fda4af; font-weight: 700; }
 .night-summary .sum-delta.even { color: rgba(255, 255, 255, 0.6); }
