@@ -507,10 +507,22 @@ function GameBoard({ spectator = false }) {
             <div className="category-title winner-title">
               {playerNames[result.winnerPlayerId] || 'Winner'} WINS!
             </div>
-            <div className="winner-sub">
-              @ {odds[result.correctChoice] || 1}:1
-              {result.bountyAmount > 0 && <> &nbsp;+{result.bountyAmount} bounty 💰</>}
-            </div>
+            {/* How the win came about, in the duel screen's words: which
+                side won, what bets on it paid, and the winner's bounty */}
+            {(() => {
+              const won = odds[result.correctChoice] || 1
+              const lost = odds[1 - result.correctChoice] || 1
+              const role = won === lost ? 'Even odds' : (won > lost ? 'Underdog' : 'Favorite')
+              return (
+                <div className="winner-sub">
+                  <span className="ws-role">{role}</span>
+                  <span className="ws-stat"><b>{won}×</b> payout</span>
+                  {result.bountyAmount > 0 && (
+                    <span className="ws-stat bounty"><b>+{result.bountyAmount}</b> bounty</span>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* What this contest did for you (players only, not the TV or
                 an emcee host) */}

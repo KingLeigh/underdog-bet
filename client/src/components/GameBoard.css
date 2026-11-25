@@ -849,12 +849,39 @@
   text-shadow: 0 6px 30px rgba(253, 224, 71, 0.35);
 }
 
+/* Under the winner title: role, payout and bounty as one stat strip,
+   numbers set like the payout on the duel cards */
 .winner-sub {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 1.6rem;
+  row-gap: 0.3rem;
+  margin-top: 0.35rem;
   font-family: 'Space Mono', monospace;
-  font-size: 1.1rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  margin-top: 0.2rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.winner-sub .ws-role {
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.winner-sub .ws-stat b {
+  font-size: 1.25rem;
+  letter-spacing: 0;
+  margin-right: 0.15rem;
+  color: #fff;
+}
+
+.winner-sub .ws-stat.bounty b {
+  color: #fde047;
+  text-shadow: 0 0 14px rgba(253, 224, 71, 0.35);
 }
 
 /* The player's own outcome on the Result screen: stage type, no box —
