@@ -504,6 +504,11 @@
   text-align: left;
 }
 
+/* One-letter header forms are for phones (see the mobile rules) */
+.night-summary .col-short {
+  display: none;
+}
+
 .night-summary td {
   padding: 0.55rem 0.6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -1223,27 +1228,55 @@
     gap: 0.9rem;
   }
 
-  /* Standings: a portrait phone shows position, name, round and score;
-     the night's stats return in landscape (or on anything wider) */
-  .night-summary .sum-stat {
-    display: none;
+  /* Standings on a phone: every column stays, with one-letter headers
+     and half the cell padding. Numbers never wrap and take only the width
+     they need; the name cell takes the rest, on one line, ending in "…"
+     only if a name won't fit. */
+  .night-summary th,
+  .night-summary td {
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    white-space: nowrap;
   }
 
-  /* Round and Score get fixed widths; the name cell takes the rest on
-     one line, and a very long name ends in "…" rather than pushing the
-     table off the screen */
-  .night-summary {
-    table-layout: fixed;
-  }
-
-  .night-summary th:not(:first-child) {
-    width: 4.6rem;
+  .night-summary th:not(:first-child),
+  .night-summary td:not(.sum-name) {
+    width: 1%;
   }
 
   .night-summary .sum-name {
-    white-space: nowrap;
+    width: 100%;
+    max-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Places moved sit under the rank rather than beside it, leaving the
+     width for the name */
+  .night-summary .sum-place {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    vertical-align: middle;
+    min-width: 1.6rem;
+    line-height: 1.1;
+  }
+
+  .night-summary .sum-rank {
+    min-width: 0;
+  }
+
+  .night-summary .sum-move {
+    margin-right: 0;
+    font-size: 0.65rem;
+  }
+
+  .night-summary .col-full {
+    display: none;
+  }
+
+  .night-summary .col-short {
+    display: inline;
   }
 }
 

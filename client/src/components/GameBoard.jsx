@@ -628,6 +628,16 @@ function GameBoard({ spectator = false }) {
 // The one leaderboard: contest W-L, bet W-L, total wagered, score —
 // and, when roundResults is given (the Results screen), a Round ± column
 // leading the numbers. Same table, same visual language, everywhere.
+// A column header with a one-letter form for phone widths
+function ColLabel({ full, short }) {
+  return (
+    <>
+      <span className="col-full">{full}</span>
+      <span className="col-short" title={full}>{short}</span>
+    </>
+  )
+}
+
 // Leaderboard. Positions are shared on a tie (#1, #1, #3). With
 // roundResults (the Result screen) it also shows this round's point change
 // and how many places each player moved because of it: the earlier
@@ -656,11 +666,11 @@ function StandingsTable({ standings, stats, roundResults }) {
       <thead>
         <tr>
           <th></th>
-          <th className="sum-stat">Contests</th>
-          <th className="sum-stat">Bets</th>
-          <th className="sum-stat">Wagered</th>
-          {roundResults && <th>Round</th>}
-          <th>Score</th>
+          <th><ColLabel full="Contests" short="C" /></th>
+          <th><ColLabel full="Bets" short="B" /></th>
+          <th><ColLabel full="Wagered" short="W" /></th>
+          {roundResults && <th><ColLabel full="Round" short="R" /></th>}
+          <th><ColLabel full="Score" short="S" /></th>
         </tr>
       </thead>
       <tbody>
@@ -682,17 +692,19 @@ function StandingsTable({ standings, stats, roundResults }) {
           return (
             <tr key={p.id} className={p.isMe ? 'me' : ''}>
               <td className="sum-name">
-                <span className="sum-rank">{pos === 1 ? '🏆' : `#${pos}`}</span>
-                {moved !== 0 && (
-                  <span className={`sum-move ${moved > 0 ? 'up' : 'down'}`}>
-                    {moved > 0 ? '▲' : '▼'}{Math.abs(moved)}
-                  </span>
-                )}
+                <span className="sum-place">
+                  <span className="sum-rank">{pos === 1 ? '🏆' : `#${pos}`}</span>
+                  {moved !== 0 && (
+                    <span className={`sum-move ${moved > 0 ? 'up' : 'down'}`}>
+                      {moved > 0 ? '▲' : '▼'}{Math.abs(moved)}
+                    </span>
+                  )}
+                </span>
                 {' '}{avatarFor(p.id)} {p.name}
               </td>
-              <td className="sum-stat">{s.contestWins}–{s.contestLosses}</td>
-              <td className="sum-stat">{s.betWins}–{s.betLosses}</td>
-              <td className="sum-stat">{s.totalBet}</td>
+              <td>{s.contestWins}–{s.contestLosses}</td>
+              <td>{s.betWins}–{s.betLosses}</td>
+              <td>{s.totalBet}</td>
               {roundCell}
               <td className="sum-score">{p.points}</td>
             </tr>
