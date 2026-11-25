@@ -82,12 +82,45 @@ async function init(options = {}) {
   return true;
 }
 
-// Write-through snapshot of one game (fire-and-forget for callers; the
-// returned promise exists so tests can await the write)
+// Per-game write queue. The pool has several connections, and two upserts
+// sent on different connections can commit in either order — a slow one
+// (a dropped packet, a fresh TLS handshake) would land an OLDER snapshot on
+// top of a newer one. So each game has at most one snapshot write in
+// flight; saves requested meanwhile just mark the game dirty, and the
+// writer goes round again with the latest state once its write lands. Bursts
+// (everyone betting at lock time) coalesce into two writes at most.
+const writers = new Map(); // gameId -> { dirty, done }
+
+// Write-through snapshot of one game (fire-and-forget for callers). The
+// returned promise resolves once the state as of this call — or newer — is
+// in the database, so tests (and close) can await it.
 function saveGame(gameId) {
   if (!enabled) return Promise.resolve();
+  const writer = writers.get(gameId);
+  if (writer) {
+    writer.dirty = true;
+    return writer.done;
+  }
+  const fresh = { dirty: false, done: null };
+  writers.set(gameId, fresh);
+  fresh.done = drainWrites(gameId, fresh);
+  return fresh.done;
+}
+
+async function drainWrites(gameId, writer) {
+  do {
+    writer.dirty = false;
+    await writeSnapshot(gameId); // never rejects
+  } while (writer.dirty);
+  writers.delete(gameId);
+}
+
+// One upsert of the game's current state, serialized at the moment it is
+// sent. A game no longer in memory (deleted) is skipped, so a queued write
+// can never resurrect it.
+function writeSnapshot(gameId) {
   const game = gameSessions.get(gameId);
-  if (!game) return Promise.resolve();
+  if (!game || !pool) return Promise.resolve();
   const snapshot = { game, wager: wagerStates.get(gameId) || null };
   return pool
     .query(UPSERT_GAME, [gameId, JSON.stringify(snapshot)])
@@ -104,14 +137,20 @@ function logEvent(gameId, type, payload) {
 
 // Remove a game's snapshot row. Its events stay: they are the permanent
 // record, and at ~100 KB per full night there is no reason to lose history.
+// Callers remove the game from memory first; the delete then waits for any
+// in-flight snapshot write, so that write can't land after it and bring the
+// row back.
 function deleteGame(gameId) {
   if (!enabled) return Promise.resolve();
-  return pool
-    .query('DELETE FROM games WHERE id = $1', [gameId])
+  const pending = writers.get(gameId);
+  return (pending ? pending.done : Promise.resolve())
+    .then(() => pool.query('DELETE FROM games WHERE id = $1', [gameId]))
     .catch(err => console.error(`Deleting game ${gameId} failed:`, err.message));
 }
 
+// Wait for every queued snapshot write, then disconnect
 async function close() {
+  await Promise.all([...writers.values()].map(w => w.done));
   if (pool) await pool.end();
   pool = null;
   enabled = false;

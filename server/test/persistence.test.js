@@ -137,6 +137,92 @@ test('a deleted game stays gone after a restart, but its events remain', async (
   await persistence.close();
 });
 
+// ---- write ordering ---------------------------------------------------------
+//
+// A stand-in pool whose snapshot upserts take as long as the test says, one
+// latency per write in call order — so a slow early write can be made to
+// finish after a fast later one, the race a real multi-connection pool allows.
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function latencyPool(latencies) {
+  const rows = new Map();
+  const writes = [];
+  return {
+    rows,
+    writes,
+    async query(sql, params) {
+      if (sql.includes('information_schema')) {
+        return { rows: [{ table_name: 'games' }, { table_name: 'events' }] };
+      }
+      if (sql.includes('INSERT INTO games')) {
+        const state = JSON.parse(params[1]);
+        writes.push(state);
+        await sleep(latencies[writes.length - 1] || 0);
+        rows.set(params[0], state);
+        return { rows: [] };
+      }
+      if (sql.includes('DELETE FROM games')) {
+        rows.delete(params[0]);
+        return { rows: [] };
+      }
+      return { rows: [] }; // SELECT state (nothing to restore), events
+    },
+    async end() {}
+  };
+}
+
+test('a slow early save never lands on top of a newer one', async () => {
+  // First write is slow, every later one instant
+  const pool = latencyPool([80]);
+  await persistence.init({ pool });
+  const game = sampleGame('G4');
+  gameSessions.set('G4', game);
+
+  game.playerPoints.p1 = 1;
+  const first = persistence.saveGame('G4');
+  game.playerPoints.p1 = 2;
+  const second = persistence.saveGame('G4');
+  await Promise.all([first, second]);
+
+  assert.equal(pool.rows.get('G4').game.playerPoints.p1, 2, 'the newest state wins');
+  await persistence.close();
+});
+
+test('a burst of saves coalesces and the last state is what lands', async () => {
+  const pool = latencyPool([30, 30]);
+  await persistence.init({ pool });
+  const game = sampleGame('G5');
+  gameSessions.set('G5', game);
+
+  const saves = [];
+  for (let i = 1; i <= 6; i++) {
+    game.playerPoints.p1 = i;
+    saves.push(persistence.saveGame('G5'));
+  }
+  await Promise.all(saves);
+
+  assert.equal(pool.writes.length, 2, 'six saves, two writes: the first, then the latest');
+  assert.equal(pool.rows.get('G5').game.playerPoints.p1, 6);
+  await persistence.close();
+});
+
+test('a delete waits for an in-flight save, so the game cannot come back', async () => {
+  const pool = latencyPool([60]);
+  await persistence.init({ pool });
+  gameSessions.set('G6', sampleGame('G6'));
+
+  const save = persistence.saveGame('G6');
+  persistence.saveGame('G6'); // queued follow-up
+  gameSessions.delete('G6'); // callers drop memory first (routes.js)
+  await persistence.deleteGame('G6');
+  await save;
+
+  assert.equal(pool.rows.has('G6'), false, 'no snapshot row after the delete');
+  assert.equal(pool.writes.length, 1, 'the queued follow-up skipped the deleted game');
+  await persistence.close();
+});
+
 test('with no database configured, persistence is inert', async () => {
   const on = await persistence.init({ databaseUrl: null });
   assert.equal(on, false);
