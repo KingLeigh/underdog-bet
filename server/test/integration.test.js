@@ -217,7 +217,73 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   assert.equal(e2.message, 'Cannot join game that has already started');
 });
 
-test('emcee mode: a non-player host runs the game', { timeout: 30000 }, async () => {
+test('spectator (TV screen) watches a game without a seat', { timeout: 30000 }, async () => {
+  const host = connect();
+  const pat = connect();
+
+  host.emit('createGame', { playerName: 'Host', startingPoints: 100 });
+  const created = await once(host, 'gameCreated');
+  const gameId = created.id;
+  const hostId = created.playerID;
+  pat.emit('joinGame', { gameId, playerName: 'Pat' });
+  const patId = (await once(pat, 'gameJoined')).playerID;
+
+  // Watching an unknown game is an error
+  const lost = connect();
+  const lostErr = once(lost, 'error');
+  lost.emit('watchGame', { gameId: 'ZZZZZZ' });
+  assert.equal((await lostErr).message, 'Game not found');
+
+  // The TV joins: full game state, no identity, not added to the roster
+  const tv = connect();
+  tv.emit('watchGame', { gameId });
+  const watched = await once(tv, 'gameJoined');
+  assert.equal(watched.playerID, null, 'spectator has no player identity');
+  assert.equal(watched.isHost, false);
+  assert.equal(watched.spectator, true);
+  assert.deepEqual(watched.gameState.players.sort(), [hostId, patId].sort());
+
+  // It receives the game's broadcasts: state updates, wagers, bets (hidden)
+  const playing = new Promise((resolve) => {
+    const h = (gs) => { if (gs.status === 'playing') { tv.off('gameStateUpdate', h); resolve(gs); } };
+    tv.on('gameStateUpdate', h);
+  });
+  host.emit('gameAction', { gameId, action: 'startGame', payload: {} });
+  const started = await playing;
+  assert.equal(started.players.length, 2, 'the TV never joins the roster');
+
+  const proposed = once(tv, 'wagerProposed');
+  host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: hostId, player2: patId, odds1: 1, odds2: 2 } });
+  assert.deepEqual((await proposed).contestants, [hostId, patId]);
+
+  const tvChoices = [];
+  tv.on('choiceMade', (c) => tvChoices.push(c));
+  pat.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 25 } });
+  // The TV cannot act: its bet attempt is ignored
+  tv.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
+  await sleep(300);
+  assert.equal(tvChoices.length, 1, 'only the real bet is broadcast');
+  assert.equal(tvChoices[0].playerId, patId);
+  assert.equal(tvChoices[0].choice, null, 'choices stay secret on the TV');
+  assert.equal(tvChoices[0].points, 25, 'bystander amounts are public');
+
+  // A TV joining mid-wager gets the wager and bets replayed, choices hidden
+  const tv2 = connect();
+  const replayed = [];
+  tv2.on('choiceMade', (c) => replayed.push(c));
+  const replayWager = once(tv2, 'wagerProposed');
+  tv2.emit('watchGame', { gameId });
+  await replayWager;
+  await sleep(200);
+  assert.equal(replayed.length, 1);
+  assert.equal(replayed[0].choice, null);
+
+  const resolved = once(tv, 'wagerResolved');
+  host.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 1 } });
+  assert.equal((await resolved).winnerPlayerId, patId);
+});
+
+test('emcee mode: a non-player host runs the game',{ timeout: 30000 }, async () => {
   const emma = connect();
   const dave = connect();
   const fran = connect();

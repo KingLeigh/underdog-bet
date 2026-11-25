@@ -629,6 +629,13 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+.host-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
 .pre-contest-tools {
   display: flex;
   align-items: center;

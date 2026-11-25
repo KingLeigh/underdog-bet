@@ -2,10 +2,14 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
+import GameLobby from './GameLobby'
 import { avatarFor } from '../lib/avatars'
 import './GameBoard.css'
 
-function GameBoard() {
+// spectator: the presentation (TV) screen at /tv/:gameId — the same stage
+// the players see, watched without a seat, so every player- and
+// host-specific control simply drops away (no playerId, not host).
+function GameBoard({ spectator = false }) {
   const { gameId, playerId: urlPlayerId } = useParams()
   const navigate = useNavigate()
   const [selectedOption, setSelectedOption] = useState(null)
@@ -67,11 +71,20 @@ function GameBoard() {
 
   useEffect(() => {
     // A waiting game belongs in the lobby; a finished one stays here to
-    // show the Winner screen
-    if (gameState && gameState.status === 'waiting') {
+    // show the Winner screen. (The TV shows its own join screen instead.)
+    if (!spectator && gameState && gameState.status === 'waiting') {
       navigate(`/lobby/${gameId}`)
     }
-  }, [gameState, gameId, navigate])
+  }, [spectator, gameState, gameId, navigate])
+
+  // The TV watches the game (no seat); re-watch after any reconnect
+  useEffect(() => {
+    if (!spectator || !socket || !gameId) return
+    const watch = () => socket.emit('watchGame', { gameId })
+    if (socket.connected) watch()
+    socket.on('connect', watch)
+    return () => socket.off('connect', watch)
+  }, [spectator, socket, gameId])
 
   // Reset selection state when wager state changes
   useEffect(() => {
@@ -174,6 +187,11 @@ function GameBoard() {
       default: return null
     }
   })()
+
+  // TV before the start: the lobby screen itself, watched without a seat
+  if (spectator && gameState && gameState.status === 'waiting') {
+    return <GameLobby spectator />
+  }
 
   if (!gameState || (gameState.status !== 'playing' && gameState.status !== 'finished')) {
     return (
@@ -577,15 +595,27 @@ function GameBoard() {
           )}
         </details>
 
-        {isHost && schedule.length > 0 && (
-          <a
-            className="show-matchups-link"
-            href={`/matchmaker?game=${gameId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            🎲 Tonight's matchups
-          </a>
+        {isHost && (
+          <div className="host-links">
+            {schedule.length > 0 && (
+              <a
+                className="show-matchups-link"
+                href={`/matchmaker?game=${gameId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                🎲 Tonight's matchups
+              </a>
+            )}
+            <a
+              className="show-matchups-link"
+              href={`/tv/${gameId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              📺 TV screen
+            </a>
+          </div>
         )}
 
         <div className="stage-footer">

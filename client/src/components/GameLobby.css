@@ -57,6 +57,12 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+a.copy-link.tv-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  text-decoration: none;
+}
+
 /* ---- player chips ---- */
 .player-chips {
   display: flex;

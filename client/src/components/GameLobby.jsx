@@ -5,7 +5,9 @@ import RulesPanel from './RulesPanel'
 import { avatarFor } from '../lib/avatars'
 import './GameLobby.css'
 
-function GameLobby() {
+// spectator: rendered inside the TV screen (GameBoard spectator) while the
+// game is waiting — the lobby minus everything tied to a seat
+function GameLobby({ spectator = false }) {
   const { gameId } = useParams()
   const navigate = useNavigate()
   const {
@@ -43,11 +45,13 @@ function GameLobby() {
   }, [categories])
 
   useEffect(() => {
-    if (gameState && gameState.status === 'playing') {
+    // (The TV switches screens on its own: GameBoard renders this lobby
+    // only while the game is waiting)
+    if (!spectator && gameState && gameState.status === 'playing') {
       // Navigate to game board with player ID for seamless reconnections
       navigate(`/game/${gameId}/player/${playerId}`)
     }
-  }, [gameState, gameId, navigate, playerId])
+  }, [spectator, gameState, gameId, navigate, playerId])
 
   const startGame = () => {
     if (isHost) {
@@ -144,6 +148,16 @@ function GameLobby() {
         <button className="copy-link" onClick={copyGameId}>
           {copied ? '✓ Invite link copied!' : '🔗 Copy invite link'}
         </button>
+        {isHost && (
+          <a
+            className="copy-link tv-link"
+            href={`/tv/${gameId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            📺 Open the TV screen
+          </a>
+        )}
 
         {/* Players (an emcee host is not shown — they have no row in the game) */}
         <div className="player-chips">

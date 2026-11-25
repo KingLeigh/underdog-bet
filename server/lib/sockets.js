@@ -192,6 +192,29 @@ function registerSocketHandlers(io) {
       }
     });
 
+    // Watch a game without a seat: the presentation (TV) screen. The socket
+    // joins the game room, so it receives every broadcast the players do, but
+    // it has no player identity — gameAction ignores it, choices stay hidden,
+    // and it never appears in the roster.
+    socket.on('watchGame', (data) => {
+      const gameId = data && data.gameId;
+      const game = gameId && gameSessions.get(gameId);
+      if (!game) {
+        socket.emit('error', { message: 'Game not found' });
+        return;
+      }
+      socket.join(gameId);
+      socket.emit('gameJoined', {
+        gameId,
+        gameState: game,
+        wasReconnection: false,
+        playerID: null,
+        isHost: false,
+        spectator: true
+      });
+      sendActiveWagerTo(socket, game, null);
+    });
+
     // Handle player reconnection using playerID
     socket.on('rejoinGame', (data) => {
       const { gameId, playerID } = data;
