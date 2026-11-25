@@ -512,6 +512,26 @@ function GameBoard({ spectator = false }) {
               {result.bountyAmount > 0 && <> &nbsp;+{result.bountyAmount} bounty 💰</>}
             </div>
 
+            {/* What this contest did for you (players only, not the TV or
+                an emcee host) */}
+            {amPlayer && (() => {
+              const mine = result.results.find(r => r.playerId === playerId)
+              const bounty = playerId === result.winnerPlayerId && result.bountyAmount > 0
+                ? result.bountyAmount
+                : 0
+              const bountyNote = bounty ? <> &nbsp;+{bounty} bounty 💰</> : null
+              if (mine && mine.correct) {
+                return <div className="my-result won">You won your bet! {mine.pointsChange}{bountyNote}</div>
+              }
+              if (mine) {
+                return <div className="my-result lost">You lost your bet. {mine.pointsChange}{bountyNote}</div>
+              }
+              if (bounty) {
+                return <div className="my-result won">You won the bounty! +{bounty} 💰</div>
+              }
+              return <div className="my-result out">You sat this one out.</div>
+            })()}
+
             <StandingsTable standings={standings} stats={gameState?.stats} roundResults={result} />
 
             {/* Next scheduled matchup goes via the pre-contest odds screen;

@@ -833,6 +833,36 @@
   margin-top: 0.2rem;
 }
 
+/* The player's own outcome on the Result screen */
+.my-result {
+  margin: 1rem auto 0.4rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 14px;
+  display: inline-block;
+  font-family: 'Lilita One', 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.01em;
+}
+
+.my-result.won {
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.16);
+  border: 2px solid rgba(110, 231, 183, 0.45);
+}
+
+.my-result.lost {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+  border: 2px solid rgba(252, 165, 165, 0.4);
+}
+
+.my-result.out {
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
 .next-contest-btn {
   margin-top: 1.6rem;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;
