@@ -5,6 +5,10 @@
 
 const gameSessions = new Map(); // gameId -> game state
 const playerRegistry = new Map(); // playerID -> { socketID, playerName, gameId, lastSeen }
+// Reverse index of playerRegistry's socketIDs, so resolving the player
+// behind a socket event is a lookup, not a scan. Written only through
+// bindSocket/unbindSocket; reads are checked against the registry.
+const socketPlayers = new Map(); // socketID -> playerID
 
 let nextPlayerID = 1;
 
@@ -27,17 +31,41 @@ function displayName(name) {
   return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : trimmed;
 }
 
+// Point a player at their current socket (a join, a rejoin, a new player).
+// The player's previous socket stops resolving to them, and any other
+// player still pointing at this socket is unbound from it.
+function bindSocket(playerID, socketID) {
+  const data = playerRegistry.get(playerID);
+  if (!data) return;
+  if (data.socketID && data.socketID !== socketID) socketPlayers.delete(data.socketID);
+  const prev = socketPlayers.get(socketID);
+  if (prev && prev !== playerID && playerRegistry.get(prev)?.socketID === socketID) {
+    playerRegistry.get(prev).socketID = null;
+  }
+  data.socketID = socketID;
+  data.lastSeen = Date.now();
+  socketPlayers.set(socketID, playerID);
+}
+
+// A socket went away: unbind it, returning the player it belonged to (if
+// it was still that player's current socket)
+function unbindSocket(socketID) {
+  const playerID = getPlayerID({ id: socketID });
+  socketPlayers.delete(socketID);
+  if (playerID) playerRegistry.get(playerID).socketID = null;
+  return playerID;
+}
+
 // Get or create player ID for a socket. When joining a specific game, a
 // matching player name (case-insensitive) reconnects that player — but only
 // within that game, so the same name in another game never hijacks someone
 // else's identity.
 function getOrCreatePlayerID(socket, playerName, gameId = null) {
   // Check if this socket already has a player ID
-  for (const [playerID, playerData] of playerRegistry.entries()) {
-    if (playerData.socketID === socket.id) {
-      playerData.lastSeen = Date.now();
-      return playerID;
-    }
+  const existing = getPlayerID(socket);
+  if (existing) {
+    playerRegistry.get(existing).lastSeen = Date.now();
+    return existing;
   }
 
   // Check if this player name already exists in the game being joined
@@ -45,8 +73,7 @@ function getOrCreatePlayerID(socket, playerName, gameId = null) {
     for (const [playerID, playerData] of playerRegistry.entries()) {
       if (nameKey(playerData.playerName) === nameKey(playerName) && playerData.gameId === gameId) {
         // Found existing player with same name in this game, update socket ID
-        playerData.socketID = socket.id;
-        playerData.lastSeen = Date.now();
+        bindSocket(playerID, socket.id);
         return playerID;
       }
     }
@@ -55,22 +82,19 @@ function getOrCreatePlayerID(socket, playerName, gameId = null) {
   // Create new player (the display name keeps the first joiner's casing)
   const playerID = generatePlayerID();
   playerRegistry.set(playerID, {
-    socketID: socket.id,
+    socketID: null,
     playerName: displayName(playerName),
     gameId: null,
     lastSeen: Date.now()
   });
+  bindSocket(playerID, socket.id);
   return playerID;
 }
 
 // Get player ID for a socket
 function getPlayerID(socket) {
-  for (const [playerID, playerData] of playerRegistry.entries()) {
-    if (playerData.socketID === socket.id) {
-      return playerID;
-    }
-  }
-  return null;
+  const playerID = socketPlayers.get(socket.id);
+  return playerID && playerRegistry.get(playerID)?.socketID === socket.id ? playerID : null;
 }
 
 // Point management. Callers are responsible for clamping losses at the
@@ -134,7 +158,10 @@ function deleteGame(gameId) {
   if (!gameSessions.has(gameId)) return false;
   gameSessions.delete(gameId);
   for (const [playerID, playerData] of playerRegistry.entries()) {
-    if (playerData.gameId === gameId) playerRegistry.delete(playerID);
+    if (playerData.gameId === gameId) {
+      if (playerData.socketID) socketPlayers.delete(playerData.socketID);
+      playerRegistry.delete(playerID);
+    }
   }
   return true;
 }
@@ -149,6 +176,8 @@ module.exports = {
   generateGameId,
   getOrCreatePlayerID,
   getPlayerID,
+  bindSocket,
+  unbindSocket,
   displayName,
   addPoints,
   getPlayerPoints,

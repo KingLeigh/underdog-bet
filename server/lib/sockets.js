@@ -13,6 +13,8 @@ const {
   generateGameId,
   getOrCreatePlayerID,
   getPlayerID,
+  bindSocket,
+  unbindSocket,
   displayName
 } = require('./store');
 const { processGameAction } = require('./gameActions');
@@ -213,9 +215,8 @@ function registerSocketHandlers(io) {
         return;
       }
 
-      // Update player registry with new socket ID
-      playerData.socketID = socket.id;
-      playerData.lastSeen = Date.now();
+      // This socket is now the player's
+      bindSocket(playerID, socket.id);
 
       // Join the game room
       socket.join(gameId);
@@ -237,25 +238,14 @@ function registerSocketHandlers(io) {
 
     // Handle disconnection
     socket.on('disconnect', () => {
-      // Find the player ID for this socket
-      let disconnectedPlayerID = null;
-      for (const [playerID, playerData] of playerRegistry.entries()) {
-        if (playerData.socketID === socket.id) {
-          disconnectedPlayerID = playerID;
-          break;
-        }
-      }
-
+      // Mark the player disconnected but keep their data so they can
+      // reconnect; games are never deleted on disconnect, even the host's
+      const disconnectedPlayerID = unbindSocket(socket.id);
       if (!disconnectedPlayerID) {
-        // Socket was never registered (e.g. rapid connect/disconnect during a refresh)
+        // Never registered, or the player already moved to a newer socket
         return;
       }
-
-      // Mark as disconnected but keep player data so they can reconnect.
-      // Games are not deleted on disconnect (even the host's); abandoned games
-      // are cleaned up by cleanupAbandonedGames after a timeout.
       const playerData = playerRegistry.get(disconnectedPlayerID);
-      playerData.socketID = null;
       console.log(`Player ${playerData.playerName} (${disconnectedPlayerID}) disconnected`);
     });
   });
