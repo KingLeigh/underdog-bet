@@ -1,8 +1,12 @@
 // End-to-end integration test: spawns the real server on a test port and
-// drives a full game over Socket.IO — create, join, rankings, start, a wager
-// with odds and a bounty, resolution with exact point math, reconnection
-// (including own-choice replay), cancellation, identity isolation, and
-// error paths.
+// drives a full game over Socket.IO — create, join, rankings, start, a
+// contest with odds and a bounty, resolution with exact point math,
+// reconnection, cancellation, identity isolation, and error paths.
+//
+// The protocol is state, not events: every change broadcasts the whole game
+// ('gameStateUpdate'), current contest included, and every join answers
+// with the same state ('gameJoined'). So these tests wait for a state that
+// satisfies a predicate rather than for named events.
 //
 // This suite is deliberately written against the socket protocol, the app's
 // real API: it should survive internal refactors unchanged and only need
@@ -35,6 +39,26 @@ function once(socket, event, timeoutMs = 5000) {
     });
   });
 }
+
+// Resolve with the first broadcast game state that satisfies `pred`
+function waitState(socket, pred, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off('gameStateUpdate', h);
+      reject(new Error('timeout waiting for a matching game state'));
+    }, timeoutMs);
+    const h = (gs) => {
+      if (!pred(gs)) return;
+      clearTimeout(timer);
+      socket.off('gameStateUpdate', h);
+      resolve(gs);
+    };
+    socket.on('gameStateUpdate', h);
+  });
+}
+
+const isLive = (gs) => !!gs.contest && !gs.contest.result;
+const isResolved = (gs) => !!gs.contest && !!gs.contest.result;
 
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
@@ -83,6 +107,7 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   assert.ok(created.id, 'game has an id');
   assert.equal(created.host, created.playerID, 'creator is host');
   assert.equal(created.playerPoints[created.playerID], 100, 'host starting points');
+  assert.equal(created.contest, null, 'no contest yet');
   const gameId = created.id;
   const hostId = created.playerID;
 
@@ -94,95 +119,83 @@ test('full game flow over the socket protocol', { timeout: 30000 }, async () => 
   const aliceId = joined.playerID;
 
   // 3. Both submit rankings
-  const rankingsDone = once(host, 'rankingsComplete');
+  const rankingsDone = waitState(host, gs => gs.rankingsComplete);
   host.emit('gameAction', { gameId, action: 'submitRankings', payload: { rankings: { Trivia: 1, Cardio: 2 } } });
   alice.emit('gameAction', { gameId, action: 'submitRankings', payload: { rankings: { Trivia: 2, Cardio: 1 } } });
   await rankingsDone;
 
   // 4. Host saves matchups (mandatory with 2+ categories) and starts the game
-  //    (wait for the state update whose status is 'playing'; every gameAction
-  //    broadcasts a gameStateUpdate, so earlier ones may still arrive)
   host.emit('gameAction', { gameId, action: 'saveMatchups', payload: { matchups: [
     { category: 'Trivia', highId: hostId, lowId: aliceId, highRank: 1, lowRank: 2, gap: 1 },
     { category: 'Cardio', highId: aliceId, lowId: hostId, highRank: 1, lowRank: 2, gap: 1 }
   ] } });
-  const playing = new Promise((resolve) => {
-    const h = (gs) => { if (gs.status === 'playing') { alice.off('gameStateUpdate', h); resolve(gs); } };
-    alice.on('gameStateUpdate', h);
-  });
+  const playing = waitState(alice, gs => gs.status === 'playing');
   host.emit('gameAction', { gameId, action: 'startGame', payload: {} });
   await playing;
 
-  // 5. Host proposes a wager by player ID: Bob vs Alice at 1x / 2x
-  const proposed = once(alice, 'wagerProposed');
+  // 5. Host proposes a contest by player ID: Bob vs Alice at 1x / 2x
+  const proposed = waitState(alice, isLive);
   host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: hostId, player2: aliceId, odds1: 1, odds2: 2, category: 'Trivia' } });
-  const wager = await proposed;
-  assert.deepEqual(wager.options, ['Bob', 'Alice'], 'display names derived from IDs');
-  assert.deepEqual(wager.contestants, [hostId, aliceId], 'wager carries contestant IDs');
-  assert.deepEqual(wager.odds, [1, 2]);
+  const contest = (await proposed).contest;
+  assert.deepEqual(contest.options, ['Bob', 'Alice'], 'display names derived from IDs');
+  assert.deepEqual(contest.contestants, [hostId, aliceId], 'contest carries contestant IDs');
+  assert.deepEqual(contest.odds, [1, 2]);
 
-  // 6. Self-bet rule: Bob (a contestant) betting on Alice must be rejected
-  let bobIllegal = false;
-  host.once('choiceMade', () => { bobIllegal = true; });
+  // 6. Self-bet rule: Bob (a contestant) betting on Alice is rejected
   host.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 10 } });
-  await sleep(300);
-  assert.equal(bobIllegal, false, 'contestant cannot bet against themselves');
+  const afterIllegal = await waitState(alice, () => true);
+  assert.equal(afterIllegal.contest.bets[hostId], undefined, 'contestant cannot bet against themselves');
 
-  // Both bet legally; choices stay secret in the broadcasts
-  const choices = [];
-  host.on('choiceMade', (c) => choices.push(c));
+  // Both bet legally; every client sees the bets in state (the client
+  // decides what to show)
+  const bothBet = waitState(alice, gs => Object.keys(gs.contest.bets).length === 2);
   host.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 30 } }); // Bob on himself
   alice.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 20 } }); // Alice on herself
-  await sleep(300);
-  assert.equal(choices.length, 2, 'both bets broadcast');
-  assert.ok(choices.every(c => c.choice === null), 'choices stay secret until resolution');
-  host.off('choiceMade');
+  assert.deepEqual((await bothBet).contest.bets[hostId], { choice: 0, points: 30 });
 
   // 7. Host resolves: Alice (choice 1) wins.
   //    Alice bet 20 at 2x -> +40; Bob bet 30, wrong -> -30.
   //    Bounty Max = max(30, 20) = 30 -> Alice gets +30 more.
-  const resolved = once(alice, 'wagerResolved');
+  const resolved = waitState(alice, isResolved);
   host.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 1 } });
-  const result = await resolved;
+  const afterResolve = await resolved;
+  const result = afterResolve.contest.result;
   assert.equal(result.winnerPlayerId, aliceId, 'contest winner identified by ID');
   assert.equal(result.bountyAmount, 30, 'Max bounty is the largest bet');
   assert.equal(result.results.find(r => r.playerId === aliceId).pointsChange, '+40');
   assert.equal(result.results.find(r => r.playerId === hostId).pointsChange, '-30');
 
-  // 8. Final points via REST: Alice 100+40+30=170, Bob 100-30=70
+  // 8. Final points, in the same state and via REST: Alice 170, Bob 70
+  assert.equal(afterResolve.playerPoints[aliceId], 170);
   const points = await fetch(`${URL}/api/games/${gameId}/points`).then(r => r.json());
   assert.equal(points.playerPoints[aliceId], 170);
   assert.equal(points.playerPoints[hostId], 70);
 
-  // 9. Second wager: alice bets, disconnects mid-wager, rejoins → her own
-  //    choice is replayed to her (others' stay secret); then host cancels.
-  const proposed2 = once(alice, 'wagerProposed');
+  // 9. The host dismisses the result, then a second contest: alice bets,
+  //    disconnects mid-contest, rejoins → her bet is in the state she gets
+  const between = waitState(alice, gs => gs.contest === null);
+  host.emit('gameAction', { gameId, action: 'dismissResult', payload: {} });
+  await between;
+  const proposed2 = waitState(alice, isLive);
   host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: hostId, player2: aliceId, odds1: 1, odds2: 1 } });
   await proposed2;
+  const aliceBet = waitState(host, gs => !!gs.contest.bets[aliceId]);
   alice.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 10 } });
-  await sleep(300);
+  await aliceBet;
   alice.disconnect();
 
   const alice2 = connect();
   await once(alice2, 'connect');
-  const replayedChoices = [];
-  alice2.on('choiceMade', (c) => replayedChoices.push(c));
   alice2.emit('rejoinGame', { gameId, playerID: aliceId });
   const rejoined = await once(alice2, 'gameJoined');
   assert.equal(rejoined.wasReconnection, true);
   assert.equal(rejoined.playerID, aliceId);
-  await sleep(300);
-  const own = replayedChoices.find(c => c.playerId === aliceId);
-  assert.ok(own, 'own bet replayed on rejoin');
-  assert.equal(own.choice, 1, 'own choice revealed to its owner');
+  assert.deepEqual(rejoined.gameState.contest.bets[aliceId], { choice: 1, points: 10 }, 'own bet survives the rejoin');
 
-  const cancelled = once(alice2, 'wagerCancelled');
+  const cancelled = waitState(alice2, gs => gs.contest === null);
   host.emit('gameAction', { gameId, action: 'cancelWager', payload: {} });
-  await cancelled;
-
-  // Points unchanged by the cancelled wager
-  const points2 = await fetch(`${URL}/api/games/${gameId}/points`).then(r => r.json());
-  assert.equal(points2.playerPoints[aliceId], 170);
+  const afterCancel = await cancelled;
+  assert.equal(afterCancel.playerPoints[aliceId], 170, 'points unchanged by the cancelled contest');
 
   // 10. Identity isolation: creating a different game with the name "alice"
   //     must NOT hijack game 1's Alice (and display names are capitalized).
@@ -243,47 +256,36 @@ test('spectator (TV screen) watches a game without a seat', { timeout: 30000 }, 
   assert.equal(watched.spectator, true);
   assert.deepEqual(watched.gameState.players.sort(), [hostId, patId].sort());
 
-  // It receives the game's broadcasts: state updates, wagers, bets (hidden)
-  const playing = new Promise((resolve) => {
-    const h = (gs) => { if (gs.status === 'playing') { tv.off('gameStateUpdate', h); resolve(gs); } };
-    tv.on('gameStateUpdate', h);
-  });
+  // It receives the game's broadcasts like everyone else
+  const playing = waitState(tv, gs => gs.status === 'playing');
   host.emit('gameAction', { gameId, action: 'startGame', payload: {} });
   const started = await playing;
   assert.equal(started.players.length, 2, 'the TV never joins the roster');
 
-  const proposed = once(tv, 'wagerProposed');
+  const proposed = waitState(tv, isLive);
   host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: hostId, player2: patId, odds1: 1, odds2: 2 } });
-  assert.deepEqual((await proposed).contestants, [hostId, patId]);
+  assert.deepEqual((await proposed).contest.contestants, [hostId, patId]);
 
-  const tvChoices = [];
-  tv.on('choiceMade', (c) => tvChoices.push(c));
-  pat.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 25 } });
-  // The TV cannot act: its bet attempt is ignored
+  // The TV cannot act: its bet attempt is ignored, Pat's lands
   tv.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
-  await sleep(300);
-  assert.equal(tvChoices.length, 1, 'only the real bet is broadcast');
-  assert.equal(tvChoices[0].playerId, patId);
-  assert.equal(tvChoices[0].choice, null, 'choices stay secret on the TV');
-  assert.equal(tvChoices[0].points, 25, 'bystander amounts are public');
+  const patBet = waitState(tv, gs => !!gs.contest.bets[patId]);
+  pat.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 1, points: 25 } });
+  const withBet = await patBet;
+  assert.deepEqual(Object.keys(withBet.contest.bets), [patId], 'only the real bet is in state');
 
-  // A TV joining mid-wager gets the wager and bets replayed, choices hidden
+  // A TV joining mid-contest gets the contest and its bets in the join state
   const tv2 = connect();
-  const replayed = [];
-  tv2.on('choiceMade', (c) => replayed.push(c));
-  const replayWager = once(tv2, 'wagerProposed');
   tv2.emit('watchGame', { gameId });
-  await replayWager;
-  await sleep(200);
-  assert.equal(replayed.length, 1);
-  assert.equal(replayed[0].choice, null);
+  const midJoin = await once(tv2, 'gameJoined');
+  assert.ok(isLive(midJoin.gameState));
+  assert.equal(midJoin.gameState.contest.bets[patId].points, 25);
 
-  const resolved = once(tv, 'wagerResolved');
+  const resolved = waitState(tv, isResolved);
   host.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 1 } });
-  assert.equal((await resolved).winnerPlayerId, patId);
+  assert.equal((await resolved).contest.result.winnerPlayerId, patId);
 });
 
-test('a player who slept through a resolution resyncs to the result', { timeout: 30000 }, async () => {
+test('a player who slept through a resolution wakes to the result', { timeout: 30000 }, async () => {
   const host = connect();
   const kim = connect();
   const lee = connect();
@@ -294,76 +296,57 @@ test('a player who slept through a resolution resyncs to the result', { timeout:
   const kimId = (await once(kim, 'gameJoined')).playerID;
   lee.emit('joinGame', { gameId, playerName: 'Lee' });
   const leeId = (await once(lee, 'gameJoined')).playerID;
-  const playing = new Promise((resolve) => {
-    const h = (gs) => { if (gs.status === 'playing') { kim.off('gameStateUpdate', h); resolve(); } };
-    kim.on('gameStateUpdate', h);
-  });
+  const playing = waitState(kim, gs => gs.status === 'playing');
   host.emit('gameAction', { gameId, action: 'startGame', payload: {} });
   await playing;
 
   // A contest goes live; Kim bets
-  const proposed = once(kim, 'wagerProposed');
+  const proposed = waitState(kim, isLive);
   host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: kimId, player2: leeId, odds1: 1, odds2: 3 } });
   await proposed;
+  const kimBet = waitState(kim, gs => !!gs.contest.bets[kimId]);
   kim.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 20 } });
-  await sleep(200);
-
-  // Rejoining mid-contest: the join says a contest is live
-  const kim2 = connect();
-  kim2.emit('rejoinGame', { gameId, playerID: kimId });
-  const midJoin = await once(kim2, 'gameJoined');
-  assert.equal(midJoin.wagerActive, true, 'live contest flagged on join');
+  await kimBet;
 
   // Kim's phone locks (socket gone); the host resolves for Lee
   kim.disconnect();
-  kim2.disconnect();
-  const resolved = once(lee, 'wagerResolved');
+  const resolved = waitState(lee, isResolved);
   host.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 1 } });
-  const live = await resolved;
-  assert.ok(live.resultId, 'results carry an id');
+  const live = (await resolved).contest;
 
-  // Kim wakes up and rejoins: no live contest, and the result is replayed
-  const kim3 = connect();
-  const replayed = once(kim3, 'wagerResolved');
-  kim3.emit('rejoinGame', { gameId, playerID: kimId });
-  const wake = await once(kim3, 'gameJoined');
-  assert.equal(wake.wagerActive, false, 'no live contest after the resolution');
-  const replay = await replayed;
-  assert.equal(replay.replay, true);
-  assert.equal(replay.resultId, live.resultId, 'the same result');
-  assert.equal(replay.winnerPlayerId, leeId);
-  assert.deepEqual(replay.wagerState.odds, [1, 3], 'the resolved contest travels with the result');
-  assert.equal(replay.wagerState.lastResult, undefined, 'results never nest');
-  assert.equal(replay.results.find(r => r.playerId === kimId).pointsChange, '-20');
+  // Kim wakes up and rejoins: the state she gets IS the result
+  const kim2 = connect();
+  kim2.emit('rejoinGame', { gameId, playerID: kimId });
+  const wake = (await once(kim2, 'gameJoined')).gameState;
+  assert.equal(wake.contest.id, live.id, 'the same contest');
+  assert.equal(wake.contest.result.winnerPlayerId, leeId);
+  assert.deepEqual(wake.contest.odds, [1, 3]);
+  assert.equal(wake.contest.result.results.find(r => r.playerId === kimId).pointsChange, '-20');
+  assert.equal(wake.playerPoints[kimId], 80);
 
   // A TV opened now also lands on the result
   const tv = connect();
-  const tvReplay = once(tv, 'wagerResolved');
   tv.emit('watchGame', { gameId });
-  assert.equal((await tvReplay).resultId, live.resultId);
+  assert.equal((await once(tv, 'gameJoined')).gameState.contest.id, live.id);
 
-  // Once the next contest is proposed, a rejoin gets that contest, not the old result
-  const next = once(lee, 'wagerProposed');
+  // Once the host moves on, a rejoin gets the next contest, not the old result
+  const next = waitState(lee, gs => isLive(gs) && gs.contest.id !== live.id);
+  host.emit('gameAction', { gameId, action: 'dismissResult', payload: {} });
   host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: kimId, player2: leeId, odds1: 1, odds2: 2 } });
   await next;
-  const kim4 = connect();
-  let staleResult = false;
-  kim4.on('wagerResolved', () => { staleResult = true; });
-  const nextReplay = once(kim4, 'wagerProposed');
-  kim4.emit('rejoinGame', { gameId, playerID: kimId });
-  assert.equal((await once(kim4, 'gameJoined')).wagerActive, true);
-  await nextReplay;
+  const kim3 = connect();
+  kim3.emit('rejoinGame', { gameId, playerID: kimId });
+  const later = (await once(kim3, 'gameJoined')).gameState;
+  assert.ok(isLive(later));
+  assert.deepEqual(later.contest.odds, [1, 2]);
 
-  // ...and after that contest is cancelled, nothing is replayed at all
-  const cancelled = once(lee, 'wagerCancelled');
+  // ...and after that contest is cancelled, there is no contest at all
+  const cancelled = waitState(lee, gs => gs.contest === null);
   host.emit('gameAction', { gameId, action: 'cancelWager', payload: {} });
   await cancelled;
-  const kim5 = connect();
-  kim5.on('wagerResolved', () => { staleResult = true; });
-  kim5.emit('rejoinGame', { gameId, playerID: kimId });
-  assert.equal((await once(kim5, 'gameJoined')).wagerActive, false);
-  await sleep(300);
-  assert.equal(staleResult, false, 'no stale result replayed');
+  const kim4 = connect();
+  kim4.emit('rejoinGame', { gameId, playerID: kimId });
+  assert.equal((await once(kim4, 'gameJoined')).gameState.contest, null);
 });
 
 test('emcee mode: a non-player host runs the game',{ timeout: 30000 }, async () => {
@@ -389,30 +372,24 @@ test('emcee mode: a non-player host runs the game',{ timeout: 30000 }, async () 
   const franId = fj.playerID;
 
   // 3. The emcee host can start the game (authorized without being a player)
-  const playing = new Promise((resolve) => {
-    const h = (gs) => { if (gs.status === 'playing') { dave.off('gameStateUpdate', h); resolve(gs); } };
-    dave.on('gameStateUpdate', h);
-  });
+  const playing = waitState(dave, gs => gs.status === 'playing');
   emma.emit('gameAction', { gameId, action: 'startGame', payload: {} });
   const started = await playing;
   assert.deepEqual(started.players.sort(), [daveId, franId].sort(), 'only the real players are in the game');
 
-  // 4. The emcee proposes and resolves a wager; her bet attempts are rejected
-  const proposed = once(dave, 'wagerProposed');
+  // 4. The emcee proposes and resolves a contest; her bet attempts are rejected
+  const proposed = waitState(dave, isLive);
   emma.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: daveId, player2: franId, odds1: 1, odds2: 2 } });
   await proposed;
 
-  let emceeBetSeen = false;
-  dave.once('choiceMade', (c) => { if (c.playerId === emmaId) emceeBetSeen = true; });
   emma.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
+  const daveBet = waitState(dave, gs => !!gs.contest.bets[daveId]);
   dave.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 10 } });
-  await sleep(300);
-  assert.equal(emceeBetSeen, false, 'the emcee host cannot bet');
+  assert.equal((await daveBet).contest.bets[emmaId], undefined, 'the emcee host cannot bet');
 
-  const resolved = once(dave, 'wagerResolved');
+  const resolved = waitState(dave, isResolved);
   emma.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 0 } });
-  const result = await resolved;
-  assert.equal(result.winnerPlayerId, daveId);
+  assert.equal((await resolved).contest.result.winnerPlayerId, daveId);
 
   const points = await fetch(`${URL}/api/games/${gameId}/points`).then(r => r.json());
   assert.deepEqual(Object.keys(points.playerPoints).sort(), [daveId, franId].sort(),

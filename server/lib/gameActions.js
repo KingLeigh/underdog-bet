@@ -1,7 +1,25 @@
-// Game rules: processing of gameAction events (start, wagers, rankings).
+// Game rules: processing of gameAction events (start, contests, rankings).
+//
+// Every action mutates (or replaces) the game object; the caller then sends
+// the whole game to everyone in it. The current contest lives inside the
+// game as `game.contest` — null between contests, otherwise:
+//   { id, number, category, challenge, options, contestants, odds,
+//     bets: { playerId: { choice, points } }, betsLockAt, result }
+// with `result` null while betting is open and set once the host resolves
+// (the Result screen), until the host dismisses it. Clients render this
+// state as-is; bet secrecy (picks, contestants' amounts) is presentation.
 
-const { wagerStates, addPoints, playerRegistry } = require('./store');
+const { addPoints, playerRegistry } = require('./store');
 const persistence = require('./persistence');
+
+// The contest still taking bets or awaiting a winner (not yet resolved)
+function liveContest(game) {
+  return game.contest && !game.contest.result ? game.contest : null;
+}
+
+function newContest(fields) {
+  return { id: Date.now(), ...fields, bets: {}, betsLockAt: null, result: null };
+}
 
 // Remove a player from a game entirely (host kick, or dropped at game start
 // for not submitting rankings). Notifies the removed player and detaches
@@ -15,9 +33,8 @@ function removePlayerFromGame(io, game, playerId, reason) {
     delete game.playerWagerCount[playerId];
   }
 
-  const wagerState = wagerStates.get(game.id);
-  if (wagerState) {
-    delete wagerState.playerChoices[playerId];
+  if (game.contest) {
+    delete game.contest.bets[playerId];
   }
 
   const playerData = playerRegistry.get(playerId);
@@ -39,7 +56,7 @@ function recomputeRankingsComplete(game) {
 }
 
 // Bounty calculation
-function calculateBountyAmount(game, wagerState) {
+function calculateBountyAmount(game, contest) {
   const bountyConfig = game.bounty || 'None';
 
   if (bountyConfig === 'None') {
@@ -50,8 +67,8 @@ function calculateBountyAmount(game, wagerState) {
     return game.bountyAmount || 0;
   }
 
-  // For Min/Max/Average, we need to look at all bets placed on the wager
-  const allBets = Object.values(wagerState.playerChoices).map(choice => choice.points);
+  // For Min/Max/Average, we need to look at all bets placed on the contest
+  const allBets = Object.values(contest.bets).map(bet => bet.points);
 
   if (allBets.length === 0) {
     return 0;
@@ -136,96 +153,51 @@ function processGameAction(io, game, action, payload, playerID) {
     }
 
     case 'proposeWager': {
-      // Host proposes a wager between two players (by playerID) with odds
+      // Host sets up an unscheduled contest between two players (by
+      // playerID) with odds — games without a saved schedule
       const { player1, player2 } = payload;
-      if (game.host === playerID && player1 && player2 && player1 !== player2 &&
-          game.players.includes(player1) && game.players.includes(player2)) {
-        // Extract odds from payload, defaulting to 1 if not provided
-        const odds1 = payload.odds1 || 1;
-        const odds2 = payload.odds2 || 1;
-        const category = payload.category || '';
-        const options = [game.playerNames[player1], game.playerNames[player2]];
-
-        wagerStates.set(game.id, {
-          isActive: true,
-          options: options,
-          contestants: [player1, player2],
-          odds: [odds1, odds2],
-          category: category,
-          playerChoices: {},
-          resolved: false,
-          correctOption: null,
-          betsLockAt: null // epoch ms deadline once the host locks betting
-        });
-
-        console.log(`Game ${game.id}: wager proposed "${options[0]}" (${odds1}x) vs "${options[1]}" (${odds2}x)${category ? ` in ${category}` : ''}`);
-
-        // Emit wager proposed event to all players
-        io.to(game.id).emit('wagerProposed', {
-          options: options,
-          contestants: [player1, player2],
-          odds: [odds1, odds2],
-          category: category,
-          betsLockAt: null
-        });
-      } else {
-        console.error(`Invalid wager proposal in game ${game.id}:`, {
-          isHost: game.host === playerID,
-          player1,
-          player2
-        });
+      if (game.host !== playerID || liveContest(game) || !player1 || !player2 ||
+          player1 === player2 || !game.players.includes(player1) || !game.players.includes(player2)) {
+        return game;
       }
+      game.contest = newContest({
+        number: null,
+        category: payload.category || '',
+        challenge: '',
+        options: [game.playerNames[player1], game.playerNames[player2]],
+        contestants: [player1, player2],
+        odds: [payload.odds1 || 1, payload.odds2 || 1]
+      });
+      console.log(`Game ${game.id}: contest proposed "${game.contest.options[0]}" vs "${game.contest.options[1]}" (${game.contest.odds.join('/')})`);
       return game;
     }
 
-    case 'makeChoice':
-      // Player makes a choice on the current wager with points
-      if (payload.choice !== undefined && payload.choice >= 0 && payload.choice <= 1 && payload.points !== undefined) {
-        const wagerState = wagerStates.get(game.id);
-        if (wagerState && wagerState.isActive && !wagerState.resolved) {
-          // No bets once the lock deadline has passed
-          if (wagerState.betsLockAt && Date.now() >= wagerState.betsLockAt) {
-            return game;
-          }
-
-          const currentPoints = game.playerPoints[playerID] || 0;
-
-          // A bet must be positive and can never exceed the player's balance
-          if (payload.points <= 0 || payload.points > currentPoints) {
-            return game;
-          }
-
-          // Apply game-level maximum bet size limit if configured
-          if (game.maxBetSize !== null && game.maxBetSize !== undefined &&
-              payload.points > game.maxBetSize) {
-            return game;
-          }
-
-          // Prevent players from betting against themselves
-          const isPlayerInContest = wagerState.contestants.includes(playerID);
-
-          if (isPlayerInContest && wagerState.contestants[payload.choice] !== playerID) {
-            // Player is in the contest - they can only bet on themselves
-            return game;
-          }
-
-          // Store the choice and wager amount
-          wagerState.playerChoices[playerID] = {
-            choice: payload.choice,
-            points: payload.points
-          };
-
-          // Emit choice made event to all players (reveal points but keep choice secret)
-          io.to(game.id).emit('choiceMade', {
-            playerId: playerID,
-            playerName: game.playerNames[playerID] || 'Unknown Player',
-            hasChosen: true,
-            choice: null, // Don't reveal the choice until resolution
-            points: payload.points // Show the wager amount for tension
-          });
-        }
+    case 'makeChoice': {
+      // A player bets on the live contest
+      const contest = liveContest(game);
+      const { choice, points } = payload || {};
+      if (!contest || !(choice === 0 || choice === 1) || !Number.isFinite(points)) {
+        return game;
       }
+      // No bets once the lock deadline has passed
+      if (contest.betsLockAt && Date.now() >= contest.betsLockAt) {
+        return game;
+      }
+      // A bet must be positive and can never exceed the player's balance
+      // (which also shuts out a non-playing emcee host: no balance)
+      if (points <= 0 || points > (game.playerPoints[playerID] || 0)) {
+        return game;
+      }
+      if (game.maxBetSize !== null && game.maxBetSize !== undefined && points > game.maxBetSize) {
+        return game;
+      }
+      // A contestant may only bet on themselves
+      if (contest.contestants.includes(playerID) && contest.contestants[choice] !== playerID) {
+        return game;
+      }
+      contest.bets[playerID] = { choice, points };
       return game;
+    }
 
     case 'finishGame': {
       // Host ends the night once the schedule has played out: the Winner
@@ -233,8 +205,7 @@ function processGameAction(io, game, action, payload, playerID) {
       if (game.host !== playerID || game.status !== 'playing') {
         return game;
       }
-      const activeWager = wagerStates.get(game.id);
-      if (activeWager && activeWager.isActive && !activeWager.resolved) {
+      if (liveContest(game)) {
         return game;
       }
       if (Array.isArray(game.matchups) && game.matchups.some(x => !x.played && !x.skipped)) {
@@ -298,8 +269,7 @@ function processGameAction(io, game, action, payload, playerID) {
       if (game.host !== playerID || game.status !== 'playing') {
         return game;
       }
-      const current = wagerStates.get(game.id);
-      if (current && current.isActive && !current.resolved) {
+      if (liveContest(game)) {
         return game;
       }
       const list = game.matchups || [];
@@ -331,30 +301,15 @@ function processGameAction(io, game, action, payload, playerID) {
       const dogOdds = validOdds
         ? requested
         : Math.min(4, 1 + 0.5 * Math.max(1, m.gap || 1));
-      wagerStates.set(game.id, {
-        isActive: true,
-        options: options,
-        contestants: [m.highId, m.lowId],
-        odds: [1, dogOdds],
+      game.contest = newContest({
+        number: m.number,
         category: m.category,
         challenge: m.challenge || '',
-        playerChoices: {},
-        resolved: false,
-        correctOption: null,
-        betsLockAt: null,
-        fromSchedule: true,
-        matchupNumber: m.number
+        options,
+        contestants: [m.highId, m.lowId],
+        odds: [1, dogOdds]
       });
       console.log(`Game ${game.id}: matchup ${m.number}/${list.length} proposed - "${options[0]}" vs "${options[1]}" (${m.category}, ${dogOdds}x)`);
-      io.to(game.id).emit('wagerProposed', {
-        options: options,
-        contestants: [m.highId, m.lowId],
-        odds: [1, dogOdds],
-        category: m.category,
-        challenge: m.challenge || '',
-        betsLockAt: null,
-        matchupNumber: m.number
-      });
       return game;
     }
 
@@ -366,8 +321,7 @@ function processGameAction(io, game, action, payload, playerID) {
       if (game.host !== playerID || game.status !== 'playing') {
         return game;
       }
-      const liveWager = wagerStates.get(game.id);
-      if (liveWager && liveWager.isActive && !liveWager.resolved) {
+      if (liveContest(game)) {
         return game;
       }
       const all = game.matchups || [];
@@ -386,191 +340,114 @@ function processGameAction(io, game, action, payload, playerID) {
     case 'lockBets': {
       // Host locks betting: a 10-second countdown starts, after which no
       // further bets are accepted (enforced in makeChoice by the deadline)
-      if (game.host === playerID) {
-        const wagerState = wagerStates.get(game.id);
-        if (wagerState && wagerState.isActive && !wagerState.resolved && !wagerState.betsLockAt) {
-          wagerState.betsLockAt = Date.now() + 10000;
-          io.to(game.id).emit('betsLocking', { betsLockAt: wagerState.betsLockAt });
-          console.log(`Game ${game.id}: bets locking at ${new Date(wagerState.betsLockAt).toISOString()}`);
-        }
+      const contest = liveContest(game);
+      if (game.host === playerID && contest && !contest.betsLockAt) {
+        contest.betsLockAt = Date.now() + 10000;
+        console.log(`Game ${game.id}: bets locking at ${new Date(contest.betsLockAt).toISOString()}`);
       }
       return game;
     }
 
     case 'cancelWager':
-      // Host cancels the wager - no points awarded or lost
-      if (game.host === playerID) {
-        const wagerState = wagerStates.get(game.id);
-
-        if (wagerState && wagerState.isActive && !wagerState.resolved) {
-          // Clear the wager state completely
-          wagerStates.delete(game.id);
-          console.log(`Game ${game.id}: wager cancelled - all bets nullified`);
-
-          // Emit cancellation event to all players
-          io.to(game.id).emit('wagerCancelled');
-        }
+      // Host cancels the live contest - no points awarded or lost
+      if (game.host === playerID && liveContest(game)) {
+        game.contest = null;
+        console.log(`Game ${game.id}: contest cancelled - all bets nullified`);
       }
       return game;
 
-    case 'resolveWager':
-      // Host resolves the wager and awards points
-      if (game.host === playerID && payload.correctChoice !== undefined) {
-        const wagerState = wagerStates.get(game.id);
+    case 'resolveWager': {
+      // Host names the winner: points move, and the result joins the
+      // contest in game state (the Result screen) until the host moves on
+      const contest = liveContest(game);
+      if (game.host !== playerID || !contest ||
+          !(payload.correctChoice === 0 || payload.correctChoice === 1)) {
+        return game;
+      }
+      const correctChoice = payload.correctChoice;
+      const bountyAmount = calculateBountyAmount(game, contest);
+      if (!game.playerWagerCount) game.playerWagerCount = {};
 
-        if (wagerState && wagerState.isActive && !wagerState.resolved) {
-          wagerState.resolved = true;
-          wagerState.correctOption = payload.correctChoice;
+      // The contest winner is the contestant at the correct choice index
+      const winnerPlayerId = contest.contestants[correctChoice] || null;
 
-          // Calculate bounty amount
-          const bountyAmount = calculateBountyAmount(game, wagerState);
-
-          // Initialize playerWagerCount if it doesn't exist
-          if (!game.playerWagerCount) {
-            game.playerWagerCount = {};
-          }
-
-          let results = [];
-
-          // The contest winner is the contestant at the correct choice index
-          const winnerPlayerId = wagerState.contestants[payload.correctChoice] || null;
-          const winningOption = wagerState.options[payload.correctChoice];
-
-          // Night-long stats, shown on the final Winner screen
-          if (!game.stats) game.stats = {};
-          const statFor = (pid) => {
-            if (!game.stats[pid]) {
-              game.stats[pid] = { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 };
-            }
-            return game.stats[pid];
-          };
-          for (const cid of wagerState.contestants) {
-            if (!game.players.includes(cid)) continue;
-            if (cid === winnerPlayerId) statFor(cid).contestWins++;
-            else statFor(cid).contestLosses++;
-          }
-
-          for (const [playerId, choiceData] of Object.entries(wagerState.playerChoices)) {
-            const { choice, points } = choiceData;
-
-            // Check if this player is one of the two being compared in the contest
-            const isPlayerInContest = wagerState.contestants.includes(playerId);
-
-            // Only increment wager count for players who are actually in the contest
-            if (isPlayerInContest) {
-              game.playerWagerCount[playerId] = (game.playerWagerCount[playerId] || 0) + 1;
-            }
-
-            statFor(playerId).totalBet += points;
-
-            if (choice === payload.correctChoice) {
-              statFor(playerId).betWins++;
-              // Player was correct - they gain the points they wagered MULTIPLIED BY the odds
-              const odds = wagerState.odds[choice];
-              const pointsAwarded = Math.floor(points * odds);
-              addPoints(game, playerId, pointsAwarded);
-
-              results.push({
-                playerId,
-                playerName: game.playerNames[playerId] || 'Unknown Player',
-                choice,
-                points,
-                odds: odds,
-                correct: true,
-                pointsAwarded: pointsAwarded,
-                pointsChange: `+${pointsAwarded}`,
-                isWinner: isPlayerInContest
-              });
-            } else {
-              statFor(playerId).betLosses++;
-              // Player was incorrect - they lose their stake (unaffected by
-              // odds), clamped so their balance never drops below the game's
-              // minimum balance floor
-              const minBalance = game.minBalance || 0;
-              const loss = Math.min(points, Math.max(0, (game.playerPoints[playerId] || 0) - minBalance));
-              addPoints(game, playerId, -loss);
-              results.push({
-                playerId,
-                playerName: game.playerNames[playerId] || 'Unknown Player',
-                choice,
-                points,
-                odds: wagerState.odds[choice],
-                correct: false,
-                pointsAwarded: 0,
-                pointsChange: `-${loss}`,
-                isWinner: false
-              });
-            }
-          }
-
-          // Award bounty to the winner if applicable
-          if (bountyAmount && bountyAmount > 0 && winnerPlayerId) {
-            addPoints(game, winnerPlayerId, bountyAmount);
-          }
-
-          console.log(`Game ${game.id}: wager resolved, winner "${winningOption}"${bountyAmount ? ` (bounty ${bountyAmount})` : ''}`);
-
-          // Emit wager resolved event to all players. The payload is kept
-          // (as wagerState.lastResult, below) so a phone that slept through
-          // the resolution, or a refreshed page, gets the Result screen
-          // replayed on rejoin. The snapshot excludes the previous
-          // lastResult so results never nest.
-          const { lastResult: _previous, ...resolvedSnapshot } = wagerState;
-          const resolvedPayload = {
-            resultId: Date.now(),
-            correctChoice: payload.correctChoice,
-            results,
-            wagerState: resolvedSnapshot,
-            bountyAmount: bountyAmount,
-            winnerPlayerId: winnerPlayerId
-          };
-          io.to(game.id).emit('wagerResolved', resolvedPayload);
-
-          // Permanent record: the contest, every bet and payout, the bounty
-          persistence.logEvent(game.id, 'contestResolved', {
-            category: wagerState.category || '',
-            contestants: wagerState.contestants,
-            options: wagerState.options,
-            odds: wagerState.odds,
-            winnerPlayerId,
-            winningOption,
-            bountyAmount: bountyAmount || 0,
-            results
-          });
-
-          // A resolved scheduled matchup is marked played. (A cancelled
-          // contest deliberately is not: it stays startable.)
-          if (wagerState.fromSchedule && Array.isArray(game.matchups)) {
-            const played = game.matchups.find(x => x.number === wagerState.matchupNumber);
-            if (played) played.played = true;
-          }
-
-          // Reset wager state for next round
-          wagerState.isActive = false;
-          wagerState.options = [];
-          wagerState.contestants = [];
-          wagerState.odds = [1, 1]; // Reset to default odds
-          wagerState.playerChoices = {};
-          wagerState.correctOption = null;
-          wagerState.fromSchedule = false;
-          wagerState.matchupNumber = null;
-          wagerState.challenge = '';
-          wagerState.resolved = false;
-          // Until the next contest is proposed (which replaces the wager
-          // state) or a cancel (which deletes it)
-          wagerState.lastResult = resolvedPayload;
-        } else {
-          console.error(`Cannot resolve wager for game ${game.id}:`, {
-            hasWagerState: !!wagerState,
-            isActive: wagerState?.isActive,
-            isResolved: wagerState?.resolved
-          });
+      // Night-long stats, shown on the standings and Winner screens
+      if (!game.stats) game.stats = {};
+      const statFor = (pid) => {
+        if (!game.stats[pid]) {
+          game.stats[pid] = { contestWins: 0, contestLosses: 0, betWins: 0, betLosses: 0, totalBet: 0 };
         }
-      } else {
-        console.error(`Invalid wager resolution in game ${game.id}:`, {
-          isHost: game.host === playerID,
-          hasCorrectChoice: payload.correctChoice !== undefined
-        });
+        return game.stats[pid];
+      };
+      for (const cid of contest.contestants) {
+        if (!game.players.includes(cid)) continue;
+        if (cid === winnerPlayerId) statFor(cid).contestWins++;
+        else statFor(cid).contestLosses++;
+      }
+
+      const results = [];
+      for (const [pid, { choice, points }] of Object.entries(contest.bets)) {
+        const isContestant = contest.contestants.includes(pid);
+        if (isContestant) {
+          game.playerWagerCount[pid] = (game.playerWagerCount[pid] || 0) + 1;
+        }
+        statFor(pid).totalBet += points;
+        const odds = contest.odds[choice];
+        const base = { playerId: pid, playerName: game.playerNames[pid] || 'Unknown Player', choice, points, odds };
+
+        if (choice === correctChoice) {
+          // Correct: the stake multiplied by the odds (floored)
+          statFor(pid).betWins++;
+          const pointsAwarded = Math.floor(points * odds);
+          addPoints(game, pid, pointsAwarded);
+          results.push({ ...base, correct: true, pointsAwarded, pointsChange: `+${pointsAwarded}`, isWinner: isContestant });
+        } else {
+          // Wrong: the stake is lost (unaffected by odds), clamped so the
+          // balance never drops below the game's minimum balance floor
+          statFor(pid).betLosses++;
+          const minBalance = game.minBalance || 0;
+          const loss = Math.min(points, Math.max(0, (game.playerPoints[pid] || 0) - minBalance));
+          addPoints(game, pid, -loss);
+          results.push({ ...base, correct: false, pointsAwarded: 0, pointsChange: `-${loss}`, isWinner: false });
+        }
+      }
+
+      if (bountyAmount && bountyAmount > 0 && winnerPlayerId) {
+        addPoints(game, winnerPlayerId, bountyAmount);
+      }
+
+      contest.result = { correctChoice, winnerPlayerId, results, bountyAmount: bountyAmount || 0 };
+
+      // A resolved scheduled matchup is marked played. (A cancelled
+      // contest deliberately is not: it stays startable.)
+      if (contest.number && Array.isArray(game.matchups)) {
+        const played = game.matchups.find(x => x.number === contest.number);
+        if (played) played.played = true;
+      }
+
+      console.log(`Game ${game.id}: contest resolved, winner "${contest.options[correctChoice]}"${bountyAmount ? ` (bounty ${bountyAmount})` : ''}`);
+
+      // Permanent record: the contest, every bet and payout, the bounty
+      persistence.logEvent(game.id, 'contestResolved', {
+        category: contest.category || '',
+        challenge: contest.challenge || '',
+        matchupNumber: contest.number || null,
+        contestants: contest.contestants,
+        options: contest.options,
+        odds: contest.odds,
+        winnerPlayerId,
+        winningOption: contest.options[correctChoice],
+        bountyAmount: bountyAmount || 0,
+        results
+      });
+      return game;
+    }
+
+    case 'dismissResult':
+      // Host moves on from the Result screen (Next Matchup): everyone
+      // leaves the result together, and the host picks the next contest
+      if (game.host === playerID && game.contest && game.contest.result) {
+        game.contest = null;
       }
       return game;
 
@@ -603,20 +480,6 @@ function processGameAction(io, game, action, payload, playerID) {
         if (allPlayersRanked) {
           game.rankingsComplete = true;
           console.log(`Game ${game.id}: all players have submitted rankings`);
-
-          // Emit rankings complete event
-          io.to(game.id).emit('rankingsComplete', {
-            playerRankings: game.playerRankings,
-            categories: game.categories
-          });
-        } else {
-          // Emit ranking submitted event
-          io.to(game.id).emit('rankingSubmitted', {
-            playerId: playerID,
-            playerName: game.playerNames[playerID],
-            totalPlayers: game.players.length,
-            rankedPlayers: Object.keys(game.playerRankings).length
-          });
         }
       }
       return game;

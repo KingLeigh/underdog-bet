@@ -1,8 +1,9 @@
-// In-memory game state (no database yet — see TODO.md "Add a database layer").
-// Everything here is lost on server restart.
+// In-memory game state: the synchronous source of truth, written through
+// to Postgres by persistence.js when DATABASE_URL is set. Each game object
+// carries everything about the game, its current contest included
+// (game.contest — see gameActions.js).
 
 const gameSessions = new Map(); // gameId -> game state
-const wagerStates = new Map(); // gameId -> wager state with odds
 const playerRegistry = new Map(); // playerID -> { socketID, playerName, gameId, lastSeen }
 
 let nextPlayerID = 1;
@@ -86,22 +87,6 @@ function getPlayerPoints(game, playerId) {
   return game.playerPoints[playerId] || 0;
 }
 
-function getWagerState(gameId) {
-  return wagerStates.get(gameId) || null;
-}
-
-function createInitialWagerState() {
-  return {
-    isActive: false,
-    options: [],
-    contestants: [], // playerIDs of the two players being bet on
-    odds: [1, 1], // Default odds of 1 for each option
-    playerChoices: {},
-    resolved: false,
-    correctOption: null
-  };
-}
-
 // Keep the player-ID counter ahead of any restored ID so new players
 // never collide with ones loaded from the database
 function ensurePlayerCounterAbove(playerID) {
@@ -111,15 +96,14 @@ function ensurePlayerCounterAbove(playerID) {
   }
 }
 
-// Restore a persisted { game, wager } snapshot into the in-memory maps.
-// Registry entries are rebuilt from the game's own player names (socketIDs
-// are dead after a restart anyway) so rejoin-by-name keeps working.
+// Restore a persisted { game } snapshot into memory. Registry entries are
+// rebuilt from the game's own player names (socketIDs are dead after a
+// restart anyway) so rejoin-by-name keeps working.
 function restoreGame(snapshot) {
   const game = snapshot && snapshot.game;
   if (!game || !game.id) return false;
 
   gameSessions.set(game.id, game);
-  wagerStates.set(game.id, snapshot.wager || createInitialWagerState());
 
   // Migration: older snapshots tracked schedule progress with a cursor
   // (matchupIndex) instead of per-matchup played flags
@@ -149,7 +133,6 @@ function restoreGame(snapshot) {
 function deleteGame(gameId) {
   if (!gameSessions.has(gameId)) return false;
   gameSessions.delete(gameId);
-  wagerStates.delete(gameId);
   for (const [playerID, playerData] of playerRegistry.entries()) {
     if (playerData.gameId === gameId) playerRegistry.delete(playerID);
   }
@@ -162,7 +145,6 @@ function deleteGame(gameId) {
 
 module.exports = {
   gameSessions,
-  wagerStates,
   playerRegistry,
   generateGameId,
   getOrCreatePlayerID,
@@ -170,8 +152,6 @@ module.exports = {
   displayName,
   addPoints,
   getPlayerPoints,
-  getWagerState,
-  createInitialWagerState,
   restoreGame,
   deleteGame
 };

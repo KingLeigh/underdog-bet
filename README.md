@@ -131,28 +131,36 @@ the protocol/pure-logic layers only, so they should survive UI iteration.
 ## API Endpoints
 
 - `GET /api/games` - List all active games
-- `GET /api/games/:id` - Get specific game details
+- `GET /api/games/:id` - The whole game state, current contest included
 - `GET /api/games/:id/points` - Get player points for a game
-- `GET /api/games/:id/wager` - Get current wager state
-- `GET /api/debug/games/:id` - Debug endpoint with full game state
 
-## Socket.IO Events
+## Socket.IO Protocol
+
+The protocol is state, not events. Whenever a game changes, the server
+sends the **whole game** to everyone in it, current contest included, and
+every client renders whatever that state says. Joining, rejoining and
+watching all answer with the same full state, so a refreshed page or a
+phone waking from sleep is simply up to date.
+
+The current contest lives in the game as `game.contest`: `null` between
+contests, otherwise `{ id, number, category, challenge, options,
+contestants, odds, bets, betsLockAt, result }`. `result` is `null` while
+the contest is live and holds the winner and payouts once resolved, until
+the host moves on. Every client receives every bet; the UI hides the
+contestants' amounts.
 
 ### Client to Server:
 - `createGame` - Create a new game
-- `joinGame` - Join an existing game
-- `gameAction` - Perform game actions including:
-  - `proposeWager` - Host proposes a new wager
-  - `makeChoice` - Player makes a choice on current wager
-  - `resolveWager` - Host resolves the wager
+- `joinGame` / `rejoinGame` - Join a game, or come back to it
+- `watchGame` - Watch without a seat (the TV screen)
+- `gameAction` - Everything else, e.g. `nextMatchup`, `proposeWager`,
+  `makeChoice`, `lockBets`, `resolveWager`, `dismissResult`, `cancelWager`
 
 ### Server to Client:
-- `gameCreated` - Game creation confirmation
-- `gameJoined` - Game join confirmation
-- `gameStateUpdate` - Game state updates
-- `wagerProposed` - New wager available
-- `choiceMade` - Player made a choice
-- `wagerResolved` - Wager resolved with results
+- `gameCreated` / `gameJoined` - The full game state, plus who you are
+- `gameStateUpdate` - The full game state, after any change
+- `removedFromGame` - You were removed by the host
+- `error` - Something was refused
 
 ## Technologies Used
 

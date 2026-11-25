@@ -2,13 +2,13 @@
 //
 // The in-memory maps in store.js stay the synchronous source of truth; this
 // module writes through underneath them. Two tables:
-//   games(id, state jsonb, updated_at)  — the current { game, wager } snapshot
+//   games(id, state jsonb, updated_at)  — the current { game } snapshot
 //   events(game_id, type, payload, at)  — append-only record of what happened
 // With no DATABASE_URL the module is inert and the server behaves exactly as
 // before (in-memory only). Writes are fire-and-forget: a database hiccup
 // must never stall or crash a running party.
 
-const { gameSessions, wagerStates, restoreGame } = require('./store');
+const { gameSessions, restoreGame } = require('./store');
 
 let pool = null;
 let enabled = false;
@@ -121,7 +121,7 @@ async function drainWrites(gameId, writer) {
 function writeSnapshot(gameId) {
   const game = gameSessions.get(gameId);
   if (!game || !pool) return Promise.resolve();
-  const snapshot = { game, wager: wagerStates.get(gameId) || null };
+  const snapshot = { game }; // the contest lives inside the game
   return pool
     .query(UPSERT_GAME, [gameId, JSON.stringify(snapshot)])
     .catch(err => console.error(`Persisting game ${gameId} failed:`, err.message));

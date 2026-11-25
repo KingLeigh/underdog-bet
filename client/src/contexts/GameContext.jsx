@@ -1,64 +1,18 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react'
 
+// The client is a thin renderer of server state. The server sends the whole
+// game (current contest included) on every change and on every join, so
+// all this context keeps is who we are and the latest copy of the game;
+// every screen derives what it shows from that. A refresh, a reconnect or
+// a phone waking from sleep is just "ask for the state again".
+
 const GameContext = createContext()
 
 const initialState = {
   currentGame: null,
   playerId: null,
-  playerName: '',
-  isHost: false,
   gameState: null,
-  players: [],
-  playerPoints: {},
-  playerNames: {},
-  playerWagerCount: {}, // Track how many wagers each player has participated in
-  error: null,
-  // Wager system state
-  wagerOptions: { options: [], odds: [1, 1] },
-  wagerContestants: [], // playerIDs of the two players being bet on
-  wagerActive: false,
-  playerChoices: {},
-  wagerResolved: false,
-  wagerResults: null,
-  wagerCategory: '',
-  // The result the host has moved on from (Next Matchup), so a rejoin's
-  // replay of that same result doesn't drag them back to it
-  dismissedResultId: null,
-  // Category ranking state
-  categories: [],
-  challengesPerCategory: [],
-  playerRankings: {},
-  rankingsComplete: false
-}
-
-// Fields derived from a server gameState payload, shared by
-// gameCreated / gameJoined / gameStateUpdate handling.
-function fromGameState(gameState) {
-  const next = {
-    gameState,
-    players: gameState.players,
-    playerPoints: gameState.playerPoints,
-    playerNames: gameState.playerNames,
-    playerWagerCount: gameState.playerWagerCount || {}
-  }
-  if (gameState.categories) next.categories = gameState.categories
-  if (gameState.challengesPerCategory) next.challengesPerCategory = gameState.challengesPerCategory
-  if (gameState.playerRankings) next.playerRankings = gameState.playerRankings
-  if (gameState.rankingsComplete !== undefined) next.rankingsComplete = gameState.rankingsComplete
-  return next
-}
-
-const clearedWagerFields = {
-  wagerOptions: { options: [], odds: [1, 1] },
-  wagerContestants: [],
-  wagerActive: false,
-  playerChoices: {},
-  wagerResolved: false,
-  wagerResults: null,
-  wagerCategory: '',
-  wagerChallenge: '',
-  betsLockAt: null,
-  wagerMatchupNumber: null
+  error: null
 }
 
 function gameReducer(state, action) {
@@ -67,109 +21,15 @@ function gameReducer(state, action) {
       // Game/player identity recovered from the URL on reconnect
       return { ...state, currentGame: action.payload.gameId, playerId: action.payload.playerId }
 
-    case 'GAME_CREATED': {
-      const { playerID, gameState } = action.payload
+    case 'GAME_STATE': {
+      const { gameState, playerId } = action.payload
       return {
         ...state,
-        ...fromGameState(gameState),
-        playerId: playerID,
+        gameState,
         currentGame: gameState.id,
-        isHost: true
+        playerId: playerId || state.playerId
       }
     }
-
-    case 'GAME_JOINED': {
-      const { gameId, playerID, isHost, gameState, wagerActive } = action.payload
-      return {
-        ...state,
-        // A (re)join is a full resync: with no contest live on the server,
-        // drop any contest this client still remembers (a phone that slept
-        // through the resolution). A live one is replayed right after, and
-        // so is the last result between contests.
-        ...(wagerActive ? {} : clearedWagerFields),
-        ...fromGameState(gameState),
-        playerId: playerID || state.playerId,
-        currentGame: gameId,
-        isHost: !!isHost
-      }
-    }
-
-    case 'GAME_STATE_UPDATE': {
-      const gameState = action.payload
-      return {
-        ...state,
-        ...fromGameState(gameState),
-        isHost: !!(state.playerId && gameState.host === state.playerId)
-      }
-    }
-
-    case 'WAGER_PROPOSED': {
-      const { options, contestants, odds, category, challenge, betsLockAt, matchupNumber } = action.payload
-      return {
-        ...state,
-        ...clearedWagerFields,
-        wagerOptions: { options, odds },
-        wagerContestants: contestants || [],
-        wagerActive: true,
-        wagerCategory: category || '',
-        wagerChallenge: challenge || '',
-        betsLockAt: betsLockAt || null,
-        wagerMatchupNumber: matchupNumber || null
-      }
-    }
-
-    case 'BETS_LOCKING':
-      return { ...state, betsLockAt: action.payload.betsLockAt }
-
-    case 'CHOICE_MADE': {
-      const { playerId, playerName, hasChosen, choice, points } = action.payload
-      return {
-        ...state,
-        playerChoices: {
-          ...state.playerChoices,
-          [playerId]: { hasChosen, choice, points, playerName }
-        }
-      }
-    }
-
-    case 'WAGER_RESOLVED': {
-      const result = action.payload
-      // A replayed result the host already moved on from stays dismissed
-      if (result.replay && result.resultId && result.resultId === state.dismissedResultId) {
-        return state
-      }
-      // The resolved contest travels with the result, so a replay (which
-      // arrives with no contest in memory) still shows the right odds
-      const contest = result.wagerState
-      return {
-        ...state,
-        wagerResolved: true,
-        wagerResults: result,
-        wagerActive: false,
-        ...(contest && Array.isArray(contest.options) && contest.options.length
-          ? {
-              wagerOptions: { options: contest.options, odds: contest.odds || [1, 1] },
-              wagerContestants: contest.contestants || []
-            }
-          : {})
-      }
-    }
-
-    case 'WAGER_CLEARED':
-      // Wager cancelled by the host, or reset locally for the next round
-      return {
-        ...state,
-        ...clearedWagerFields,
-        dismissedResultId: state.wagerResults?.resultId ?? state.dismissedResultId
-      }
-
-    case 'RANKINGS_COMPLETE':
-      return {
-        ...state,
-        rankingsComplete: true,
-        playerRankings: action.payload.playerRankings,
-        categories: action.payload.categories
-      }
 
     case 'GAME_NOT_FOUND':
       return { ...state, currentGame: null, gameState: null, playerId: null }
@@ -252,42 +112,17 @@ export function GameProvider({ children, socket }) {
       }, 3000)
     }
 
-    const handleGameCreated = (gameData) => {
-      const { playerID, ...gameState } = gameData
-      dispatch({ type: 'GAME_CREATED', payload: { playerID, gameState } })
+    const handleGameCreated = ({ playerID, ...gameState }) => {
+      dispatch({ type: 'GAME_STATE', payload: { gameState, playerId: playerID } })
     }
 
-    const handleGameJoined = ({ gameId, gameState, playerID, isHost, wagerActive }) => {
+    const handleGameJoined = ({ gameState, playerID }) => {
       lastJoinedAt = Date.now()
-      dispatch({ type: 'GAME_JOINED', payload: { gameId, gameState, playerID, isHost, wagerActive } })
+      dispatch({ type: 'GAME_STATE', payload: { gameState, playerId: playerID } })
     }
 
     const handleGameStateUpdate = (gameState) => {
-      dispatch({ type: 'GAME_STATE_UPDATE', payload: gameState })
-    }
-
-    const handleWagerProposed = (payload) => {
-      dispatch({ type: 'WAGER_PROPOSED', payload })
-    }
-
-    const handleChoiceMade = (payload) => {
-      dispatch({ type: 'CHOICE_MADE', payload })
-    }
-
-    const handleWagerResolved = (payload) => {
-      dispatch({ type: 'WAGER_RESOLVED', payload })
-    }
-
-    const handleWagerCancelled = () => {
-      dispatch({ type: 'WAGER_CLEARED' })
-    }
-
-    const handleBetsLocking = (payload) => {
-      dispatch({ type: 'BETS_LOCKING', payload })
-    }
-
-    const handleRankingsComplete = (payload) => {
-      dispatch({ type: 'RANKINGS_COMPLETE', payload })
+      dispatch({ type: 'GAME_STATE', payload: { gameState } })
     }
 
     const handleRemovedFromGame = ({ reason }) => {
@@ -315,15 +150,13 @@ export function GameProvider({ children, socket }) {
     socket.on('gameCreated', handleGameCreated)
     socket.on('gameJoined', handleGameJoined)
     socket.on('gameStateUpdate', handleGameStateUpdate)
-    socket.on('wagerProposed', handleWagerProposed)
-    socket.on('choiceMade', handleChoiceMade)
-    socket.on('wagerResolved', handleWagerResolved)
-    socket.on('wagerCancelled', handleWagerCancelled)
-    socket.on('betsLocking', handleBetsLocking)
-    socket.on('rankingsComplete', handleRankingsComplete)
     socket.on('removedFromGame', handleRemovedFromGame)
     socket.on('error', handleError)
     document.addEventListener('visibilitychange', handleVisibility)
+
+    // The socket may have connected before these handlers were registered
+    // (its 'connect' already fired): ask for the state now
+    if (socket.connected) resync()
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
@@ -332,12 +165,6 @@ export function GameProvider({ children, socket }) {
       socket.off('gameCreated', handleGameCreated)
       socket.off('gameJoined', handleGameJoined)
       socket.off('gameStateUpdate', handleGameStateUpdate)
-      socket.off('wagerProposed', handleWagerProposed)
-      socket.off('choiceMade', handleChoiceMade)
-      socket.off('wagerResolved', handleWagerResolved)
-      socket.off('wagerCancelled', handleWagerCancelled)
-      socket.off('betsLocking', handleBetsLocking)
-      socket.off('rankingsComplete', handleRankingsComplete)
       socket.off('removedFromGame', handleRemovedFromGame)
       socket.off('error', handleError)
     }
@@ -390,16 +217,17 @@ export function GameProvider({ children, socket }) {
     sendGameAction('resolveWager', { correctChoice })
   }
 
-  const resetWagerState = () => {
-    dispatch({ type: 'WAGER_CLEARED' })
-  }
-
   const cancelWager = () => {
     sendGameAction('cancelWager', {})
   }
 
   const lockBets = () => {
     sendGameAction('lockBets', {})
+  }
+
+  // Leave the Result screen (host): the game goes back to between contests
+  const dismissResult = () => {
+    sendGameAction('dismissResult', {})
   }
 
   const nextMatchup = (number, dogOdds) => {
@@ -429,8 +257,19 @@ export function GameProvider({ children, socket }) {
     dispatch({ type: 'CLEAR_ERROR' })
   }
 
+  // Everything screens read is derived from the one game state
+  const gs = state.gameState
   const value = {
     ...state,
+    isHost: !!state.playerId && gs?.host === state.playerId,
+    players: gs?.players || [],
+    playerPoints: gs?.playerPoints || {},
+    playerNames: gs?.playerNames || {},
+    playerWagerCount: gs?.playerWagerCount || {},
+    categories: gs?.categories || [],
+    challengesPerCategory: gs?.challengesPerCategory || [],
+    playerRankings: gs?.playerRankings || {},
+    rankingsComplete: !!gs?.rankingsComplete,
     socket,
     createGame,
     joinGame,
@@ -439,9 +278,9 @@ export function GameProvider({ children, socket }) {
     proposeWager,
     makeChoice,
     resolveWager,
-    resetWagerState,
     cancelWager,
     lockBets,
+    dismissResult,
     nextMatchup,
     finishGame,
     skipMatchup,

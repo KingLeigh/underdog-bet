@@ -13,7 +13,6 @@ function GameBoard({ spectator = false }) {
   const { gameId, playerId: urlPlayerId } = useParams()
   const navigate = useNavigate()
   const [selectedOption, setSelectedOption] = useState(null)
-  const [userChoice, setUserChoice] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
   const [hasResolutionSelected, setHasResolutionSelected] = useState(false)
   const [cancelConfirmationActive, setCancelConfirmationActive] = useState(false)
@@ -25,33 +24,34 @@ function GameBoard({ spectator = false }) {
     playerWagerCount,
     playerId,
     isHost,
-    wagerOptions,
-    wagerContestants,
-    wagerActive,
-    playerChoices,
-    wagerResolved,
-    wagerResults,
     proposeWager,
     makeChoice,
     resolveWager,
     cancelWager,
     lockBets,
-    betsLockAt,
-    wagerMatchupNumber,
+    dismissResult,
     nextMatchup,
     finishGame,
     skipMatchup,
-    deferMatchup,
-    resetWagerState,
     error,
     socket,
     categories,
     challengesPerCategory,
     playerRankings,
-    rankingsComplete,
-    wagerCategory,
-    wagerChallenge
+    rankingsComplete
   } = useGame()
+
+  // The current contest, straight from game state: none between contests;
+  // live (taking bets, then awaiting a winner) until it has a result; then
+  // the Result screen until the host moves on
+  const contest = gameState?.contest || null
+  const result = contest?.result || null
+  const live = !!contest && !result
+  const bets = contest?.bets || {}
+  const contestants = contest?.contestants || []
+  const options = contest?.options || []
+  const odds = contest?.odds || [1, 1]
+  const betsLockAt = live ? contest.betsLockAt : null
 
   // Tick while a bet-lock countdown is running so the remaining seconds
   // (and the flip to "locked") render without any server round trip
@@ -77,23 +77,10 @@ function GameBoard({ spectator = false }) {
     }
   }, [spectator, gameState, gameId, navigate])
 
-  // The TV watches the game (no seat). Every (re)connect re-watches from
-  // GameContext; this covers arriving with the socket already connected.
-  useEffect(() => {
-    if (spectator && socket && gameId && socket.connected) {
-      socket.emit('watchGame', { gameId })
-    }
-  }, [spectator, socket, gameId])
-
-  // Reset selection state whenever the contest changes — it ends, or a
-  // resync after a sleep lands on a different contest than the one the
-  // phone last showed
-  const contestKey = wagerActive
-    ? `${wagerMatchupNumber || ''}|${wagerContestants.join(',')}`
-    : ''
+  // Reset local selection state whenever the contest changes or resolves
+  const contestKey = contest ? `${contest.id}|${result ? 'done' : 'live'}` : ''
   useEffect(() => {
     setSelectedOption(null)
-    setUserChoice(null)
     setHasResolutionSelected(false)
     setCancelConfirmationActive(false)
   }, [contestKey])
@@ -174,12 +161,12 @@ function GameBoard({ spectator = false }) {
     return () => clearTimeout(t)
   }, [skipConfirm])
 
-  // Bounty preview shown to contestants while a wager is active.
-  // (After resolution, the authoritative amount arrives in wagerResults.)
+  // Bounty preview shown to contestants while a contest is live.
+  // (After resolution, the authoritative amount is in the result.)
   const bountyPreview = (() => {
-    if (!wagerActive || !gameState || !gameState.bounty || gameState.bounty === 'None') return null
-    if (!wagerContestants.includes(playerId)) return null
-    const allBets = Object.values(playerChoices).map(c => c.points).filter(p => p > 0)
+    if (!live || !gameState.bounty || gameState.bounty === 'None') return null
+    if (!contestants.includes(playerId)) return null
+    const allBets = Object.values(bets).map(c => c.points).filter(p => p > 0)
     if (allBets.length === 0) return null
     switch (gameState.bounty) {
       case 'Fixed': return gameState.bountyAmount || 0
@@ -206,8 +193,8 @@ function GameBoard({ spectator = false }) {
   }
 
   const contestLabel = schedule.length > 0
-    ? `Matchup ${wagerActive && wagerMatchupNumber
-        ? wagerMatchupNumber
+    ? `Matchup ${live && contest.number
+        ? contest.number
         : viewed
           ? viewed.number
           : schedule.length} of ${schedule.length}`
@@ -216,8 +203,7 @@ function GameBoard({ spectator = false }) {
       ) + 1}`
 
   const finished = gameState?.status === 'finished'
-  const myBet = playerChoices[playerId]
-  const betsIn = Object.keys(playerChoices).length
+  const myBet = bets[playerId]
   // An emcee host runs the game without being a player: no betting UI
   const amPlayer = players.includes(playerId)
 
@@ -278,8 +264,8 @@ function GameBoard({ spectator = false }) {
           </div>
         )}
 
-        {/* ---- No active wager: the host advances the show ---- */}
-        {!finished && !wagerActive && !wagerResolved && (
+        {/* ---- Between contests: the host advances the show ---- */}
+        {!finished && !contest && (
           <div className="contest-area">
             <div className="round-strip">{schedule.length > 0 && !viewed ? 'Bonus Round' : contestLabel}</div>
             {isHost ? (
@@ -369,27 +355,29 @@ function GameBoard({ spectator = false }) {
           </div>
         )}
 
-        {/* ---- Active wager: the duel ---- */}
-        {wagerActive && (() => {
-          const odds0 = wagerOptions.odds[0] || 1
-          const odds1 = wagerOptions.odds[1] || 1
+        {/* ---- Live contest: the duel ---- */}
+        {!finished && live && (() => {
+          const odds0 = odds[0] || 1
+          const odds1 = odds[1] || 1
+          const category = contest.category
+          const challenge = contest.challenge
 
           // Lower odds on the left
           const sorted = [
-            { name: wagerOptions.options[0], odds: odds0, idx: 0 },
-            { name: wagerOptions.options[1], odds: odds1, idx: 1 }
+            { name: options[0], odds: odds0, idx: 0 },
+            { name: options[1], odds: odds1, idx: 1 }
           ].sort((a, b) => a.odds - b.odds)
 
-          const isPlayerInContest = wagerContestants.includes(playerId)
-          const canBetOn = (idx) => !isPlayerInContest || wagerContestants[idx] === playerId
+          const isPlayerInContest = contestants.includes(playerId)
+          const canBetOn = (idx) => !isPlayerInContest || contestants[idx] === playerId
 
           const tagFor = (f, other) =>
             f.odds === other.odds ? 'Even odds' : (f.odds < other.odds ? 'Favorite' : 'Underdog')
 
           const rankFor = (idx) => {
-            if (!wagerCategory || !playerRankings) return null
-            const pid = wagerContestants[idx]
-            return (pid && playerRankings[pid]?.[wagerCategory]) || null
+            if (!category || !playerRankings) return null
+            const pid = contestants[idx]
+            return (pid && playerRankings[pid]?.[category]) || null
           }
 
           const fighter = (f, other, side) => (
@@ -397,12 +385,12 @@ function GameBoard({ spectator = false }) {
               key={side}
               className={[
                 'fighter', side,
-                selectedOption === f.idx || (myBet && userChoice === f.idx) ? 'picked' : '',
+                selectedOption === f.idx || (myBet && myBet.choice === f.idx) ? 'picked' : '',
                 !amPlayer ? 'spectator' : (!canBetOn(f.idx) || myBet ? 'locked' : '')
               ].join(' ')}
               onClick={() => { if (amPlayer && !myBet && canBetOn(f.idx)) setSelectedOption(f.idx) }}
             >
-              <span className="avatar">{avatarFor(wagerContestants[f.idx] || f.name)}</span>
+              <span className="avatar">{avatarFor(contestants[f.idx] || f.name)}</span>
               <span className="fighter-name">{f.name}</span>
               <span className={`fighter-tag ${f.odds === other.odds ? 'even' : (f.odds < other.odds ? 'favorite' : 'underdog')}`}>
                 {tagFor(f, other)}
@@ -415,17 +403,19 @@ function GameBoard({ spectator = false }) {
           return (
             <div className="contest-area">
               <div className="round-strip">{contestLabel}</div>
-              <div className="category-title">{wagerChallenge || wagerCategory || 'Who Wins?'}</div>
-              {wagerChallenge && wagerCategory ? (
-                <div className="category-sub">{wagerCategory}</div>
+              <div className="category-title">{challenge || category || 'Who Wins?'}</div>
+              {challenge && category ? (
+                <div className="category-sub">{category}</div>
               ) : null}
 
               {/* One chip per player, leader first: who's bet, who's still
                   deciding — betting progress at the top of the stage */}
               <div className="bet-chips">
                 {standings.map((p, i) => {
-                  const c = playerChoices[p.id]
-                  const secret = wagerContestants.includes(p.id)
+                  // Everyone receives every bet; contestants' amounts are
+                  // hidden here, by design, to keep the tension
+                  const c = bets[p.id]
+                  const secret = contestants.includes(p.id)
                   return (
                     <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
                       {i === 0 ? <span className="bet-chip-crown">🏆</span> : null}
@@ -458,29 +448,22 @@ function GameBoard({ spectator = false }) {
 
               {amPlayer && !myBet && !betsLocked && (
                 <ChipBetForm
-                  selectedName={selectedOption !== null ? wagerOptions.options[selectedOption] : null}
+                  selectedName={selectedOption !== null ? options[selectedOption] : null}
                   currentPoints={playerPoints[playerId] !== undefined ? playerPoints[playerId] : 0}
                   minBalance={gameState?.minBalance || 0}
                   maxBetSize={gameState?.maxBetSize}
                   onSubmit={(points) => {
                     makeChoice(selectedOption, points)
-                    setUserChoice(selectedOption)
                     setSelectedOption(null)
                   }}
                 />
               )}
 
-              {myBet && (() => {
-                const myChoice = userChoice !== null ? userChoice : myBet.choice
-                const name = myChoice !== null && myChoice !== undefined
-                  ? wagerOptions.options[myChoice]
-                  : null
-                return (
-                  <div className="bet-locked">
-                    ✓ You bet <b>{myBet.points}</b>{name ? <> on <b>{name}</b></> : null} — locked in!
-                  </div>
-                )
-              })()}
+              {myBet && (
+                <div className="bet-locked">
+                  ✓ You bet <b>{myBet.points}</b> on <b>{options[myBet.choice]}</b> — locked in!
+                </div>
+              )}
 
               {bountyPreview ? (
                 <div className="bounty-line">💰 Bounty for the winner: <b>{bountyPreview}</b> points</div>
@@ -508,7 +491,7 @@ function GameBoard({ spectator = false }) {
                   <div className="resolve-title">Who won?</div>
                   <WagerResolutionForm
                     onSubmit={resolveWager}
-                    wagerOptions={wagerOptions}
+                    options={options}
                     onSelectionChange={setHasResolutionSelected}
                   />
                 </div>
@@ -527,25 +510,25 @@ function GameBoard({ spectator = false }) {
           )
         })()}
 
-        {/* ---- Resolved: results ---- */}
-        {!finished && wagerResolved && wagerResults && (
+        {/* ---- Resolved: results, until the host moves on ---- */}
+        {!finished && result && (
           <div className="contest-area">
             <div className="round-strip">Result</div>
             <div className="category-title winner-title">
-              {playerNames[wagerResults.winnerPlayerId] || 'Winner'} WINS!
+              {playerNames[result.winnerPlayerId] || 'Winner'} WINS!
             </div>
             <div className="winner-sub">
-              @ {wagerOptions.odds?.[wagerResults.correctChoice] || 1}:1
-              {wagerResults.bountyAmount > 0 && <> &nbsp;+{wagerResults.bountyAmount} bounty 💰</>}
+              @ {odds[result.correctChoice] || 1}:1
+              {result.bountyAmount > 0 && <> &nbsp;+{result.bountyAmount} bounty 💰</>}
             </div>
 
-            <StandingsTable standings={standings} stats={gameState?.stats} roundResults={wagerResults} />
+            <StandingsTable standings={standings} stats={gameState?.stats} roundResults={result} />
 
             {/* Next scheduled matchup goes via the pre-contest odds screen;
                 an exhausted schedule ends the night with the Winner screen */}
             {isHost && (
               openMatchups.length > 0 || schedule.length === 0 ? (
-                <button onClick={resetWagerState} className="btn btn-primary next-contest-btn">
+                <button onClick={dismissResult} className="btn btn-primary next-contest-btn">
                   {openMatchups.length > 0 ? 'NEXT MATCHUP ★' : 'NEXT CONTEST ★'}
                 </button>
               ) : (
@@ -561,7 +544,7 @@ function GameBoard({ spectator = false }) {
 
         {/* ---- Standings, open below the fold: game state, not reference
              material (results and the finale show it in the stage) ---- */}
-        {!finished && !(wagerResolved && wagerResults) && (
+        {!finished && !result && (
           <div className="standings-section">
             <StandingsTable standings={standings} stats={gameState?.stats} />
           </div>
@@ -918,7 +901,7 @@ function WagerProposalForm({ onSubmit }) {
 }
 
 // Wager Resolution Form Component (host picks the winner)
-function WagerResolutionForm({ onSubmit, wagerOptions, onSelectionChange }) {
+function WagerResolutionForm({ onSubmit, options, onSelectionChange }) {
   const [correctChoice, setCorrectChoice] = useState('')
 
   const handleSubmit = (e) => {
@@ -944,14 +927,14 @@ function WagerResolutionForm({ onSubmit, wagerOptions, onSelectionChange }) {
           className={`resolve-pick ${correctChoice === '0' ? 'picked' : ''}`}
           onClick={() => handleOptionClick('0')}
         >
-          {wagerOptions.options[0]}
+          {options[0]}
         </button>
         <button
           type="button"
           className={`resolve-pick ${correctChoice === '1' ? 'picked' : ''}`}
           onClick={() => handleOptionClick('1')}
         >
-          {wagerOptions.options[1]}
+          {options[1]}
         </button>
       </div>
       <button type="submit" className="place-bet resolve" disabled={correctChoice === ''}>

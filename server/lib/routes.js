@@ -1,23 +1,20 @@
 // REST API endpoints.
 
-const { gameSessions, wagerStates, getPlayerPoints, getWagerState, deleteGame } = require('./store');
+const { gameSessions, getPlayerPoints, deleteGame } = require('./store');
 const { processGameAction } = require('./gameActions');
 const persistence = require('./persistence');
 
 function registerRoutes(app, io) {
   app.get('/api/games', (req, res) => {
-    const games = Array.from(gameSessions.values()).map(game => {
-      const wagerState = wagerStates.get(game.id);
-      return {
-        id: game.id,
-        status: game.status,
-        playerCount: game.players.length,
-        hostName: game.playerNames[game.host] || 'Unknown',
-        wagerActive: !!(wagerState && wagerState.isActive && !wagerState.resolved),
-        createdAt: game.createdAt,
-        playerPoints: game.playerPoints
-      };
-    });
+    const games = Array.from(gameSessions.values()).map(game => ({
+      id: game.id,
+      status: game.status,
+      playerCount: game.players.length,
+      hostName: game.playerNames[game.host] || 'Unknown',
+      wagerActive: !!(game.contest && !game.contest.result),
+      createdAt: game.createdAt,
+      playerPoints: game.playerPoints
+    }));
     res.json(games);
   });
 
@@ -83,52 +80,6 @@ function registerRoutes(app, io) {
     const game = gameSessions.get(req.params.id);
     if (game) {
       res.json({ gameId: req.params.id, playerPoints: game.playerPoints });
-    } else {
-      res.status(404).json({ error: 'Game not found' });
-    }
-  });
-
-  // Get wager state for a game
-  app.get('/api/games/:id/wager', (req, res) => {
-    const game = gameSessions.get(req.params.id);
-    if (game) {
-      const wagerState = getWagerState(req.params.id);
-      res.json({ gameId: req.params.id, wagerState });
-    } else {
-      res.status(404).json({ error: 'Game not found' });
-    }
-  });
-
-  // Debug endpoint to check game state
-  app.get('/api/debug/games/:id', (req, res) => {
-    const game = gameSessions.get(req.params.id);
-    if (game) {
-      const wagerState = getWagerState(req.params.id);
-      res.json({
-        gameId: req.params.id,
-        players: game.players,
-        playerNames: game.playerNames,
-        playerPoints: game.playerPoints,
-        status: game.status,
-        wagerState: wagerState
-      });
-    } else {
-      res.status(404).json({ error: 'Game not found' });
-    }
-  });
-
-  // Debug endpoint specifically for wager state
-  app.get('/api/debug/games/:id/wager', (req, res) => {
-    const game = gameSessions.get(req.params.id);
-    if (game) {
-      const wagerState = getWagerState(req.params.id);
-      res.json({
-        gameId: req.params.id,
-        gameStatus: game.status,
-        hostId: game.host,
-        wagerState: wagerState,
-        wagerStatesMap: Array.from(wagerStates.entries()).map(([id, state]) => ({ id, state }))
-      });
     } else {
       res.status(404).json({ error: 'Game not found' });
     }

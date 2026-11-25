@@ -33,20 +33,19 @@ The Underdog Bet game now includes a complete wager system that allows hosts to 
 
 ## Technical Implementation
 
-### Server Side (`server/index.js`)
+### Server Side (`server/lib/gameActions.js`)
 
-#### New Data Structures
+#### The contest lives in the game
 ```javascript
-// Wager state storage
-const wagerStates = new Map(); // gameId -> wager state
-
-// Each wager state contains:
+game.contest = null // between contests, otherwise:
 {
-  isActive: false,
-  options: [],
-  playerChoices: {},
-  resolved: false,
-  correctOption: null
+  id, number, category, challenge,
+  options: ['Bob', 'Alice'],     // display names
+  contestants: ['p1', 'p2'],      // player IDs
+  odds: [1, 2],
+  bets: { p3: { choice: 1, points: 20 } },
+  betsLockAt: null,               // set by lockBets
+  result: null                    // { correctChoice, winnerPlayerId, results, bountyAmount } once resolved
 }
 ```
 
@@ -55,17 +54,17 @@ const wagerStates = new Map(); // gameId -> wager state
 - `makeChoice` - Player selects an option
 - `resolveWager` - Host indicates correct answer
 
-#### New Socket Events
-- `wagerProposed` - Broadcasts new wager to all players
-- `choiceMade` - Notifies all players when someone chooses
-- `wagerResolved` - Shows results and awards points
+#### State, not events
+There are no wager-specific socket events. The contest lives in the game
+(`game.contest`) and every change broadcasts the whole game
+(`gameStateUpdate`); clients render whatever it says. See the README's
+"Socket.IO Protocol" section.
 
 ### Client Side
 
 #### GameContext Updates
-- Added wager state management
-- New functions: `proposeWager`, `makeChoice`, `resolveWager`
-- Real-time updates for wager events
+- Keeps only identity and the latest game state; everything else is derived
+- Functions: `proposeWager`, `makeChoice`, `lockBets`, `resolveWager`, `dismissResult`
 
 #### GameBoard Component
 - Wager interface section
@@ -88,26 +87,7 @@ const wagerStates = new Map(); // gameId -> wager state
 
 ## API Endpoints
 
-### New Endpoints
-- `GET /api/games/:id/wager` - Get current wager state
-- Updated `GET /api/debug/games/:id` - Includes wager information
-
-### Example Response
-```json
-{
-  "gameId": "ABC123",
-  "wagerState": {
-    "isActive": true,
-    "options": ["Team A wins", "Team B wins"],
-    "playerChoices": {
-      "player1": {"choice": 0, "playerName": "Alice"},
-      "player2": {"choice": 1, "playerName": "Bob"}
-    },
-    "resolved": false,
-    "correctOption": null
-  }
-}
-```
+- `GET /api/games/:id` - The whole game, with the current contest in `contest`
 
 ## Troubleshooting
 
@@ -129,8 +109,8 @@ const wagerStates = new Map(); // gameId -> wager state
 - Verify the correct choice was selected
 
 ### Debug Information
-- Use the debug endpoint: `GET /api/debug/games/:id`
-- Check browser console for socket events
+- `GET /api/games/:id` returns the whole game, current contest included
+- Check browser console for `gameStateUpdate` payloads
 - Monitor server logs for action processing
 
 ## Future Enhancements
@@ -182,8 +162,8 @@ The current implementation is designed to be easily extensible:
 ## Performance Notes
 
 ### Current Optimizations
-- In-memory storage for wager states
-- Efficient socket event broadcasting
+- The contest lives inside the game state (in memory, written through to Postgres)
+- One full-state broadcast per change
 - Minimal state updates
 - Responsive UI with real-time feedback
 

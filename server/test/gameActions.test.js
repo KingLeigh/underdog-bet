@@ -2,18 +2,20 @@
 //
 // These tests pin down the wager/bounty/ranking rules — the part of the
 // server where a silent regression corrupts scores. They are written
-// against observable behavior (state changes and emitted events), not
-// implementation details, so they should only fail when a rule changes.
+// against observable game state (the whole game, current contest included,
+// is what every client receives), so they should only fail when a rule
+// changes.
 
 const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { processGameAction } = require('../lib/gameActions');
-const { wagerStates, playerRegistry } = require('../lib/store');
+const { playerRegistry } = require('../lib/store');
 
 // ---- Test helpers -----------------------------------------------------------
 
-// Fake io capturing emits as [event, payload, target] triples
+// Fake io capturing direct emits (only removedFromGame is still an event)
+// as [event, payload, target] triples
 function fakeIo(events) {
   return {
     to: (target) => ({
@@ -23,11 +25,9 @@ function fakeIo(events) {
   };
 }
 
-function lastEvent(events, name) {
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i][0] === name) return events[i][1];
-  }
-  return null;
+// The bet a player has placed on the current contest, if any
+function betOf(game, pid) {
+  return game.contest ? game.contest.bets[pid] : undefined;
 }
 
 // A 3-player game: p1 hosts, all at 100 points, minimum balance floor 10
@@ -48,11 +48,12 @@ function makeGame(overrides = {}) {
     challengesPerCategory: [],
     playerRankings: {},
     rankingsComplete: false,
+    contest: null,
     ...overrides
   };
 }
 
-// Propose a p1-vs-p2 wager as the host and return the captured events
+// Propose a p1-vs-p2 contest as the host
 function propose(io, game, opts = {}) {
   return processGameAction(io, game, 'proposeWager', {
     player1: 'p1',
@@ -69,7 +70,6 @@ let io;
 beforeEach(() => {
   events = [];
   io = fakeIo(events);
-  wagerStates.clear();
   playerRegistry.clear();
 });
 
@@ -148,7 +148,7 @@ test('an emcee host cannot place a bet', () => {
   processGameAction(io, game, 'proposeWager', { player1: 'p2', player2: 'p3', odds1: 1, odds2: 1 }, 'h1');
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'h1');
-  assert.equal(wagerStates.get('TEST01').playerChoices.h1, undefined, 'host has no balance to bet');
+  assert.equal(betOf(game, 'h1'), undefined, 'host has no balance to bet');
 });
 
 // ---- removePlayer (host kick) -----------------------------------------------
@@ -200,49 +200,52 @@ test('proposeWager stores contestants by ID and derives display names', () => {
   const game = makeGame();
   propose(io, game, { odds1: 1, odds2: 2, category: 'Trivia' });
 
-  const state = wagerStates.get('TEST01');
-  assert.deepEqual(state.contestants, ['p1', 'p2']);
-  assert.deepEqual(state.options, ['Bob', 'Alice']);
-  assert.deepEqual(state.odds, [1, 2]);
-  assert.equal(state.isActive, true);
+  const contest = game.contest;
+  assert.deepEqual(contest.contestants, ['p1', 'p2']);
+  assert.deepEqual(contest.options, ['Bob', 'Alice']);
+  assert.deepEqual(contest.odds, [1, 2]);
+  assert.equal(contest.category, 'Trivia');
+  assert.deepEqual(contest.bets, {});
+  assert.equal(contest.result, null, 'open for betting');
+  assert.ok(contest.id, 'each contest has an id');
+});
 
-  const emitted = lastEvent(events, 'wagerProposed');
-  assert.deepEqual(emitted.contestants, ['p1', 'p2']);
-  assert.deepEqual(emitted.options, ['Bob', 'Alice']);
-  assert.equal(emitted.category, 'Trivia');
+test('proposeWager is refused while a contest is live', () => {
+  const game = makeGame();
+  propose(io, game);
+  const first = game.contest;
+  processGameAction(io, game, 'proposeWager', { player1: 'p2', player2: 'p3' }, 'p1');
+  assert.equal(game.contest, first);
 });
 
 test('proposeWager is host-only', () => {
   const game = makeGame();
   processGameAction(io, game, 'proposeWager', { player1: 'p1', player2: 'p2' }, 'p2');
-  assert.equal(wagerStates.has('TEST01'), false);
-  assert.equal(lastEvent(events, 'wagerProposed'), null);
+  assert.equal(game.contest, null);
 });
 
 test('proposeWager rejects contestants who are not in the game, or identical', () => {
   const game = makeGame();
   processGameAction(io, game, 'proposeWager', { player1: 'p1', player2: 'ghost' }, 'p1');
-  assert.equal(wagerStates.has('TEST01'), false);
+  assert.equal(game.contest, null);
 
   processGameAction(io, game, 'proposeWager', { player1: 'p2', player2: 'p2' }, 'p1');
-  assert.equal(wagerStates.has('TEST01'), false);
+  assert.equal(game.contest, null);
 });
 
 // ---- makeChoice -------------------------------------------------------------
 
-test('makeChoice records the bet and keeps the choice secret in the broadcast', () => {
+test('makeChoice records the bet on the contest', () => {
   const game = makeGame();
   propose(io, game);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 30 }, 'p3');
+  assert.deepEqual(betOf(game, 'p3'), { choice: 0, points: 30 });
 
-  const state = wagerStates.get('TEST01');
-  assert.deepEqual(state.playerChoices.p3, { choice: 0, points: 30 });
-
-  const emitted = lastEvent(events, 'choiceMade');
-  assert.equal(emitted.playerId, 'p3');
-  assert.equal(emitted.choice, null); // secret until resolution
-  assert.equal(emitted.points, 30);
+  // Junk choices are refused
+  processGameAction(io, game, 'makeChoice', { choice: 2, points: 10 }, 'p2');
+  processGameAction(io, game, 'makeChoice', { choice: 1, points: '10' }, 'p2');
+  assert.equal(betOf(game, 'p2'), undefined);
 });
 
 test('makeChoice rejects non-positive bets and bets above the balance', () => {
@@ -254,10 +257,10 @@ test('makeChoice rejects non-positive bets and bets above the balance', () => {
   // p3 has 100 points: a bet can never exceed the balance
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 101 }, 'p3');
 
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+  assert.equal(betOf(game, 'p3'), undefined);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 100 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 100);
+  assert.equal(betOf(game, 'p3').points, 100);
 });
 
 test('a player at the floor can bet their whole balance, but no more', () => {
@@ -265,10 +268,10 @@ test('a player at the floor can bet their whole balance, but no more', () => {
   propose(io, game);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 11 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+  assert.equal(betOf(game, 'p3'), undefined);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 10);
+  assert.equal(betOf(game, 'p3').points, 10);
 });
 
 test('the game-level maxBetSize caps every bet', () => {
@@ -276,10 +279,10 @@ test('the game-level maxBetSize caps every bet', () => {
   propose(io, game);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 31 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+  assert.equal(betOf(game, 'p3'), undefined);
 
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 30 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 30);
+  assert.equal(betOf(game, 'p3').points, 30);
 });
 
 test('a contestant may only bet on themselves', () => {
@@ -288,21 +291,27 @@ test('a contestant may only bet on themselves', () => {
 
   // p1 betting on p2 is rejected
   processGameAction(io, game, 'makeChoice', { choice: 1, points: 10 }, 'p1');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p1, undefined);
+  assert.equal(betOf(game, 'p1'), undefined);
 
   // p1 betting on themselves is accepted
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p1');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p1.choice, 0);
+  assert.equal(betOf(game, 'p1').choice, 0);
 
   // p3 is not in the contest and may bet on either side
   processGameAction(io, game, 'makeChoice', { choice: 1, points: 10 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.choice, 1);
+  assert.equal(betOf(game, 'p3').choice, 1);
 });
 
-test('makeChoice is ignored when no wager is active', () => {
+test('makeChoice is ignored when no contest is live', () => {
   const game = makeGame();
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
-  assert.equal(lastEvent(events, 'choiceMade'), null);
+  assert.equal(game.contest, null);
+
+  // ...including once the contest is resolved
+  propose(io, game);
+  processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
+  assert.equal(betOf(game, 'p3'), undefined);
 });
 
 // ---- resolveWager -----------------------------------------------------------
@@ -321,7 +330,7 @@ test('resolution pays winners points × odds (floored) and losers lose their sta
   assert.equal(game.playerPoints.p2, 100 + Math.floor(20 * 2.5)); // +50
   assert.equal(game.playerPoints.p3, 100 + Math.floor(15 * 2.5)); // +37
 
-  const emitted = lastEvent(events, 'wagerResolved');
+  const emitted = game.contest.result;
   assert.equal(emitted.winnerPlayerId, 'p2');
   const p3Result = emitted.results.find(r => r.playerId === 'p3');
   assert.equal(p3Result.correct, true);
@@ -335,7 +344,10 @@ test('resolution is host-only and requires an active wager', () => {
 
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p2'); // not host
   assert.equal(game.playerPoints.p3, 100);
-  assert.equal(lastEvent(events, 'wagerResolved'), null);
+  assert.equal(game.contest.result, null);
+
+  processGameAction(io, game, 'resolveWager', { correctChoice: 2 }, 'p1'); // junk choice
+  assert.equal(game.contest.result, null);
 
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
   assert.equal(game.playerPoints.p3, 110);
@@ -356,16 +368,21 @@ test('wager counts increment only for contestants, not bystander bettors', () =>
   assert.equal(game.playerWagerCount.p3, undefined);
 });
 
-test('resolution resets the wager state for the next round', () => {
+test('the result stays in game state until the host dismisses it', () => {
   const game = makeGame();
   propose(io, game);
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 10 }, 'p3');
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
 
-  const state = wagerStates.get('TEST01');
-  assert.equal(state.isActive, false);
-  assert.deepEqual(state.contestants, []);
-  assert.deepEqual(state.playerChoices, {});
+  // A phone that slept through the resolution wakes to this same state
+  assert.equal(game.contest.result.correctChoice, 0);
+  assert.equal(game.contest.result.winnerPlayerId, 'p1');
+  assert.deepEqual(game.contest.bets.p3, { choice: 0, points: 10 }, 'bets kept with the result');
+
+  processGameAction(io, game, 'dismissResult', {}, 'p2'); // not host
+  assert.ok(game.contest);
+  processGameAction(io, game, 'dismissResult', {}, 'p1');
+  assert.equal(game.contest, null, 'between contests');
 });
 
 // ---- minimum balance floor --------------------------------------------------
@@ -378,7 +395,7 @@ test('losses are clamped at the minimum balance floor', () => {
   processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
 
   assert.equal(game.playerPoints.p3, 10, 'balance stops at the floor');
-  const emitted = lastEvent(events, 'wagerResolved');
+  const emitted = game.contest.result;
   assert.equal(emitted.results.find(r => r.playerId === 'p3').pointsChange, '-90',
     'reported change is the actual clamped loss');
 });
@@ -391,7 +408,7 @@ test('a losing bet placed from the floor costs nothing', () => {
   processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
 
   assert.equal(game.playerPoints.p3, 10, 'floor player keeps their balance');
-  const emitted = lastEvent(events, 'wagerResolved');
+  const emitted = game.contest.result;
   assert.equal(emitted.results.find(r => r.playerId === 'p3').pointsChange, '-0');
 });
 
@@ -413,10 +430,11 @@ test('with minimum balance 0 a player can bust and can no longer bet', () => {
 
   assert.equal(game.playerPoints.p3, 0, 'busted to zero');
 
-  // Next wager: the busted player cannot place any bet
+  // Next contest: the busted player cannot place any bet
+  processGameAction(io, game, 'dismissResult', {}, 'p1');
   propose(io, game);
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 1 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3, undefined);
+  assert.equal(betOf(game, 'p3'), undefined);
 });
 
 // ---- bounty rules -----------------------------------------------------------
@@ -428,12 +446,12 @@ function resolveWithBounty(bountyConfig, bets, opts = {}) {
     processGameAction(io, game, 'makeChoice', { choice, points }, pid);
   }
   processGameAction(io, game, 'resolveWager', { correctChoice: 1 }, 'p1');
-  return { game, emitted: lastEvent(events, 'wagerResolved') };
+  return { game, emitted: game.contest.result };
 }
 
 test('bounty None awards nothing extra', () => {
   const { game, emitted } = resolveWithBounty('None', [['p2', 1, 20], ['p3', 1, 10]]);
-  assert.equal(emitted.bountyAmount, null);
+  assert.equal(emitted.bountyAmount, 0);
   assert.equal(game.playerPoints.p2, 120); // only the winnings
 });
 
@@ -470,15 +488,14 @@ test('cancelWager nullifies all bets without touching points', () => {
   processGameAction(io, game, 'cancelWager', {}, 'p1');
 
   assert.equal(game.playerPoints.p3, 100);
-  assert.equal(wagerStates.has('TEST01'), false);
-  assert.notEqual(lastEvent(events, 'wagerCancelled'), null);
+  assert.equal(game.contest, null);
 });
 
 test('cancelWager is host-only', () => {
   const game = makeGame();
   propose(io, game);
   processGameAction(io, game, 'cancelWager', {}, 'p2');
-  assert.equal(wagerStates.get('TEST01').isActive, true);
+  assert.ok(game.contest);
 });
 
 // ---- matchmaking schedule ---------------------------------------------------
@@ -552,28 +569,29 @@ test('nextMatchup proposes the scheduled wager with gap-derived odds', () => {
   Object.assign(game, processGameAction(io, game, 'startGame', {}, 'p1'));
 
   processGameAction(io, game, 'nextMatchup', {}, 'p2');
-  assert.equal(wagerStates.get('TEST01'), undefined, 'host-only');
+  assert.equal(game.contest, null, 'host-only');
 
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  const wager = wagerStates.get('TEST01');
-  assert.equal(wager.isActive, true);
-  assert.deepEqual(wager.contestants, ['p1', 'p2']);
-  assert.equal(wager.category, 'A');
-  assert.deepEqual(wager.odds, [1, 1.5], 'gap 1 -> 1.5x underdog');
-  assert.deepEqual(lastEvent(events, 'wagerProposed').options, ['Bob', 'Alice']);
-  assert.equal(lastEvent(events, 'wagerProposed').challenge, 'Stop the timer blind', 'challenge name travels with the wager');
+  const contest = game.contest;
+  assert.equal(contest.result, null);
+  assert.equal(contest.number, 1);
+  assert.deepEqual(contest.contestants, ['p1', 'p2']);
+  assert.equal(contest.category, 'A');
+  assert.deepEqual(contest.odds, [1, 1.5], 'gap 1 -> 1.5x underdog');
+  assert.deepEqual(contest.options, ['Bob', 'Alice']);
+  assert.equal(contest.challenge, 'Stop the timer blind', 'challenge name travels with the contest');
 
   // The host's own odds override the gap default; junk odds fall back to it
   processGameAction(io, game, 'cancelWager', {}, 'p1');
   processGameAction(io, game, 'nextMatchup', { dogOdds: 3.5 }, 'p1');
-  assert.deepEqual(wagerStates.get('TEST01').odds, [1, 3.5], 'host-set odds win');
+  assert.deepEqual(game.contest.odds, [1, 3.5], 'host-set odds win');
   processGameAction(io, game, 'cancelWager', {}, 'p1');
   processGameAction(io, game, 'nextMatchup', { dogOdds: 0.25 }, 'p1');
-  assert.deepEqual(wagerStates.get('TEST01').odds, [1, 1.5], 'invalid odds fall back to gap');
+  assert.deepEqual(game.contest.odds, [1, 1.5], 'invalid odds fall back to gap');
 
   // A second nextMatchup while the wager is live is a no-op
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').category, 'A');
+  assert.equal(game.contest.category, 'A');
   assert.ok(!game.matchups[0].played);
 });
 
@@ -583,28 +601,30 @@ test('matchups can run in any order; cancel leaves them startable', () => {
 
   // Start matchup 2 out of order and resolve it: only #2 is marked played
   processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
-  assert.equal(wagerStates.get('TEST01').category, 'B');
+  assert.equal(game.contest.category, 'B');
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
   assert.deepEqual(game.matchups.map(m => !!m.played), [false, true]);
+  // nextMatchup from the Result screen moves straight on
 
   // The earliest unresolved is now #1; cancelling leaves it startable
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').category, 'A');
+  assert.equal(game.contest.category, 'A');
   processGameAction(io, game, 'cancelWager', {}, 'p1');
   assert.ok(!game.matchups[0].played, 'cancel never marks played');
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').category, 'A');
+  assert.equal(game.contest.category, 'A');
 
   // A played matchup cannot start again
   processGameAction(io, game, 'cancelWager', {}, 'p1');
   processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
-  assert.equal(wagerStates.get('TEST01'), undefined, 'played matchup refused');
+  assert.equal(game.contest, null, 'played matchup refused');
 
   // Exhausted: resolve the last one, nothing further proposes
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
   processGameAction(io, game, 'resolveWager', { correctChoice: 0 }, 'p1');
+  const last = game.contest;
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').isActive, false, 'schedule exhausted');
+  assert.equal(game.contest, last, 'schedule exhausted: the last result stays up');
 });
 
 test('resolution accumulates night stats; finishGame ends an exhausted schedule', () => {
@@ -656,7 +676,7 @@ test('skipMatchup marks a matchup skipped without touching points', () => {
   assert.deepEqual(game.playerPoints, { p1: 100, p2: 100 }, 'nobody pays');
   assert.equal(game.stats, undefined, 'no stats recorded');
   processGameAction(io, game, 'nextMatchup', { number: 2 }, 'p1');
-  assert.equal(wagerStates.get('TEST01'), undefined, 'skipped matchup cannot start');
+  assert.equal(game.contest, null, 'skipped matchup cannot start');
 
   // Not while a wager is live — that path is cancelWager
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
@@ -680,23 +700,21 @@ test('nextMatchup refuses, without skipping, when a contestant is missing', () =
   game.players = game.players.filter(pid => pid !== 'p2'); // force the impossible
 
   processGameAction(io, game, 'nextMatchup', {}, 'p1');
-  const wager = wagerStates.get('TEST01');
-  assert.ok(!wager || !wager.isActive, 'no matchup without both contestants');
+  assert.equal(game.contest, null, 'no matchup without both contestants');
   assert.ok(game.matchups.every(m => !m.played && !m.skipped), 'nothing marked');
 });
 
 // ---- lockBets ---------------------------------------------------------------
 
-test('lockBets sets a ~10s deadline and announces it', () => {
+test('lockBets sets a ~10s deadline on the contest', () => {
   const game = makeGame();
   propose(io, game);
 
   const before = Date.now();
   processGameAction(io, game, 'lockBets', {}, 'p1');
 
-  const lockAt = wagerStates.get('TEST01').betsLockAt;
+  const lockAt = game.contest.betsLockAt;
   assert.ok(lockAt >= before + 9000 && lockAt <= Date.now() + 10000);
-  assert.equal(lastEvent(events, 'betsLocking').betsLockAt, lockAt);
 });
 
 test('lockBets is host-only and does not restart a running countdown', () => {
@@ -704,12 +722,12 @@ test('lockBets is host-only and does not restart a running countdown', () => {
   propose(io, game);
 
   processGameAction(io, game, 'lockBets', {}, 'p2');
-  assert.equal(wagerStates.get('TEST01').betsLockAt, null);
+  assert.equal(game.contest.betsLockAt, null);
 
   processGameAction(io, game, 'lockBets', {}, 'p1');
-  const first = wagerStates.get('TEST01').betsLockAt;
+  const first = game.contest.betsLockAt;
   processGameAction(io, game, 'lockBets', {}, 'p1');
-  assert.equal(wagerStates.get('TEST01').betsLockAt, first, 'second lock is a no-op');
+  assert.equal(game.contest.betsLockAt, first, 'second lock is a no-op');
 });
 
 test('bets are accepted during the countdown and rejected after the deadline', () => {
@@ -719,12 +737,12 @@ test('bets are accepted during the countdown and rejected after the deadline', (
 
   // Countdown running: bet goes through
   processGameAction(io, game, 'makeChoice', { choice: 0, points: 20 }, 'p3');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p3.points, 20);
+  assert.equal(betOf(game, 'p3').points, 20);
 
   // Deadline passed: no new bets
-  wagerStates.get('TEST01').betsLockAt = Date.now() - 1;
+  game.contest.betsLockAt = Date.now() - 1;
   processGameAction(io, game, 'makeChoice', { choice: 1, points: 50 }, 'p2');
-  assert.equal(wagerStates.get('TEST01').playerChoices.p2, undefined);
+  assert.equal(betOf(game, 'p2'), undefined);
 });
 
 // ---- submitRankings ---------------------------------------------------------
@@ -749,16 +767,13 @@ test('rankings must be a complete permutation of 1..N', () => {
   assert.deepEqual(game.playerRankings.p1, { A: 2, B: 1, C: 3 });
 });
 
-test('rankingsComplete fires only when every player has submitted', () => {
+test('rankingsComplete flips only when every player has submitted', () => {
   const game = makeGame({ categories: ['A', 'B'] });
 
   processGameAction(io, game, 'submitRankings', { rankings: { A: 1, B: 2 } }, 'p1');
   processGameAction(io, game, 'submitRankings', { rankings: { A: 2, B: 1 } }, 'p2');
   assert.equal(game.rankingsComplete, false);
-  assert.equal(lastEvent(events, 'rankingsComplete'), null);
 
   processGameAction(io, game, 'submitRankings', { rankings: { A: 1, B: 2 } }, 'p3');
   assert.equal(game.rankingsComplete, true);
-  const emitted = lastEvent(events, 'rankingsComplete');
-  assert.deepEqual(emitted.categories, ['A', 'B']);
 });

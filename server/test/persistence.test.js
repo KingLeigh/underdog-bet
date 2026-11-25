@@ -11,11 +11,9 @@ const { newDb } = require('pg-mem');
 const persistence = require('../lib/persistence');
 const {
   gameSessions,
-  wagerStates,
   playerRegistry,
   restoreGame,
-  getOrCreatePlayerID,
-  createInitialWagerState
+  getOrCreatePlayerID
 } = require('../lib/store');
 
 function sampleGame(id) {
@@ -34,24 +32,24 @@ function sampleGame(id) {
     categories: ['A'],
     challengesPerCategory: [2],
     playerRankings: { p1: { A: 1 }, p2: { A: 1 } },
-    rankingsComplete: true
+    rankingsComplete: true,
+    contest: null
   };
 }
 
 beforeEach(async () => {
   await persistence.close();
   gameSessions.clear();
-  wagerStates.clear();
   playerRegistry.clear();
 });
 
 // ---- restoreGame (pure, no database) ---------------------------------------
 
 test('restoreGame rebuilds maps, registry, and keeps new player IDs clear', () => {
-  restoreGame({ game: sampleGame('G1'), wager: null });
+  restoreGame({ game: sampleGame('G1') });
 
   assert.ok(gameSessions.has('G1'));
-  assert.equal(wagerStates.get('G1').isActive, false);
+  assert.equal(gameSessions.get('G1').contest, null);
 
   // Registry rebuilt from playerNames: rejoin-by-name reconnects, not duplicates
   const rejoined = getOrCreatePlayerID({ id: 'sock-a' }, 'alice', 'G1');
@@ -64,32 +62,27 @@ test('restoreGame rebuilds maps, registry, and keeps new player IDs clear', () =
 
 // ---- full round trip through (emulated) Postgres ----------------------------
 
-test('a saved game and its wager survive a restart', async () => {
+test('a saved game and its live contest survive a restart', async () => {
   const db = newDb();
   const { Pool } = db.adapters.createPg();
 
   await persistence.init({ pool: new Pool() });
 
-  // A live game with an active wager and one bet
-  gameSessions.set('G2', sampleGame('G2'));
-  const wager = {
-    ...createInitialWagerState(),
-    isActive: true,
-    options: ['Bob', 'Alice'],
-    contestants: ['p1', 'p2'],
-    odds: [1, 2],
-    category: 'A',
-    playerChoices: { p1: { choice: 0, points: 25 } },
-    betsLockAt: null
-  };
-  wagerStates.set('G2', wager);
+  // A live game with a contest open and one bet
+  gameSessions.set('G2', {
+    ...sampleGame('G2'),
+    contest: {
+      id: 1, number: null, category: 'A', challenge: '',
+      options: ['Bob', 'Alice'], contestants: ['p1', 'p2'], odds: [1, 2],
+      bets: { p1: { choice: 0, points: 25 } }, betsLockAt: null, result: null
+    }
+  });
 
   await persistence.saveGame('G2');
   await persistence.logEvent('G2', 'bet', { playerID: 'p1', points: 25 });
 
   // "Restart": wipe memory, reconnect to the same database
   gameSessions.clear();
-  wagerStates.clear();
   playerRegistry.clear();
   await persistence.close();
   await persistence.init({ pool: new Pool() });
@@ -97,7 +90,7 @@ test('a saved game and its wager survive a restart', async () => {
   const restored = gameSessions.get('G2');
   assert.ok(restored, 'game restored on boot');
   assert.equal(restored.playerPoints.p2, 120);
-  assert.deepEqual(wagerStates.get('G2').playerChoices.p1, { choice: 0, points: 25 });
+  assert.deepEqual(restored.contest.bets.p1, { choice: 0, points: 25 });
   assert.equal(playerRegistry.get('p1').playerName, 'Bob');
 
   // Saving again updates in place (upsert, not duplicate)
