@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
 import GameLobby from './GameLobby'
@@ -10,8 +10,7 @@ import './GameBoard.css'
 // the players see, watched without a seat, so every player- and
 // host-specific control simply drops away (no playerId, not host).
 function GameBoard({ spectator = false }) {
-  const { gameId, playerId: urlPlayerId } = useParams()
-  const navigate = useNavigate()
+  const { gameId } = useParams()
   const [selectedOption, setSelectedOption] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
   const [hasResolutionSelected, setHasResolutionSelected] = useState(false)
@@ -68,14 +67,6 @@ function GameBoard({ spectator = false }) {
   const lockSecondsLeft = betsLockAt && !betsLocked
     ? Math.max(0, Math.ceil((betsLockAt - lockNow) / 1000))
     : null
-
-  useEffect(() => {
-    // A waiting game belongs in the lobby; a finished one stays here to
-    // show the Winner screen. (The TV shows its own join screen instead.)
-    if (!spectator && gameState && gameState.status === 'waiting') {
-      navigate(`/lobby/${gameId}`)
-    }
-  }, [spectator, gameState, gameId, navigate])
 
   // Reset local selection state whenever the contest changes or resolves
   const contestKey = contest ? `${contest.id}|${result ? 'done' : 'live'}` : ''
@@ -167,9 +158,10 @@ function GameBoard({ spectator = false }) {
     ? contest.bounty
     : null
 
-  // TV before the start: the lobby screen itself, watched without a seat
-  if (spectator && gameState && gameState.status === 'waiting') {
-    return <GameLobby spectator />
+  // Before the start, this same URL shows the lobby (the TV watches it
+  // without a seat): one link per player for the whole night
+  if (gameState && gameState.status === 'waiting') {
+    return <GameLobby spectator={spectator} />
   }
 
   if (!gameState || (gameState.status !== 'playing' && gameState.status !== 'finished')) {

@@ -36,7 +36,7 @@ function CreateGame() {
   const [isPreFilled, setIsPreFilled] = useState(false)
 
   const navigate = useNavigate()
-  const { createGame, currentGame, gameState, error, clearError } = useGame()
+  const { createGame, currentGame, playerId, gameState, error, clearError } = useGame()
 
   // The minimum balance can never exceed the starting points
   useEffect(() => {
@@ -109,10 +109,10 @@ function CreateGame() {
 
   // Auto-navigate when the game is created
   useEffect(() => {
-    if (currentGame && gameState) {
-      navigate(`/lobby/${currentGame}`)
+    if (currentGame && gameState && playerId) {
+      navigate(`/game/${currentGame}/player/${playerId}`)
     }
-  }, [currentGame, gameState, navigate])
+  }, [currentGame, gameState, playerId, navigate])
 
   useEffect(() => {
     if (error) {

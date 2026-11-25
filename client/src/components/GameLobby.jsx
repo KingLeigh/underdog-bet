@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
 import { avatarFor } from '../lib/avatars'
@@ -9,7 +9,6 @@ import './GameLobby.css'
 // game is waiting — the lobby minus everything tied to a seat
 function GameLobby({ spectator = false }) {
   const { gameId } = useParams()
-  const navigate = useNavigate()
   const {
     gameState,
     players,
@@ -43,15 +42,6 @@ function GameLobby({ spectator = false }) {
       setNextRank(1)
     }
   }, [categories])
-
-  useEffect(() => {
-    // (The TV switches screens on its own: GameBoard renders this lobby
-    // only while the game is waiting)
-    if (!spectator && gameState && gameState.status === 'playing') {
-      // Navigate to game board with player ID for seamless reconnections
-      navigate(`/game/${gameId}/player/${playerId}`)
-    }
-  }, [spectator, gameState, gameId, navigate, playerId])
 
   const startGame = () => {
     if (isHost) {

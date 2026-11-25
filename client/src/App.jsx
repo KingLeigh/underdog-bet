@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import io from 'socket.io-client'
 import Home from './components/Home'
 import CreateGame from './components/CreateGame'
-import GameLobby from './components/GameLobby'
 import GameBoard from './components/GameBoard'
 import Matchmaker from './components/Matchmaker'
 import GameManager from './components/GameManager'
@@ -51,7 +50,6 @@ function App() {
               <Route path="/create-game" element={<CreateGame />} />
               <Route path="/matchmaker" element={<Matchmaker />} />
               <Route path="/gamemanager" element={<GameManager />} />
-              <Route path="/lobby/:gameId" element={<GameLobby />} />
               <Route path="/game/:gameId" element={<GameBoard />} />
               <Route path="/game/:gameId/player/:playerId" element={<GameBoard />} />
               <Route path="/tv/:gameId" element={<GameBoard spectator />} />

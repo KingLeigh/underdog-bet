@@ -10,7 +10,7 @@ function Home() {
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { joinGame, currentGame, gameState, error, clearError } = useGame()
+  const { joinGame, currentGame, playerId, gameState, error, clearError } = useGame()
 
   const handleJoinGame = (e) => {
     e.preventDefault()
@@ -37,12 +37,13 @@ function Home() {
     }
   }
 
-  // Auto-navigate when game is created/joined
+  // Once joined, go to this player's own URL: it rejoins them on any
+  // refresh, lobby and game alike
   useEffect(() => {
-    if (currentGame && gameState) {
-      navigate(`/lobby/${currentGame}`)
+    if (currentGame && gameState && playerId) {
+      navigate(`/game/${currentGame}/player/${playerId}`)
     }
-  }, [currentGame, gameState, navigate])
+  }, [currentGame, gameState, playerId, navigate])
 
   // Listen for errors and clear them
   useEffect(() => {
