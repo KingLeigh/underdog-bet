@@ -132,9 +132,13 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
     return lenDiff
   }).map(o=>o.i)
 
+  // Memo of subproblem results. The search returns the cost of the best
+  // completion from a state, which depends only on the state (not on the
+  // path that reached it), so states reached by different paths share one
+  // entry.
   const memo = new Map()
   const FULL = (1<<N) - 1
-  const key = (k, hi, lo, sel, pairMaskStr, coverMask, playerCategoryMaskStr, totalGapCost) => `${k}|${hi}|${lo}|${sel}|${pairMaskStr}|${coverMask}|${playerCategoryMaskStr}|${totalGapCost}`
+  const NONE = { best: Infinity }
 
   function pairBit(i, j) {
     if (i > j) [i, j] = [j, i]
@@ -142,92 +146,57 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
     return 1n << BigInt(idx)
   }
 
-  // Player-category tracking: player index -> list of category indexes played
-  function createPlayerCategoryMask() {
-    return new Map()
-  }
-
-  function clonePlayerCategoryMask(mask) {
-    const newMask = new Map()
-    for (const [player, cats] of mask) {
-      newMask.set(player, [...cats])
-    }
-    return newMask
-  }
-
-  function serializePlayerCategoryMask(mask) {
-    const entries = []
-    for (const [player, cats] of mask) {
-      const sortedCategories = [...cats].sort()
-      entries.push(`${player}:${sortedCategories.join(',')}`)
-    }
-    return entries.sort().join('|')
-  }
-
-  // Hard constraint: no player can play the same category more than once
-  function wouldCreateSameCategoryConflict(pr, currentPlayerCategoryMask, categoryIndex) {
-    if (currentPlayerCategoryMask.has(pr.hiIdx) &&
-        currentPlayerCategoryMask.get(pr.hiIdx).includes(categoryIndex)) {
-      return true
-    }
-
-    if (currentPlayerCategoryMask.has(pr.loIdx) &&
-        currentPlayerCategoryMask.get(pr.loIdx).includes(categoryIndex)) {
-      return true
-    }
-
-    return false
-  }
-
+  // Search-wide outcomes. Once the time limit passes or a zero-cost
+  // schedule turns up, the search unwinds and the answer is the best
+  // complete schedule recorded (with its actual picks).
+  let timedOut = false
   let foundPerfectSolution = false
   let bestSolutionSoFar = { best: Infinity, picks: null }
-  // Current decision path, so the best-so-far fallback (used on timeout)
-  // can record the actual schedule, not just its score
+  // Current decision path, for recording complete schedules
   const path = []
 
-  function dfs(k, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost = 0) {
-    // Early termination: if we already found a perfect solution, stop searching
-    if (foundPerfectSolution) {
-      return { best: Infinity, earlyTerminated: true }
-    }
+  function record(total, picks) {
+    if (total < bestSolutionSoFar.best) bestSolutionSoFar = { best: total, picks }
+    if (total === 0) foundPerfectSolution = true
+  }
 
+  // k: next challenge (in search order); usedHi/usedLo: players already
+  // placed as favorite/underdog; pairMask: pairs already matched;
+  // coverMask: categories used; catMasks[p]: categories player p has
+  // played (bitmask; nobody plays a category twice); pathCost: gap cost of
+  // the picks so far (only for recording complete schedules).
+  // Returns { best, picks } for the remaining decisions.
+  function dfs(k, usedHi, usedLo, selected, pairMask, coverMask, catMasks, pathCost) {
+    if (foundPerfectSolution || timedOut) return NONE
     if (performance.now() - t0 > timeLimitMs) {
-      return { best: bestSolutionSoFar.best, picks: bestSolutionSoFar.picks, timedOut: true }
+      timedOut = true
+      return NONE
     }
 
     const remaining = C - k
     const needMore = need - selected
 
     if (needMore === 0) {
-      if (!(usedHi === FULL && usedLo === FULL)) return { best: Infinity }
-      const coveredCount = popcount32(coverMask)
-      const missing = M - coveredCount
-      if (requireCoverAll && missing > 0) return { best: Infinity }
+      if (!(usedHi === FULL && usedLo === FULL)) return NONE
+      const missing = M - popcount32(coverMask)
+      if (requireCoverAll && missing > 0) return NONE
       const coverPenalty = coverPenaltyPerMissing * missing
-      const totalPenalty = totalGapCost + coverPenalty
-
-      // Track the best solution found so far (with its actual picks)
-      if (totalPenalty < bestSolutionSoFar.best) {
-        bestSolutionSoFar = { best: totalPenalty, picks: path.slice() }
-      }
-
-      // Early termination: if we found a perfect solution (cost=0), return immediately
-      if (totalPenalty === 0) {
-        foundPerfectSolution = true
-        return { best: totalPenalty, picks: [], perfectSolution: true }
-      }
-
-      return { best: totalPenalty, picks: [] }
+      record(pathCost + coverPenalty, path.slice())
+      return { best: coverPenalty, picks: [] }
     }
 
-    if (remaining < needMore) return { best: Infinity }
+    if (remaining < needMore) return NONE
 
-    const memoKey = key(k, usedHi, usedLo, selected, pairMask.toString(), coverMask, serializePlayerCategoryMask(playerCategoryMask), totalGapCost)
-    if (memo.has(memoKey)) {
-      return memo.get(memoKey)
+    const memoKey = `${k}|${usedHi}|${usedLo}|${selected}|${pairMask}|${coverMask}|${catMasks.join(',')}`
+    const hit = memo.get(memoKey)
+    if (hit) {
+      // Reached by a new path: the completion is known, so record the
+      // whole schedule it makes from here
+      if (hit.best !== Infinity) record(pathCost + hit.best, path.concat(hit.picks))
+      return hit
     }
 
-    let best = { best: Infinity }
+    let best = NONE
     const ch = chans[order[k]]
 
     for (const pr of ch.pairs) {
@@ -237,89 +206,46 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
       if ((pairMask & bit) !== 0n) continue
 
       // Hard constraint: no player can play the same category more than once
-      const categoryIndex = catIndex.get(ch.category)
-      if (wouldCreateSameCategoryConflict(pr, playerCategoryMask, categoryIndex)) {
-        continue  // Skip this pair entirely
-      }
+      if (((catMasks[pr.hiIdx] | catMasks[pr.loIdx]) & ch.catBit) !== 0) continue
+      const nextCatMasks = catMasks.slice()
+      nextCatMasks[pr.hiIdx] |= ch.catBit
+      nextCatMasks[pr.loIdx] |= ch.catBit
 
-      // Update player-category mask for this assignment
-      const newPlayerCategoryMask = clonePlayerCategoryMask(playerCategoryMask)
-
-      if (!newPlayerCategoryMask.has(pr.hiIdx)) {
-        newPlayerCategoryMask.set(pr.hiIdx, [])
-      }
-      newPlayerCategoryMask.get(pr.hiIdx).push(categoryIndex)
-
-      if (!newPlayerCategoryMask.has(pr.loIdx)) {
-        newPlayerCategoryMask.set(pr.loIdx, [])
-      }
-      newPlayerCategoryMask.get(pr.loIdx).push(categoryIndex)
-
-      path.push({ use: true, chIndex: ch.idx, pr })
-      const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit, newPlayerCategoryMask, totalGapCost + pr.cost)
+      const step = { use: true, chIndex: ch.idx, pr }
+      path.push(step)
+      const sub = dfs(k+1, setBit(usedHi, pr.hiIdx), setBit(usedLo, pr.loIdx), selected+1, pairMask | bit, coverMask | ch.catBit, nextCatMasks, pathCost + pr.cost)
       path.pop()
-      const total = sub.best === Infinity ? Infinity : sub.best
+      if (foundPerfectSolution || timedOut) return NONE
 
-      // Early termination: if we found a perfect solution, return immediately
-      if (sub.perfectSolution && total === 0) {
-        foundPerfectSolution = true
-        return {
-          best: total,
-          picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}],
-          perfectSolution: true
-        }
-      }
-
-      if (total < best.best) {
-        best = {
-          best: total,
-          picks: sub.picks ? [{use:true, chIndex: ch.idx, pr}].concat(sub.picks) : [{use:true, chIndex: ch.idx, pr}]
-        }
-      }
+      const total = sub.best + pr.cost
+      if (total < best.best) best = { best: total, picks: [step, ...sub.picks] }
     }
 
     if (remaining - 1 >= needMore) {
-      path.push({ use: false, chIndex: ch.idx })
-      const subSkip = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask, playerCategoryMask, totalGapCost)
+      const step = { use: false, chIndex: ch.idx }
+      path.push(step)
+      const sub = dfs(k+1, usedHi, usedLo, selected, pairMask, coverMask, catMasks, pathCost)
       path.pop()
+      if (foundPerfectSolution || timedOut) return NONE
 
-      // Early termination: if we found a perfect solution in skip path, return immediately
-      if (subSkip.perfectSolution && subSkip.best === 0) {
-        foundPerfectSolution = true
-        return {
-          best: subSkip.best,
-          picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}],
-          perfectSolution: true
-        }
-      }
-
-      if (subSkip.best < best.best) {
-        best = {
-          best: subSkip.best,
-          picks: subSkip.picks ? [{use:false, chIndex: ch.idx}].concat(subSkip.picks) : [{use:false, chIndex: ch.idx}]
-        }
-      }
+      if (sub.best < best.best) best = { best: sub.best, picks: [step, ...sub.picks] }
     }
 
     memo.set(memoKey, best)
     return best
   }
 
-  const ans = dfs(0, 0, 0, 0, 0n, 0, createPlayerCategoryMask(), 0)
+  let ans = dfs(0, 0, 0, 0, 0n, 0, new Array(N).fill(0), 0)
 
-  if (!Number.isFinite(ans.best)) {
-    if (ans.timedOut) {
-      if (bestSolutionSoFar.best === Infinity) {
-        return { ok: false, reason: 'Search time limit reached - no solution found' }
-      } else {
-        // Use the best solution found so far
-        ans.best = bestSolutionSoFar.best
-        ans.picks = bestSolutionSoFar.picks
-        ans.timedOut = true
-      }
-    } else {
-      return { ok: false, reason: 'No feasible assignment found' }
+  // An interrupted search (time limit, or stopped at a perfect schedule)
+  // answers with the best complete schedule it recorded
+  if (timedOut || foundPerfectSolution) {
+    if (bestSolutionSoFar.best === Infinity) {
+      return { ok: false, reason: 'Search time limit reached - no solution found' }
     }
+    ans = bestSolutionSoFar
+  } else if (!Number.isFinite(ans.best)) {
+    return { ok: false, reason: 'No feasible assignment found' }
   }
 
   const useMap = new Map()
