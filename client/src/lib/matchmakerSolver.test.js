@@ -13,7 +13,8 @@ import {
   buildChallenges,
   solveMatchmaking,
   checkFeasible,
-  optimizeMatchOrdering
+  optimizeMatchOrdering,
+  solveSchedule
 } from './matchmakerSolver'
 
 // A known-feasible setup: 2 categories, 8 players split 4/4 between
@@ -299,5 +300,50 @@ describe('rng', () => {
     const seqA = Array.from({ length: 5 }, () => a())
     const seqB = Array.from({ length: 5 }, () => b())
     expect(seqA).toEqual(seqB)
+  })
+})
+
+describe('solveSchedule (MAKE MATCHES / RESHUFFLE)', () => {
+  // Each player ranks the 4 categories 1-4, as in the app
+  function appSetup() {
+    const categories = ['A', 'B', 'C', 'D']
+    const r = rng(42)
+    const players = Array.from({ length: 8 }, (_, i) => ({
+      name: `P${i}`,
+      ranks: Object.fromEntries(shuffle([1, 2, 3, 4], r).map((rank, j) => [categories[j], rank]))
+    }))
+    return { players, categories, cats: categories.map(name => ({ name, count: 2 })) }
+  }
+  const pairKey = m => [m.high, m.low].sort().join('-')
+
+  test('a reshuffle shares no pairing with earlier schedules while it can avoid it', () => {
+    const setup = appSetup()
+    const first = solveSchedule({ ...setup, seed: 1 })
+    expect(first.ok).toBe(true)
+    expect(first.repeats).toBe(0)
+
+    const second = solveSchedule({ ...setup, seed: 2, history: [first.matchups] })
+    expect(second.ok).toBe(true)
+    expect(second.repeats).toBe(0)
+    const before = new Set(first.matchups.map(pairKey))
+    expect(second.matchups.some(m => before.has(pairKey(m)))).toBe(false)
+  })
+
+  test('once repeats are unavoidable, it still returns a full schedule', () => {
+    const setup = appSetup()
+    const history = []
+    for (let seed = 1; seed <= 6; seed++) {
+      const res = solveSchedule({ ...setup, seed, history })
+      expect(res.ok).toBe(true)
+      expect(res.matchups).toHaveLength(setup.players.length)
+      history.push(res.matchups)
+    }
+  })
+
+  test('explains why there is no schedule', () => {
+    const setup = appSetup()
+    const res = solveSchedule({ ...setup, cats: [{ name: 'A', count: 2 }], seed: 1 })
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/challenges/i)
   })
 })

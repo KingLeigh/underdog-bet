@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import {
-  generateSeed,
-  buildChallenges,
-  solveMatchmaking,
-  checkFeasible,
-  optimizeMatchOrdering
-} from '../lib/matchmakerSolver'
+import { generateSeed } from '../lib/matchmakerSolver'
+import { runSolveSchedule } from '../lib/matchmakerRunner'
 import Avatar from './Avatar'
 import './Matchmaker.css'
 
@@ -19,12 +14,29 @@ function Matchmaker() {
 
   const [gameInfo, setGameInfo] = useState(null) // { gameId, players, categories, cats, status }
   const [loadError, setLoadError] = useState('')
-  const [matchups, setMatchups] = useState(null) // [{ number, category, high, low, matchup, highRank, lowRank, gap }]
+  // Every schedule shown this visit, oldest first, and which one is on
+  // screen: ‹ › step through them, and each RESHUFFLE adds one as far from
+  // all the others as the solver can find. Each schedule is
+  // [{ number, category, high, low, matchup, highRank, lowRank, gap, challenge }]
+  const [schedules, setSchedules] = useState({ list: [], pos: -1 })
+  const matchups = schedules.list[schedules.pos] || null
+  // Change the schedule on screen (or start the list with one)
+  const setMatchups = (next) => setSchedules(s => {
+    const value = typeof next === 'function' ? next(s.list[s.pos]) : next
+    if (s.pos < 0) return { list: [value], pos: 0 }
+    const list = s.list.slice()
+    list[s.pos] = value
+    return { ...s, list }
+  })
+  const showSchedule = (pos) => setSchedules(s => ({ ...s, pos: Math.max(0, Math.min(s.list.length - 1, pos)) }))
+  // Which schedule in the list is the one saved into the game, if any
+  const [savedPos, setSavedPos] = useState(null)
+  const saved = savedPos !== null && savedPos === schedules.pos
+  const setSaved = (isSaved) => setSavedPos(isSaved ? schedules.pos : null)
   const [isViewOnly, setIsViewOnly] = useState(false)
   const [solveStatus, setSolveStatus] = useState('')
   const [solveError, setSolveError] = useState('')
   const [shareStatus, setShareStatus] = useState('')
-  const [saved, setSaved] = useState(false) // displayed matchups match the game's saved ones
 
   // Load either a shared schedule or live game state
   useEffect(() => {
@@ -102,7 +114,7 @@ function Matchmaker() {
             played: !!m.played,
             skipped: !!m.skipped
           })))
-          setSaved(true)
+          setSavedPos(0)
         }
       } catch (e) {
         if (!cancelled) setLoadError(e.message)
@@ -121,73 +133,24 @@ function Matchmaker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameInfo])
 
-  const makeMatches = () => {
-    if (!gameInfo) return
+  const makeMatches = async () => {
+    if (!gameInfo || solveStatus) return
     const { players, categories, cats } = gameInfo
-    const challenges = buildChallenges(cats)
-    const N = players.length
-    const targetGap = 1 // irrelevant: solving is preference-free (zero cost)
-
-    setMatchups(null)
     setSolveError('')
-
-    if (N < 2) {
-      setSolveError('Need at least 2 players with submitted rankings.')
-      return
-    }
-    if (challenges.length < N) {
-      setSolveError(`Not enough challenges: ${challenges.length} for ${N} players. Add challenges in the game setup.`)
-      return
-    }
-
     setSolveStatus('Solving…')
-    // Let the status paint before the solver blocks the thread
-    setTimeout(() => {
-      const feasible = checkFeasible(players, categories, challenges, {
-        selectN: N,
-        requireCoverAll: false,
-        timeLimitMs: 2000
-      })
-      if (!feasible) {
-        setSolveStatus('')
-        setSolveError('No full schedule exists for these rankings — add challenges or categories.')
-        return
-      }
-
-      // Preference-free: every valid schedule is equally good, so the solver
-      // returns the first one its (seed-randomized) search finds — which is
-      // what makes each RESHUFFLE a genuinely different schedule
-      const seed = generateSeed()
-      const costFn = () => 0
-      const res = solveMatchmaking(players, categories, challenges, {
-        targetGap,
-        timeLimitMs: 10000,
-        costFn,
-        selectN: N,
-        coverPenaltyPerMissing: 10,
-        requireCoverAll: false,
-        randomSeed: seed
-      })
-      setSolveStatus('')
-      if (!res.ok) {
-        setSolveError(`Error: ${res.reason}`)
-        return
-      }
-
-      const ordered = optimizeMatchOrdering(res.assignments, seed)
-      setSaved(false)
-      setMatchups(ordered.map((a, i) => ({
-        number: i + 1,
-        category: a.category,
-        high: a.high,
-        low: a.low,
-        matchup: `${a.highRank} vs ${a.lowRank}`,
-        highRank: a.highRank,
-        lowRank: a.lowRank,
-        gap: a.gap,
-        challenge: ''
-      })))
-    }, 30)
+    const result = await runSolveSchedule({
+      players: players.map(p => ({ name: p.name, ranks: p.ranks })),
+      categories,
+      cats,
+      seed: generateSeed(),
+      history: schedules.list
+    })
+    setSolveStatus('')
+    if (!result.ok) {
+      setSolveError(result.error)
+      return
+    }
+    setSchedules(s => ({ list: [...s.list, result.matchups], pos: s.list.length }))
   }
 
   // Save the schedule into the game itself: it becomes the running order of
@@ -333,7 +296,7 @@ function Matchmaker() {
   const editableNames = gameInfo && !playing && !isViewOnly
   const setChallenge = (number, value) => {
     setMatchups(rows => rows.map(r => r.number === number ? { ...r, challenge: value } : r))
-    setSaved(false)
+    if (saved) setSavedPos(null) // the saved copy no longer matches
   }
 
   const matchupsTable = matchups && matchups.length > 0 && (
@@ -413,9 +376,33 @@ function Matchmaker() {
             </p>
 
             {!playing && (
-              <button className="mega-btn violet" onClick={makeMatches} disabled={!!solveStatus}>
-                {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
-              </button>
+              <div className="mm-shuffle">
+                {schedules.list.length > 1 && (
+                  <button
+                    className="mm-step"
+                    onClick={() => showSchedule(schedules.pos - 1)}
+                    disabled={schedules.pos === 0 || !!solveStatus}
+                    aria-label="Previous schedule"
+                  >‹</button>
+                )}
+                <button className="mega-btn violet" onClick={makeMatches} disabled={!!solveStatus}>
+                  {solveStatus || (matchups ? 'RESHUFFLE ★' : 'MAKE MATCHES ★')}
+                </button>
+                {schedules.list.length > 1 && (
+                  <button
+                    className="mm-step"
+                    onClick={() => showSchedule(schedules.pos + 1)}
+                    disabled={schedules.pos === schedules.list.length - 1 || !!solveStatus}
+                    aria-label="Next schedule"
+                  >›</button>
+                )}
+              </div>
+            )}
+            {!playing && schedules.list.length > 1 && (
+              <div className="mm-step-note">
+                Schedule {schedules.pos + 1} of {schedules.list.length}
+                {savedPos !== null && !saved ? ` · #${savedPos + 1} is saved` : ''}
+              </div>
             )}
 
             {solveError && <div className="mm-error">{solveError}</div>}

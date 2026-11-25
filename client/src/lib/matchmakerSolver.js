@@ -72,7 +72,29 @@ const popcount32 = (x) => {
   return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24
 }
 
-export function solveMatchmaking(players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null } = {}) {
+// Players who already meet in earlier schedules (`history`: a list of
+// schedules, each a list of { high, low, category } by player name): a
+// pairing costs 1 per earlier schedule where the two met, plus 1 more where
+// they met in the same category. Searching for the cheapest schedule then
+// finds the one sharing the least with every earlier one.
+function overlapCost(history) {
+  const met = new Map()
+  const bump = (k) => met.set(k, (met.get(k) || 0) + 1)
+  const pairKey = (a, b) => (a < b ? `${a}\u0000${b}` : `${b}\u0000${a}`)
+  for (const schedule of history || []) {
+    for (const m of schedule || []) {
+      const k = pairKey(m.high, m.low)
+      bump(k)
+      bump(`${k}\u0000${m.category}`)
+    }
+  }
+  return (a, b, category) => {
+    const k = pairKey(a, b)
+    return (met.get(k) || 0) + (met.get(`${k}\u0000${category}`) || 0)
+  }
+}
+
+export function solveMatchmaking(players, categories, challenges, { targetGap, timeLimitMs = 5000, costFn, selectN, coverPenaltyPerMissing = 0, requireCoverAll = false, randomSeed = null, history = null } = {}) {
   const N = players.length
   const M = categories.length
   const C = challenges.length
@@ -96,6 +118,8 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
     return baseCost + perturbation
   }
 
+  const repeats = overlapCost(history)
+
   const t0 = performance.now()
 
   const catIndex = new Map(categories.map((c,i)=>[c,i]))
@@ -107,7 +131,8 @@ export function solveMatchmaking(players, categories, challenges, { targetGap, t
       const rLo = players[j].ranks[ch.category]
       if (rHi < rLo) {
         const gap = Math.abs(rHi-rLo)
-        pairs.push({hiIdx:i, loIdx:j, gap, cost:_cost(gap)})
+        const cost = _cost(gap) + repeats(players[i].name, players[j].name, ch.category)
+        pairs.push({hiIdx:i, loIdx:j, gap, cost})
       }
     }
     pairs.sort((a,b)=> {
@@ -366,4 +391,59 @@ export function optimizeMatchOrdering(assignments, seedValue = null) {
   }
 
   return best
+}
+
+// Everything MAKE MATCHES / RESHUFFLE does, as plain data in and out so it
+// can run in a Web Worker (lib/matchmakerWorker.js). Every valid schedule is
+// as good as any other, except that one sharing pairings with the earlier
+// schedules in `history` costs more (see overlapCost): the first schedule is
+// just the first one the seeded search finds, and each reshuffle is the one
+// furthest from all those before it.
+//   players: [{ name, ranks }], cats: [{ name, count }]
+//   returns { ok: true, matchups, repeats } or { ok: false, error }
+export function solveSchedule({ players, categories, cats, seed, history = [], timeLimitMs = 10000 }) {
+  const challenges = buildChallenges(cats)
+  const N = players.length
+  if (N < 2) {
+    return { ok: false, error: 'Need at least 2 players with submitted rankings.' }
+  }
+  if (challenges.length < N) {
+    return { ok: false, error: `Not enough challenges: ${challenges.length} for ${N} players. Add challenges in the game setup.` }
+  }
+  const res = solveMatchmaking(players, categories, challenges, {
+    targetGap: 1,
+    timeLimitMs,
+    costFn: () => 0,
+    selectN: N,
+    coverPenaltyPerMissing: 10,
+    requireCoverAll: false,
+    randomSeed: seed,
+    history
+  })
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: /time limit/i.test(res.reason)
+        ? "Couldn't find a schedule in time. Try again, or add challenges."
+        : 'No full schedule exists for these rankings. Add challenges or categories.'
+    }
+  }
+  const ordered = optimizeMatchOrdering(res.assignments, seed)
+  const repeats = overlapCost(history)
+  return {
+    ok: true,
+    // Pairings this schedule shares with earlier ones (0: all new)
+    repeats: ordered.reduce((n, a) => n + (repeats(a.high, a.low, a.category) > 0 ? 1 : 0), 0),
+    matchups: ordered.map((a, i) => ({
+      number: i + 1,
+      category: a.category,
+      high: a.high,
+      low: a.low,
+      matchup: `${a.highRank} vs ${a.lowRank}`,
+      highRank: a.highRank,
+      lowRank: a.lowRank,
+      gap: a.gap,
+      challenge: ''
+    }))
+  }
 }
