@@ -14,10 +14,26 @@ const {
 const { processGameAction } = require('./gameActions');
 const persistence = require('./persistence');
 
-// Send the active wager state (if any) to a player who just (re)joined a game
+// Whether a contest is live (proposed, not yet resolved). Sent with every
+// gameJoined so a rejoining client knows whether the contest it remembers
+// still exists — a phone that slept through a resolution must drop it.
+function wagerIsLive(gameId) {
+  const wagerState = wagerStates.get(gameId);
+  return !!(wagerState && wagerState.isActive && !wagerState.resolved);
+}
+
+// Send the active wager state (if any) to a player who just (re)joined a
+// game — or, between contests, the last result so the Result screen
+// survives a sleep or a refresh
 function sendActiveWagerTo(socket, game, recipientPlayerID) {
   const wagerState = wagerStates.get(game.id);
-  if (!wagerState || !wagerState.isActive || wagerState.resolved) return;
+  if (!wagerState) return;
+  if (!wagerIsLive(game.id)) {
+    if (wagerState.lastResult) {
+      socket.emit('wagerResolved', { ...wagerState.lastResult, replay: true });
+    }
+    return;
+  }
 
   // Send wager options
   socket.emit('wagerProposed', {
@@ -62,7 +78,7 @@ function registerSocketHandlers(io) {
         // never add them as a player
         if (playerID === game.host && !game.players.includes(playerID)) {
           socket.join(gameId);
-          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: true });
+          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: true, wagerActive: wagerIsLive(gameId) });
           sendActiveWagerTo(socket, game, playerID);
           socket.to(gameId).emit('gameStateUpdate', game);
           console.log(`Emcee host ${playerName} (${playerID}) rejoined game ${gameId}`);
@@ -73,7 +89,7 @@ function registerSocketHandlers(io) {
         if (game.players.includes(playerID)) {
           // Player is rejoining - just update their socket ID
           socket.join(gameId);
-          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: game.host === playerID });
+          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: true, playerID, isHost: game.host === playerID, wagerActive: wagerIsLive(gameId) });
           sendActiveWagerTo(socket, game, playerID);
 
           // Notify other players about the reconnection
@@ -92,7 +108,7 @@ function registerSocketHandlers(io) {
           game.playerNames[playerID] = displayName(playerName) || `Player${game.players.length}`;
 
           socket.join(gameId);
-          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID });
+          socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID, wagerActive: wagerIsLive(gameId) });
 
           // Send gameStateUpdate to OTHER players (not the new player) to ensure state consistency
           socket.to(gameId).emit('gameStateUpdate', game);
@@ -210,7 +226,8 @@ function registerSocketHandlers(io) {
         wasReconnection: false,
         playerID: null,
         isHost: false,
-        spectator: true
+        spectator: true,
+        wagerActive: wagerIsLive(gameId)
       });
       sendActiveWagerTo(socket, game, null);
     });
@@ -257,7 +274,8 @@ function registerSocketHandlers(io) {
         gameState: game,
         wasReconnection: true,
         playerID,
-        isHost: game.host === playerID
+        isHost: game.host === playerID,
+        wagerActive: wagerIsLive(gameId)
       });
 
       sendActiveWagerTo(socket, game, playerID);

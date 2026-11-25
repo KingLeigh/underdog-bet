@@ -77,24 +77,26 @@ function GameBoard({ spectator = false }) {
     }
   }, [spectator, gameState, gameId, navigate])
 
-  // The TV watches the game (no seat); re-watch after any reconnect
+  // The TV watches the game (no seat). Every (re)connect re-watches from
+  // GameContext; this covers arriving with the socket already connected.
   useEffect(() => {
-    if (!spectator || !socket || !gameId) return
-    const watch = () => socket.emit('watchGame', { gameId })
-    if (socket.connected) watch()
-    socket.on('connect', watch)
-    return () => socket.off('connect', watch)
+    if (spectator && socket && gameId && socket.connected) {
+      socket.emit('watchGame', { gameId })
+    }
   }, [spectator, socket, gameId])
 
-  // Reset selection state when wager state changes
+  // Reset selection state whenever the contest changes — it ends, or a
+  // resync after a sleep lands on a different contest than the one the
+  // phone last showed
+  const contestKey = wagerActive
+    ? `${wagerMatchupNumber || ''}|${wagerContestants.join(',')}`
+    : ''
   useEffect(() => {
-    if (!wagerActive) {
-      setSelectedOption(null)
-      setUserChoice(null)
-      setHasResolutionSelected(false)
-      setCancelConfirmationActive(false)
-    }
-  }, [wagerActive])
+    setSelectedOption(null)
+    setUserChoice(null)
+    setHasResolutionSelected(false)
+    setCancelConfirmationActive(false)
+  }, [contestKey])
 
   // Handle cancel button clicks (two taps to confirm)
   const handleCancelClick = () => {

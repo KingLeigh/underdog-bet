@@ -21,6 +21,9 @@ const initialState = {
   wagerResolved: false,
   wagerResults: null,
   wagerCategory: '',
+  // The result the host has moved on from (Next Matchup), so a rejoin's
+  // replay of that same result doesn't drag them back to it
+  dismissedResultId: null,
   // Category ranking state
   categories: [],
   challengesPerCategory: [],
@@ -76,9 +79,14 @@ function gameReducer(state, action) {
     }
 
     case 'GAME_JOINED': {
-      const { gameId, playerID, isHost, gameState } = action.payload
+      const { gameId, playerID, isHost, gameState, wagerActive } = action.payload
       return {
         ...state,
+        // A (re)join is a full resync: with no contest live on the server,
+        // drop any contest this client still remembers (a phone that slept
+        // through the resolution). A live one is replayed right after, and
+        // so is the last result between contests.
+        ...(wagerActive ? {} : clearedWagerFields),
         ...fromGameState(gameState),
         playerId: playerID || state.playerId,
         currentGame: gameId,
@@ -124,17 +132,36 @@ function gameReducer(state, action) {
       }
     }
 
-    case 'WAGER_RESOLVED':
+    case 'WAGER_RESOLVED': {
+      const result = action.payload
+      // A replayed result the host already moved on from stays dismissed
+      if (result.replay && result.resultId && result.resultId === state.dismissedResultId) {
+        return state
+      }
+      // The resolved contest travels with the result, so a replay (which
+      // arrives with no contest in memory) still shows the right odds
+      const contest = result.wagerState
       return {
         ...state,
         wagerResolved: true,
-        wagerResults: action.payload,
-        wagerActive: false
+        wagerResults: result,
+        wagerActive: false,
+        ...(contest && Array.isArray(contest.options) && contest.options.length
+          ? {
+              wagerOptions: { options: contest.options, odds: contest.odds || [1, 1] },
+              wagerContestants: contest.contestants || []
+            }
+          : {})
       }
+    }
 
     case 'WAGER_CLEARED':
       // Wager cancelled by the host, or reset locally for the next round
-      return { ...state, ...clearedWagerFields }
+      return {
+        ...state,
+        ...clearedWagerFields,
+        dismissedResultId: state.wagerResults?.resultId ?? state.dismissedResultId
+      }
 
     case 'RANKINGS_COMPLETE':
       return {
@@ -169,22 +196,60 @@ export function GameProvider({ children, socket }) {
   useEffect(() => {
     if (!socket) return
 
-    const handleConnect = () => {
-      // Check if we're on a game page with player ID in URL
-      // This handles the case where the page is refreshed and we need to reconnect
-      const gameMatch = window.location.pathname.match(/\/game\/([^\/]+)\/player\/([^\/]+)/)
+    // Ask the server for a fresh copy of this page's game: rejoin as the
+    // player in the URL (or in memory), or watch it from the TV screen.
+    // Returns false when this page isn't in a game.
+    const resync = () => {
+      const path = window.location.pathname
+      const gameMatch = path.match(/\/game\/([^\/]+)\/player\/([^\/]+)/)
+      const tvMatch = path.match(/^\/tv\/([^\/]+)/)
 
       if (gameMatch) {
         const [, gameId, playerId] = gameMatch
         dispatch({ type: 'SET_SESSION', payload: { gameId, playerId } })
         socket.emit('rejoinGame', { gameId, playerID: playerId })
+      } else if (tvMatch) {
+        socket.emit('watchGame', { gameId: tvMatch[1] })
       } else if (stateRef.current.currentGame && stateRef.current.playerId) {
-        // Fallback: if we have a saved game state, try to rejoin
         socket.emit('rejoinGame', {
           gameId: stateRef.current.currentGame,
           playerID: stateRef.current.playerId
         })
+      } else {
+        return false
       }
+      return true
+    }
+
+    // Every (re)connection — a refresh, a network blip, a phone waking —
+    // rejoins and resyncs
+    const handleConnect = () => { resync() }
+
+    // A locked phone suspends the page, and its socket can look connected
+    // while actually dead, missing everything the host did meanwhile. When
+    // the page comes back after more than a moment away, resync; if no
+    // answer arrives quickly, the socket is dead — force a reconnect (whose
+    // connect handler rejoins).
+    let hiddenAt = null
+    let lastJoinedAt = 0
+    let watchdog = null
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now()
+        return
+      }
+      const away = hiddenAt ? Date.now() - hiddenAt : 0
+      hiddenAt = null
+      if (away < 3000 || !socket.connected) return // reconnect logic covers a dropped socket
+      const askedAt = Date.now()
+      if (!resync()) return
+      clearTimeout(watchdog)
+      watchdog = setTimeout(() => {
+        if (lastJoinedAt < askedAt) {
+          socket.disconnect()
+          socket.connect()
+        }
+      }, 3000)
     }
 
     const handleGameCreated = (gameData) => {
@@ -192,8 +257,9 @@ export function GameProvider({ children, socket }) {
       dispatch({ type: 'GAME_CREATED', payload: { playerID, gameState } })
     }
 
-    const handleGameJoined = ({ gameId, gameState, playerID, isHost }) => {
-      dispatch({ type: 'GAME_JOINED', payload: { gameId, gameState, playerID, isHost } })
+    const handleGameJoined = ({ gameId, gameState, playerID, isHost, wagerActive }) => {
+      lastJoinedAt = Date.now()
+      dispatch({ type: 'GAME_JOINED', payload: { gameId, gameState, playerID, isHost, wagerActive } })
     }
 
     const handleGameStateUpdate = (gameState) => {
@@ -257,8 +323,11 @@ export function GameProvider({ children, socket }) {
     socket.on('rankingsComplete', handleRankingsComplete)
     socket.on('removedFromGame', handleRemovedFromGame)
     socket.on('error', handleError)
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      clearTimeout(watchdog)
       socket.off('connect', handleConnect)
       socket.off('gameCreated', handleGameCreated)
       socket.off('gameJoined', handleGameJoined)

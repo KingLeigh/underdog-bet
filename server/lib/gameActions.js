@@ -510,14 +510,21 @@ function processGameAction(io, game, action, payload, playerID) {
 
           console.log(`Game ${game.id}: wager resolved, winner "${winningOption}"${bountyAmount ? ` (bounty ${bountyAmount})` : ''}`);
 
-          // Emit wager resolved event to all players
-          io.to(game.id).emit('wagerResolved', {
+          // Emit wager resolved event to all players. The payload is kept
+          // (as wagerState.lastResult, below) so a phone that slept through
+          // the resolution, or a refreshed page, gets the Result screen
+          // replayed on rejoin. The snapshot excludes the previous
+          // lastResult so results never nest.
+          const { lastResult: _previous, ...resolvedSnapshot } = wagerState;
+          const resolvedPayload = {
+            resultId: Date.now(),
             correctChoice: payload.correctChoice,
             results,
-            wagerState: wagerState,
+            wagerState: resolvedSnapshot,
             bountyAmount: bountyAmount,
             winnerPlayerId: winnerPlayerId
-          });
+          };
+          io.to(game.id).emit('wagerResolved', resolvedPayload);
 
           // Permanent record: the contest, every bet and payout, the bounty
           persistence.logEvent(game.id, 'contestResolved', {
@@ -549,6 +556,9 @@ function processGameAction(io, game, action, payload, playerID) {
           wagerState.matchupNumber = null;
           wagerState.challenge = '';
           wagerState.resolved = false;
+          // Until the next contest is proposed (which replaces the wager
+          // state) or a cancel (which deletes it)
+          wagerState.lastResult = resolvedPayload;
         } else {
           console.error(`Cannot resolve wager for game ${game.id}:`, {
             hasWagerState: !!wagerState,

@@ -283,6 +283,89 @@ test('spectator (TV screen) watches a game without a seat', { timeout: 30000 }, 
   assert.equal((await resolved).winnerPlayerId, patId);
 });
 
+test('a player who slept through a resolution resyncs to the result', { timeout: 30000 }, async () => {
+  const host = connect();
+  const kim = connect();
+  const lee = connect();
+
+  host.emit('createGame', { playerName: 'Host', hostPlays: false, startingPoints: 100 });
+  const gameId = (await once(host, 'gameCreated')).id;
+  kim.emit('joinGame', { gameId, playerName: 'Kim' });
+  const kimId = (await once(kim, 'gameJoined')).playerID;
+  lee.emit('joinGame', { gameId, playerName: 'Lee' });
+  const leeId = (await once(lee, 'gameJoined')).playerID;
+  const playing = new Promise((resolve) => {
+    const h = (gs) => { if (gs.status === 'playing') { kim.off('gameStateUpdate', h); resolve(); } };
+    kim.on('gameStateUpdate', h);
+  });
+  host.emit('gameAction', { gameId, action: 'startGame', payload: {} });
+  await playing;
+
+  // A contest goes live; Kim bets
+  const proposed = once(kim, 'wagerProposed');
+  host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: kimId, player2: leeId, odds1: 1, odds2: 3 } });
+  await proposed;
+  kim.emit('gameAction', { gameId, action: 'makeChoice', payload: { choice: 0, points: 20 } });
+  await sleep(200);
+
+  // Rejoining mid-contest: the join says a contest is live
+  const kim2 = connect();
+  kim2.emit('rejoinGame', { gameId, playerID: kimId });
+  const midJoin = await once(kim2, 'gameJoined');
+  assert.equal(midJoin.wagerActive, true, 'live contest flagged on join');
+
+  // Kim's phone locks (socket gone); the host resolves for Lee
+  kim.disconnect();
+  kim2.disconnect();
+  const resolved = once(lee, 'wagerResolved');
+  host.emit('gameAction', { gameId, action: 'resolveWager', payload: { correctChoice: 1 } });
+  const live = await resolved;
+  assert.ok(live.resultId, 'results carry an id');
+
+  // Kim wakes up and rejoins: no live contest, and the result is replayed
+  const kim3 = connect();
+  const replayed = once(kim3, 'wagerResolved');
+  kim3.emit('rejoinGame', { gameId, playerID: kimId });
+  const wake = await once(kim3, 'gameJoined');
+  assert.equal(wake.wagerActive, false, 'no live contest after the resolution');
+  const replay = await replayed;
+  assert.equal(replay.replay, true);
+  assert.equal(replay.resultId, live.resultId, 'the same result');
+  assert.equal(replay.winnerPlayerId, leeId);
+  assert.deepEqual(replay.wagerState.odds, [1, 3], 'the resolved contest travels with the result');
+  assert.equal(replay.wagerState.lastResult, undefined, 'results never nest');
+  assert.equal(replay.results.find(r => r.playerId === kimId).pointsChange, '-20');
+
+  // A TV opened now also lands on the result
+  const tv = connect();
+  const tvReplay = once(tv, 'wagerResolved');
+  tv.emit('watchGame', { gameId });
+  assert.equal((await tvReplay).resultId, live.resultId);
+
+  // Once the next contest is proposed, a rejoin gets that contest, not the old result
+  const next = once(lee, 'wagerProposed');
+  host.emit('gameAction', { gameId, action: 'proposeWager', payload: { player1: kimId, player2: leeId, odds1: 1, odds2: 2 } });
+  await next;
+  const kim4 = connect();
+  let staleResult = false;
+  kim4.on('wagerResolved', () => { staleResult = true; });
+  const nextReplay = once(kim4, 'wagerProposed');
+  kim4.emit('rejoinGame', { gameId, playerID: kimId });
+  assert.equal((await once(kim4, 'gameJoined')).wagerActive, true);
+  await nextReplay;
+
+  // ...and after that contest is cancelled, nothing is replayed at all
+  const cancelled = once(lee, 'wagerCancelled');
+  host.emit('gameAction', { gameId, action: 'cancelWager', payload: {} });
+  await cancelled;
+  const kim5 = connect();
+  kim5.on('wagerResolved', () => { staleResult = true; });
+  kim5.emit('rejoinGame', { gameId, playerID: kimId });
+  assert.equal((await once(kim5, 'gameJoined')).wagerActive, false);
+  await sleep(300);
+  assert.equal(staleResult, false, 'no stale result replayed');
+});
+
 test('emcee mode: a non-player host runs the game',{ timeout: 30000 }, async () => {
   const emma = connect();
   const dave = connect();
