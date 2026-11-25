@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import MatchupSafetyMeter from './MatchupSafetyMeter'
+import AvatarPicker, { freeAvatar } from './AvatarPicker'
 import './CreateGame.css'
 
 // Chunky -/+ control used for all the numeric game settings.
@@ -26,6 +27,7 @@ function CreateGame() {
   const [searchParams] = useSearchParams()
   const [createPlayerName, setCreatePlayerName] = useState('')
   const [hostPlays, setHostPlays] = useState(false) // host-only by default
+  const [avatar, setAvatar] = useState(() => freeAvatar(new Map()))
   const [categories, setCategories] = useState('')
   const [challengeCounts, setChallengeCounts] = useState({}) // category name -> count
   const [startingPoints, setStartingPoints] = useState(100)
@@ -97,6 +99,7 @@ function CreateGame() {
     createGame({
       playerName: hostPlays ? createPlayerName : 'Host',
       hostPlays: hostPlays,
+      avatar: hostPlays ? avatar : undefined,
       categories: catList,
       challengesPerCategory: catList.map(name => countFor(name)),
       startingPoints: startingPoints,
@@ -154,6 +157,7 @@ function CreateGame() {
                 className="stage-input"
                 required
               />
+              <AvatarPicker value={avatar} onChange={setAvatar} />
             </>
           )}
         </section>

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
 import GameLobby from './GameLobby'
-import { avatarFor } from '../lib/avatars'
+import Avatar from './Avatar'
 import { rankPlayers, positionsBefore, roundChange, statsFor } from '../lib/standings'
 import './GameBoard.css'
 
@@ -215,7 +215,7 @@ function GameBoard({ spectator = false }) {
 
             {champions.length > 0 && (
               <div className="champ-banner">
-                <span className="champ-avatar">{champions.map(p => avatarFor(p.id)).join(' ')}</span>
+                <span className="champ-avatar">{champions.map((p, i) => <React.Fragment key={p.id}>{i > 0 && ' '}<Avatar pid={p.id} /></React.Fragment>)}</span>
                 <div className="champ-label">
                   {champions.length > 1 ? "Tonight's Champions" : "Tonight's Champion"}
                 </div>
@@ -228,7 +228,7 @@ function GameBoard({ spectator = false }) {
               <div className="podium">
                 {podium.map(p => (
                   <div key={p.id} className={`podium-step ${p.position === 2 ? 'second' : 'third'}`}>
-                    <span className="podium-avatar">{avatarFor(p.id)}</span>
+                    <span className="podium-avatar"><Avatar pid={p.id} /></span>
                     <div className="podium-name">{p.name}</div>
                     <div className="podium-block">
                       <span className="podium-medal">{p.position === 2 ? '🥈' : '🥉'}</span>
@@ -369,7 +369,7 @@ function GameBoard({ spectator = false }) {
               ].join(' ')}
               onClick={() => { if (amPlayer && !myBet && canBetOn(f.idx)) setSelectedOption(f.idx) }}
             >
-              <span className="avatar">{avatarFor(contestants[f.idx] || f.name)}</span>
+              <span className="avatar"><Avatar pid={contestants[f.idx] || f.name} /></span>
               <span className="fighter-name">{f.name}</span>
               <span className={`fighter-tag ${f.odds === other.odds ? 'even' : (f.odds < other.odds ? 'favorite' : 'underdog')}`}>
                 {tagFor(f, other)}
@@ -398,7 +398,7 @@ function GameBoard({ spectator = false }) {
                   return (
                     <span key={p.id} className={`bet-chip ${c ? 'placed' : 'waiting'}`}>
                       {p.position === 1 ? <span className="bet-chip-crown">🏆</span> : null}
-                      <span className="bet-chip-avatar">{avatarFor(p.id)}</span>
+                      <span className="bet-chip-avatar"><Avatar pid={p.id} /></span>
                       <span className="bet-chip-name">{p.name}</span>
                       <span className="bet-chip-points">{p.points}</span>
                       {c ? <span className="bet-chip-amount">▸ {secret ? '??' : (c.points || 0)}</span> : null}
@@ -574,7 +574,7 @@ function GameBoard({ spectator = false }) {
             <div className="rankings-grid">
               {players.map(pid => (
                 <div key={pid} className="player-ranking-card">
-                  <h4>{avatarFor(pid)} {playerNames[pid] || 'Unknown Player'}</h4>
+                  <h4><Avatar pid={pid} /> {playerNames[pid] || 'Unknown Player'}</h4>
                   <div className="ranking-items">
                     {categories
                       .map(category => ({ category, rank: playerRankings[pid]?.[category] || 999 }))
@@ -685,7 +685,7 @@ function StandingsTable({ standings, stats, roundResults }) {
                     </span>
                   )}
                 </span>
-                {' '}{avatarFor(p.id)} {p.name}
+                {' '}<Avatar pid={p.id} /> {p.name}
               </td>
               <td>{s.contestWins}–{s.contestLosses}</td>
               <td>{s.betWins}–{s.betLosses}</td>
@@ -871,7 +871,7 @@ function WagerProposalForm({ onSubmit }) {
             className={`mini-card ${picked.includes(player.pid) ? 'picked' : ''}`}
             onClick={() => togglePick(player.pid)}
           >
-            <span className="mini-avatar">{avatarFor(player.pid)}</span>
+            <span className="mini-avatar"><Avatar pid={player.pid} /></span>
             <span className="mini-name">{player.name}</span>
             <span className="mini-meta">
               {selectedCategory && player.categoryRank ? `Rank ${player.categoryRank} · ` : ''}
@@ -886,7 +886,7 @@ function WagerProposalForm({ onSubmit }) {
 
         const nameOf = (pid) => (
           <div className="preview-name">
-            {avatarFor(pid)} {playerNames[pid]}
+            <Avatar pid={pid} /> {playerNames[pid]}
             {rankOf(pid) && <span className="preview-rank">Rank {rankOf(pid)}</span>}
           </div>
         )

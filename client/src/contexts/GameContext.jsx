@@ -176,9 +176,9 @@ export function GameProvider({ children, socket }) {
     }
   }
 
-  const joinGame = (gameId, playerName) => {
+  const joinGame = (gameId, playerName, avatar) => {
     if (socket) {
-      socket.emit('joinGame', { gameId, playerName })
+      socket.emit('joinGame', { gameId, playerName, avatar })
     }
   }
 

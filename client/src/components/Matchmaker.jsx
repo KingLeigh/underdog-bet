@@ -6,7 +6,7 @@ import {
   checkFeasible,
   optimizeMatchOrdering
 } from '../lib/matchmakerSolver'
-import { avatarFor } from '../lib/avatars'
+import Avatar from './Avatar'
 import './Matchmaker.css'
 
 // The Matchmaker is read-only: it loads real players and rankings from a
@@ -83,7 +83,8 @@ function Matchmaker() {
           players,
           categories: game.categories,
           cats,
-          status: game.status
+          status: game.status,
+          playerAvatars: game.playerAvatars || {}
         })
 
         // A schedule already saved into the game is the starting display
@@ -447,7 +448,7 @@ function Matchmaker() {
                   <tbody>
                     {gameInfo.players.map(p => (
                       <tr key={p.pid}>
-                        <td className="mx-player">{avatarFor(p.pid)} {p.name}</td>
+                        <td className="mx-player"><Avatar pid={p.pid} playerAvatars={gameInfo.playerAvatars} /> {p.name}</td>
                         {gameInfo.categories.map(c => {
                           const r = p.ranks[c]
                           const cls = r === 1 ? 'top' : r === gameInfo.categories.length ? 'bottom' : ''

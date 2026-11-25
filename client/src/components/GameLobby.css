@@ -99,6 +99,28 @@ a.copy-link.tv-link {
   font-size: 1.4rem;
 }
 
+/* Your own chip's avatar is a button that opens the picker */
+.player-chip button.chip-avatar {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.12s ease;
+}
+.player-chip button.chip-avatar:hover {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.avatar-link {
+  margin-top: 0.9rem;
+}
+
+.lobby-avatar-picker {
+  width: min(420px, 100%);
+  margin-top: 0.8rem;
+}
+
 .player-chip .chip-name {
   text-transform: uppercase;
   font-family: 'Lilita One', 'Space Grotesk', sans-serif;

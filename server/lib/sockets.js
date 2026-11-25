@@ -19,12 +19,13 @@ const {
 } = require('./store');
 const { processGameAction } = require('./gameActions');
 const persistence = require('./persistence');
+const avatars = require('./avatars');
 
 function registerSocketHandlers(io) {
   io.on('connection', (socket) => {
     // Join a game session
     socket.on('joinGame', (data) => {
-      const { gameId, playerName } = data;
+      const { gameId, playerName, avatar } = data;
 
       if (gameSessions.has(gameId)) {
         const game = gameSessions.get(gameId);
@@ -64,6 +65,7 @@ function registerSocketHandlers(io) {
           game.players.push(playerID);
           game.playerPoints[playerID] = game.startingPoints || 100;
           game.playerNames[playerID] = displayName(playerName) || `Player${game.players.length}`;
+          avatars.setAvatar(game, playerID, avatar);
 
           socket.join(gameId);
           socket.emit('gameJoined', { gameId, gameState: game, wasReconnection: false, playerID, isHost: game.host === playerID });
@@ -121,8 +123,10 @@ function registerSocketHandlers(io) {
         challengesPerCategory: gameConfig.challengesPerCategory || [],
         playerRankings: {},
         rankingsComplete: false,
+        playerAvatars: {},
         contest: null
       };
+      if (hostPlays) avatars.setAvatar(gameState, playerID, gameConfig.avatar);
 
       gameSessions.set(gameId, gameState);
       socket.join(gameId);

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import RulesPanel from './RulesPanel'
-import { avatarFor } from '../lib/avatars'
+import Avatar from './Avatar'
+import AvatarPicker, { takenBy } from './AvatarPicker'
 import './GameLobby.css'
 
 // spectator: rendered inside the TV screen (GameBoard spectator) while the
@@ -28,6 +29,7 @@ function GameLobby({ spectator = false }) {
   const [rankedCategories, setRankedCategories] = useState([])
   const [nextRank, setNextRank] = useState(1)
   const [copied, setCopied] = useState(false)
+  const [pickingAvatar, setPickingAvatar] = useState(false)
 
   // Initialize categories with random order
   useEffect(() => {
@@ -156,7 +158,18 @@ function GameLobby({ spectator = false }) {
               key={pid}
               className={`player-chip ${hasCategories ? (playerRankings[pid] ? 'ready' : 'waiting') : ''}`}
             >
-              <span className="chip-avatar">{avatarFor(pid)}</span>
+              {pid === playerId && !spectator ? (
+                <button
+                  type="button"
+                  className="chip-avatar mine"
+                  title="Change your avatar"
+                  onClick={() => setPickingAvatar(p => !p)}
+                >
+                  <Avatar pid={pid} />
+                </button>
+              ) : (
+                <span className="chip-avatar"><Avatar pid={pid} /></span>
+              )}
               <span className="chip-name">
                 {pid === gameState.host && '👑 '}
                 {playerNames[pid] || 'Unknown Player'}
@@ -178,6 +191,27 @@ function GameLobby({ spectator = false }) {
             </div>
           ))}
         </div>
+
+        {/* Your avatar: tap your own chip's avatar (or this link) to swap
+            it for any avatar nobody else holds */}
+        {amPlayer && !spectator && (
+          <button type="button" className="copy-link avatar-link" onClick={() => setPickingAvatar(p => !p)}>
+            {pickingAvatar ? 'Done' : 'Change your avatar'}
+          </button>
+        )}
+        {amPlayer && !spectator && pickingAvatar && (
+          <div className="lobby-avatar-picker">
+            <AvatarPicker
+              label={null}
+              value={gameState.playerAvatars?.[playerId]}
+              taken={takenBy(gameState, playerId)}
+              onChange={(id) => {
+                sendGameAction('setAvatar', { avatar: id })
+                setPickingAvatar(false)
+              }}
+            />
+          </div>
+        )}
 
         {/* Category ranking (players only — an emcee host doesn't rank) */}
         {hasCategories && amPlayer && !playerRankings[playerId] && (

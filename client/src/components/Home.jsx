@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
+import AvatarPicker, { takenBy, freeAvatar } from './AvatarPicker'
 import './Home.css'
 
 function Home() {
   const [gameId, setGameId] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [codeError, setCodeError] = useState('')
+  const [avatar, setAvatar] = useState(null)
+  const [taken, setTaken] = useState(new Map())
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -15,7 +18,7 @@ function Home() {
   const handleJoinGame = (e) => {
     e.preventDefault()
     if (gameId.trim() && playerName.trim()) {
-      joinGame(gameId.trim().toUpperCase(), playerName.trim())
+      joinGame(gameId.trim().toUpperCase(), playerName.trim(), avatar)
     }
   }
 
@@ -62,6 +65,23 @@ function Home() {
 
   const hasGameParam = searchParams.get('game')
 
+  // The invite card: see which avatars this game's players already hold,
+  // and start on a random free one
+  useEffect(() => {
+    if (!hasGameParam) return
+    let cancelled = false
+    fetch(`/api/games/${hasGameParam.toUpperCase()}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(game => {
+        if (cancelled) return
+        const t = takenBy(game)
+        setTaken(t)
+        setAvatar(prev => (prev && !t.has(prev) ? prev : freeAvatar(t)))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [hasGameParam])
+
   return (
     <div className="home">
       <div className="home-hero">
@@ -84,6 +104,7 @@ function Home() {
               required
               autoFocus
             />
+            <AvatarPicker value={avatar} onChange={setAvatar} taken={taken} />
             <button type="submit" className="mega-btn">JOIN THE GAME ★</button>
           </form>
         </div>

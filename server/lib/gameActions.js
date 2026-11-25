@@ -13,6 +13,7 @@
 
 const { addPoints, playerRegistry } = require('./store');
 const persistence = require('./persistence');
+const avatars = require('./avatars');
 
 // The contest still taking bets or awaiting a winner (not yet resolved)
 function liveContest(game) {
@@ -33,6 +34,9 @@ function removePlayerFromGame(io, game, playerId, reason) {
   delete game.playerPoints[playerId];
   delete game.playerNames[playerId];
   delete game.playerRankings[playerId];
+  if (game.playerAvatars) {
+    delete game.playerAvatars[playerId];
+  }
   if (game.playerWagerCount) {
     delete game.playerWagerCount[playerId];
   }
@@ -463,6 +467,14 @@ function processGameAction(io, game, action, payload, playerID) {
       // leaves the result together, and the host picks the next contest
       if (game.host === playerID && game.contest && game.contest.result) {
         game.contest = null;
+      }
+      return game;
+
+    case 'setAvatar':
+      // A player swaps avatar; one someone else holds is refused (they
+      // keep theirs)
+      if (game.players.includes(playerID)) {
+        avatars.setAvatar(game, playerID, payload && payload.avatar);
       }
       return game;
 
